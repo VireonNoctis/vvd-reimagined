@@ -1,0 +1,28 @@
+{
+  "name": "Project Workspace",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "remoteUser": "codespace",
+  "updateRemoteUserUID": true,
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "editorconfig.editorconfig",
+        "streetsidesoftware.code-spell-checker",
+        "davidanson.vscode-markdownlint",
+        "redhat.vscode-yaml",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "editor.rulers": [100, 120],
+        "editor.minimap.enabled": false,
+        "editor.renderWhitespace": "boundary",
+        "editor.detectIndentation": true,
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "terminal.integrated.scrollback": 10000
+      }
+    }
+  },
+  "forwardPorts": [],
+  "portsAttributes": {}
+}

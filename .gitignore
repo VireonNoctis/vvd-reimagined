@@ -1,0 +1,136 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets.*
+!.secrets.example
+
+# Operating systems
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# Editors
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Logs, caches, and temporary files
+*.log
+*.tmp
+*.bak
+.cache/
+.cache-*/
+.tmp/
+temp/
+tmp/
+
+# Build output and coverage
+build/
+dist/
+out/
+coverage/
+htmlcov/
+.coverage
+coverage.xml
+*.lcov
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.venv/
+venv/
+ENV/
+.ipynb_checkpoints/
+
+# JavaScript, TypeScript, and frontend frameworks
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/*
+!.yarn/patches/
+!.yarn/plugins/
+!.yarn/releases/
+!.yarn/versions/
+.next/
+.nuxt/
+.svelte-kit/
+.astro/
+.turbo/
+.parcel-cache/
+.eslintcache
+
+# Rust
+/target/
+**/*.rs.bk
+
+# Go
+/bin/
+
+# Java and Kotlin
+.gradle/
+**/build/
+*.class
+*.jar
+*.war
+*.ear
+
+# .NET
+[Bb]in/
+[Oo]bj/
+.vs/
+
+# C, C++, and CMake
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+
+# Swift and Apple platforms
+.build/
+DerivedData/
+*.xcuserstate
+*.xccheckout
+
+# Infrastructure state and local databases
+.terraform/
+*.tfstate
+*.tfstate.*
+*.sqlite
+*.sqlite3
+*.db
+
+# Local test and tooling output
+playwright-report/
+test-results/
+.nyc_output/
