@@ -32,3 +32,31 @@ export function findCard(world: World, id: string): CardDocument | undefined {
 export function resolveCardReference(world: World, property: CardProperty): CardDocument | undefined {
   return property.kind === "reference" ? findCard(world, property.documentId) : undefined;
 }
+
+export function getWorldIntegrityIssues(world: World): string[] {
+  const issues: string[] = [];
+  const documentIds = new Set<string>();
+
+  for (const document of world.documents) {
+    if (!document.id.trim()) {
+      issues.push("A document is missing its stable id.");
+      continue;
+    }
+
+    if (documentIds.has(document.id)) {
+      issues.push("Duplicate document id: " + document.id);
+    }
+
+    documentIds.add(document.id);
+  }
+
+  for (const document of world.documents) {
+    for (const property of document.properties) {
+      if (property.kind === "reference" && !documentIds.has(property.documentId)) {
+        issues.push(document.id + "." + property.id + " points to missing document " + property.documentId + ".");
+      }
+    }
+  }
+
+  return issues;
+}
