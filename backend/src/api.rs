@@ -185,10 +185,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/auth/logout", post(logout))
         .route("/v1/auth/me", get(me))
         .route("/v1/auth/sessions", get(list_sessions))
-        .route(
-            "/v1/auth/sessions/{session_id}",
-            delete(revoke_session),
-        )
+        .route("/v1/auth/sessions/{session_id}", delete(revoke_session))
         .route("/v1/worlds", get(list_worlds).post(create_world))
         .route("/v1/worlds/{slug}", get(get_world))
         .route(
@@ -329,13 +326,7 @@ async fn revoke_session(
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
     let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
-    store::revoke_session(
-        &state.db,
-        account.id,
-        session_id,
-        &token_hash(token),
-    )
-    .await?;
+    store::revoke_session(&state.db, account.id, session_id, &token_hash(token)).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

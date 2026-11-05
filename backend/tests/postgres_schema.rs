@@ -140,7 +140,6 @@ async fn migrations_enforce_membership_and_same_world_references() {
         "cross-world references must be rejected by the database"
     );
 
-
     let current_session_id = Uuid::new_v4();
     let other_session_id = Uuid::new_v4();
     let current_token_hash = Sha256::digest(b"current-browser-token").to_vec();
@@ -164,8 +163,16 @@ async fn migrations_enforce_membership_and_same_world_references() {
         .await
         .expect("list account sessions");
     assert_eq!(sessions.len(), 2);
-    assert!(sessions.iter().any(|session| session.id == current_session_id && session.current));
-    assert!(sessions.iter().any(|session| session.id == other_session_id && !session.current));
+    assert!(
+        sessions
+            .iter()
+            .any(|session| session.id == current_session_id && session.current)
+    );
+    assert!(
+        sessions
+            .iter()
+            .any(|session| session.id == other_session_id && !session.current)
+    );
 
     assert!(
         store::revoke_session(&pool, account_id, current_session_id, &current_token_hash)
