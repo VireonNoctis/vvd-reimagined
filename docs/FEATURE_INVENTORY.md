@@ -4,6 +4,18 @@ This is the working inventory of product capabilities found in vvd's public mate
 
 Evidence labels: **A** current developer docs; **B** current product or store listing; **C** help-centre workflow; **D** reconstruction proposal/inference.
 
+## Implementation status in this repository
+
+The first application slice currently includes:
+
+- A world selector backed by one synthetic world fixture.
+- A responsive workspace shell with a navigation rail, searchable document library and details inspector.
+- Typed card records with names, aliases, text blocks and scalar properties.
+- Canonical card references that navigate to the referenced document rather than copying its content.
+- Domain tests for stable lookup, reference resolution and duplicate/missing reference detection.
+
+This is a read-only preview. It has no authentication, membership enforcement, persistent storage, editing operations, upload flow or collaboration runtime. These screens are a starting implementation, not a claim of authenticated UI parity.
+
 ## Workspace and navigation
 
 | Feature | Publicly described behaviour | Evidence | Confidence note |
@@ -23,7 +35,7 @@ Evidence labels: **A** current developer docs; **B** current product or store li
 The current and older sources together describe:
 - Reusable cards for characters, locations, factions, items, creatures and other entities.
 - Name, aliases, type/subtype, optional image, properties and body blocks.
-- Property values as text/scalar or typed references to other cards.
+- Property values as text/scalar or references to other cards.
 - Per-card and type-level properties.
 - Type templates that provide default fields/structure.
 - Card body blocks for text, media and embedded tool content.
@@ -63,28 +75,12 @@ Audio, cover images, map backdrops, and 3D model assets are separate file types 
 
 ## Quill
 
-See [Quill](QUILL.md) for the detailed workflow. Current public material describes:
-- A story/book project with a cover.
-- Ordered chapters with multiple drafts per chapter.
-- Chapter rename, reorder and side-by-side opening.
-- Chapter count and story word count.
-- A left chapter list, centre writing surface and collapsible right context panel.
-- Focus Mode, Drafts, Notes, Styling, world documents, detected cards, Radio and Gallery blocks.
-- References to cards, maps, canvases, trees and graph.
-- Auto-link mentions, manual @ lookup and Entity Detection.
-- General and chapter-attached notes; selected-text annotation.
-- Per-draft revision history and regular undo/redo.
-- Audio attachment at paragraph or chapter scope.
-- Publish preview, styling, export and chapter-level publishing.
-- EPUB, PDF and DOCX exports.
-
-The side-panel and publishing pages are marked work in progress. Treat the concepts as observed documentation, not exact current UI parity.
+See [Quill](QUILL.md) for the detailed workflow. Current public material describes stories, chapters, drafts, a writing surface, contextual world references, notes, styling, audio, history and publishing/export.
 
 ## Wiki and public surfaces
 
 - Wiki is an app that reads a world rather than maintaining its own copy of every card/map/note.
 - It can present a reader-friendly site with search, sections, inline card links and map pins.
-- The older help centre says the wiki is not public by default.
 - The current developer wiki reference describes theme fields and audience modes: public, unlisted capability URL, password and entitled.
 - Public pricing material describes invite-only publishing, public/password publication and custom domains at different tiers.
 - The older help centre documents desktop/tablet preview modes and configurable title/description/banner/featured content.
@@ -132,7 +128,7 @@ Older terms and help material differ. App-store purchase channels and regional a
 
 - Apple listing describes iPad and Mac support.
 - Android listing explicitly highlights tablet-oriented UI with larger targets, long-press menus, drag between panels and stylus drawing.
-- Older help material advises against small-screen mobile browser use.
+- Older help material advises against narrow mobile browser use.
 
 Treat desktop, tablet and phone browser as separate layout classes until current app capture proves the actual support matrix.
 
@@ -151,31 +147,26 @@ A feature is not complete when its main canvas renders. For every major surface,
 - Responsive behaviour and accessibility.
 - Server-side permission tests and data integrity tests.
 
-
 ## Instagram-led additions and product-status corrections
 
 ### Trade Routes — first-party core tool
 
-The Instagram announcement describes a trade/economy simulation for fictional worlds: assign resources to settlements, connect settlements with roads and rivers, and simulate supply movement. The first-party listing at https://vvd.world/t/trade-routes now classifies Trade Routes as a core vvd tool (version 0.1.50 at the 2026-11-05 research snapshot). Its public tool page currently has no detailed description, so the social post is the only public functional summary found in this pass.
+The Instagram announcement describes a trade/economy simulation for fictional worlds: assign resources to settlements, connect settlements with roads and rivers, and simulate supply movement. The first-party listing at https://vvd.world/t/trade-routes classifies Trade Routes as a core vvd tool (version 0.1.50 at the 2026-11-05 research snapshot). Its public tool page currently has no detailed description, so the social post is the only public functional summary found in this pass.
 
-Treat this as a real first-party tool in the current product inventory. The precise resource schema, route graph, simulation rules, event cadence, visual outputs and persistence behaviour remain unverified.
+Treat this as a first-party tool in the product inventory. The precise resource schema, route graph, simulation rules, event cadence, visual outputs and persistence behaviour remain unverified.
 
 ### Overworld — first-party Wiki template
 
-The current Wiki developer reference identifies Default and Overworld as built-in first-party site templates. Instagram's Overworld demonstration describes map-first Wiki navigation, interactive regions/pins, a cleaner page UI and animated clouds. This is an extension of Wiki publishing, not an independent content database or a new world model.
+The current Wiki developer reference identifies Default and Overworld as built-in first-party site templates. Instagram's Overworld demonstration describes map-first Wiki navigation, interactive regions/pins, a cleaner reader UI and animated clouds. This is an extension of Wiki publishing, not an independent content database or a new world model.
 
 ### Calendar — community Workshop creation
 
-Instagram demonstrates a custom fictional calendar with events, holidays, lunar cycles and a world-matched visual theme. The public listing at https://vvd.world/t/calendar identifies HHaseeb as its creator, not vvd. Treat it as a community Workshop tool example and a requirement for extensible custom calendar codecs—not as a built-in core tool. The social caption's detailed calendar functions still need direct inspection.
+Instagram demonstrates a custom fictional calendar with events, holidays, lunar cycles and a world-matched visual theme. The public listing at https://vvd.world/t/calendar identifies HHaseeb as its creator, not vvd. Treat it as a community Workshop tool example and a requirement for extensible custom calendar codecs—not as a built-in core tool.
 
 ### 3D showcase versus 3D Model Viewer
 
-Instagram showcases a creator workflow involving 3D maps, timelines and Quill. That is a product-use example, not evidence of a native 3D map editor. The first-party 3D Model Viewer is a separate documented tool for inspecting 3D characters, environments and items from different angles. Keep 2D map authoring, 3D asset viewing and any future 3D scene surface as distinct capabilities until the current app demonstrates otherwise.
+Instagram showcases a creator workflow involving 3D maps, historical timelines and Quill. That is a product-use example, not evidence of a native 3D map editor. The first-party 3D Model Viewer is a separate documented tool for inspecting 3D characters, environments and items from different angles. Keep 2D Maps, 3D asset viewing and any future 3D scene surface distinct.
 
 ### Creator link-in-bio — announcement, status unverified
 
-A profile post previews customisable creator link-in-bio pages for writers, worldbuilders, artists and studios, with portfolio, shop, product and external links. No current route or technical reference was found. Keep it outside the core world/document model until its current availability and relation to Wiki/profile features are confirmed.
-
-### Fellowship and editorial activity
-
-The profile also promotes the vvd Fellowship, creator spotlights, storytelling articles, events and human-creativity/editorial content. These belong to the wider creator ecosystem; they are not application features or account-plan entitlements.
+A profile post previews customisable creator link-in-bio pages for writers, worldbuilders, artists and studios. No current route or technical reference was found. Keep it outside the core world/document model until current availability and its relationship to Wiki/profile features are confirmed.

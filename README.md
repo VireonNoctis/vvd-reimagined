@@ -1,46 +1,69 @@
 # vvd Reimagined
 
-> A high-fidelity, independent reconstruction of vvd.world's worldbuilding, writing, collaboration and publishing ecosystem.
-
-This repository is a research-led rebuild of the product surfaces described by vvd's public website, help centre, developer documentation and app listings. The aim is to reproduce documented workflows and relationships faithfully, then improve the implementation where behaviour is unclear or unnecessarily cumbersome.
-
-**This is an independent project. It is not affiliated with, endorsed by, or sponsored by vvd or Pact Social Inc.** Product names are used only to identify the system being studied. We do not have access to vvd's private source code or internal services.
+An independent reconstruction of a connected worldbuilding, writing, collaboration and publishing workspace. This project is not affiliated with or endorsed by vvd or Pact Social Inc., and does not use their private source code or internal services.
 
 ## Status
 
-The repository currently contains the research dossier, product model, implementation decisions and development scaffold. It does **not** contain a working frontend, backend or production persistence layer yet. A feature is not implemented merely because it appears in a roadmap or research document.
+The first Next.js application slice is in place: a world selector, responsive workspace shell, searchable document library, typed card view and navigation through canonical card references. It is a read-only preview backed by synthetic fixture data. Authentication, persistence, editing APIs, collaboration and publishing are not connected yet.
 
-Research baseline: **5 November 2026**. Public documentation cannot substitute for direct inspection of the authenticated workspace. Exact geometry, hidden menus, transition timings and some current beta behaviour are still unverified.
+Research baseline: 5 November 2026. Public documentation cannot replace direct inspection of the authenticated workspace. Exact current geometry, hidden menus, transition timings and some beta behaviour remain unverified.
 
-## Product
+## Current implementation
 
-vvd is a connected worldbuilding and storytelling workspace. A creator builds a world from structured cards and other documents, connects those records through references and visual tools, writes stories in Quill using the same world as context, collaborates with other people, and publishes a reader-facing wiki or story. One world record can be reused across maps, graphs, prose and public reading surfaces.
+- Next.js App Router with React and strict TypeScript.
+- A world and card model with stable document IDs, aliases, text blocks, scalar properties and canonical document references.
+- World selector and editor shell with a document library and details inspector.
+- Search across document names, aliases and entity types.
+- Responsive desktop, tablet and phone layouts.
+- Domain tests for canonical reference resolution and duplicate/missing-reference detection.
+- CI configured for repository validation, lint, type-check, tests and production build.
 
-## Reconstruction priorities
+The sample world is deliberately synthetic. Create and edit controls are disabled rather than pretending to save. No authenticated user data is loaded.
 
-- **Worlds and documents:** one durable content base with typed records, aliases, properties, folders, media and reusable references.
-- **Worldbuilding tools:** cards, maps, timelines, graph views, relation trees, canvas boards, notes, tables and specialist tools.
-- **Quill:** books, chapters, multiple drafts, contextual world references, focus mode, notes, revision history, audio and publishing.
-- **Apps and tools:** installable extensions with typed document models, embedded blocks and full-screen app surfaces.
-- **Collaboration:** concurrent editing, presence, offline tolerance, recovery and clear permission boundaries.
-- **Publishing:** wikis and stories with previews, themes, access controls, custom domains and versioned publication.
-- **Workspace:** fast navigation, multiple open documents, contextual side panels and useful tablet layouts.
+## Not implemented yet
+
+Real sign-in and sessions, server-side world membership, persistent world/document operations, file uploads, eras, revisions, archive/restore, multi-user collaboration, Quill, visual tools, Workshop, Wiki publishing, billing and account operations.
 
 ## Technology direction
 
 | Area | Direction | Status |
 | --- | --- | --- |
-| Web application | Next.js, React and TypeScript | Accepted |
-| Visual surfaces | WebGL where it earns its cost | Accepted |
+| Web application | Next.js 16, React 19 and TypeScript | Scaffolded |
+| Runtime | Node.js 26 LTS | Selected for the scaffold |
+| Visual surfaces | DOM/CSS by default; WebGL where it earns its cost | Accepted |
 | 3D rendering | Three.js, optional and lazy-loaded | Accepted |
 | Backend | Rust | Candidate; not locked |
 | Primary database | PostgreSQL | Candidate; not locked |
 | Media storage | S3-compatible object storage | Candidate; not locked |
 | Collaboration | Yjs-compatible CRDT model and ephemeral presence | Research-backed target; provider decision pending |
 
-Next.js is the framework, React is the component model and TypeScript is the language. WebGL should not be forced into ordinary forms, navigation or text editing. Use the DOM for product UI, SVG/Canvas for smaller 2D visuals, and WebGL for dense spatial surfaces where it improves scale or interaction. Three.js is optional and should load only for real 3D features.
+Next.js is the framework, React is the component model and TypeScript is the language. Ordinary product UI stays in the DOM. Use SVG or Canvas for suitable 2D work and WebGL only for surfaces that benefit from it. Three.js is optional and should load only for real 3D features.
 
-The backend candidates are our implementation choices, not claims about vvd's private stack.
+The backend candidates are implementation options, not claims about vvd's private stack.
+
+## Run locally
+
+Use Node.js 26 LTS and npm:
+
+~~~
+nvm use
+npm install
+npm run dev
+~~~
+
+Then open http://localhost:3000.
+
+Available checks:
+
+~~~
+npm run lint
+npm run typecheck
+npm test
+npm run build
+python3 scripts/validate.py
+~~~
+
+A package lockfile still needs to be generated and committed from a network-enabled environment. Application lint, type-check, tests and production build have not yet been executed in the implementation environment.
 
 ## Documentation
 
@@ -50,7 +73,7 @@ Start with [the documentation index](docs/README.md).
 | --- | --- |
 | [Research dossier](docs/RESEARCH.md) | Sources, evidence levels, product generations and inspection limits |
 | [Product model](docs/PRODUCT_MODEL.md) | Worlds, eras, documents, projects, apps, tools and blocks |
-| [Feature inventory](docs/FEATURE_INVENTORY.md) | Product capabilities and evidence caveats |
+| [Feature inventory](docs/FEATURE_INVENTORY.md) | Product capabilities and implementation status |
 | [Instagram research](docs/INSTAGRAM_RESEARCH.md) | Public product demos, tool announcements and creator ecosystem |
 | [Quill](docs/QUILL.md) | Writing, drafts, notes, references, audio and publishing |
 | [Workspace interactions](docs/WORKSPACE_INTERACTIONS.md) | Navigation, menus and known interaction patterns |
@@ -73,16 +96,6 @@ Start with [the documentation index](docs/README.md).
 6. Do not silently discard user data; archive, revision, export and restore matter.
 7. Keep extension capabilities explicit and server-enforced.
 8. Record expensive-to-reverse choices in [ADRs](docs/DECISIONS/README.md).
-
-## Current checks
-
-Run:
-
-~~~sh
-python3 scripts/validate.py
-~~~
-
-This validates repository JSON configuration, pinned GitHub Actions, required research pages and local Markdown links. It does not run application tests. There is no package manifest yet, so no npm install, dev server or application build is available.
 
 ## License
 
