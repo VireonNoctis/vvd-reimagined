@@ -7,8 +7,8 @@ use uuid::Uuid;
 use crate::{
     error::ApiError,
     models::{
-        CardBlock, CardBlockInput, CardCreateInput, CardDocument, CardProperty, CardPropertyInput,
-        CardUpdateInput, DocumentRow, EntityType, PropertyRow, World, WorldRow, BlockRow,
+        BlockRow, CardBlock, CardBlockInput, CardCreateInput, CardDocument, CardProperty,
+        CardPropertyInput, CardUpdateInput, DocumentRow, EntityType, PropertyRow, World, WorldRow,
     },
 };
 
@@ -41,15 +41,19 @@ fn slug_part(value: &str) -> String {
         }
     }
 
-    if output.is_empty() { "world".to_owned() } else { output }
+    if output.is_empty() {
+        "world".to_owned()
+    } else {
+        output
+    }
 }
 
 fn validate_key(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'_')
+        && value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'_'
+        })
 }
 
 fn validate_aliases(aliases: &[String]) -> Result<(), ApiError> {
@@ -61,7 +65,9 @@ fn validate_aliases(aliases: &[String]) -> Result<(), ApiError> {
     for alias in aliases {
         let clean = alias.trim();
         if clean.is_empty() || clean.chars().count() > 100 {
-            return Err(ApiError::bad_request("Aliases must contain between 1 and 100 characters."));
+            return Err(ApiError::bad_request(
+                "Aliases must contain between 1 and 100 characters.",
+            ));
         }
         if !seen.insert(clean.to_lowercase()) {
             return Err(ApiError::bad_request("Aliases must be unique."));
@@ -78,12 +84,16 @@ fn validate_card_content(
     blocks: &[CardBlockInput],
 ) -> Result<(), ApiError> {
     if name.trim().is_empty() || name.chars().count() > 120 {
-        return Err(ApiError::bad_request("Card names must contain between 1 and 120 characters."));
+        return Err(ApiError::bad_request(
+            "Card names must contain between 1 and 120 characters.",
+        ));
     }
     validate_aliases(aliases)?;
 
     if properties.len() > 100 {
-        return Err(ApiError::bad_request("A card can have at most 100 properties."));
+        return Err(ApiError::bad_request(
+            "A card can have at most 100 properties.",
+        ));
     }
 
     let mut property_ids = std::collections::HashSet::new();
@@ -91,7 +101,9 @@ fn validate_card_content(
         let (id, label) = match property {
             CardPropertyInput::Text { id, label, value } => {
                 if value.chars().count() > 10_000 {
-                    return Err(ApiError::bad_request("Text properties are limited to 10,000 characters."));
+                    return Err(ApiError::bad_request(
+                        "Text properties are limited to 10,000 characters.",
+                    ));
                 }
                 (id, label)
             }
@@ -99,24 +111,34 @@ fn validate_card_content(
         };
 
         if !validate_key(id) || !property_ids.insert(id) {
-            return Err(ApiError::bad_request("Property ids must be unique lowercase keys."));
+            return Err(ApiError::bad_request(
+                "Property ids must be unique lowercase keys.",
+            ));
         }
         if label.trim().is_empty() || label.chars().count() > 100 {
-            return Err(ApiError::bad_request("Property labels must contain between 1 and 100 characters."));
+            return Err(ApiError::bad_request(
+                "Property labels must contain between 1 and 100 characters.",
+            ));
         }
     }
 
     if blocks.len() > 200 {
-        return Err(ApiError::bad_request("A card can have at most 200 body blocks."));
+        return Err(ApiError::bad_request(
+            "A card can have at most 200 body blocks.",
+        ));
     }
 
     let mut block_ids = std::collections::HashSet::new();
     for block in blocks {
         if !validate_key(&block.id) || !block_ids.insert(&block.id) {
-            return Err(ApiError::bad_request("Body block ids must be unique lowercase keys."));
+            return Err(ApiError::bad_request(
+                "Body block ids must be unique lowercase keys.",
+            ));
         }
         if block.text.chars().count() > 50_000 {
-            return Err(ApiError::bad_request("A body block is limited to 50,000 characters."));
+            return Err(ApiError::bad_request(
+                "A body block is limited to 50,000 characters.",
+            ));
         }
     }
 
@@ -198,16 +220,22 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
             },
             _ => return Err(ApiError::internal()),
         };
-        properties_by_document.entry(row.document_id).or_default().push(property);
+        properties_by_document
+            .entry(row.document_id)
+            .or_default()
+            .push(property);
     }
 
     let mut blocks_by_document: HashMap<Uuid, Vec<CardBlock>> = HashMap::new();
     for row in blocks {
-        blocks_by_document.entry(row.document_id).or_default().push(CardBlock {
-            id: row.id,
-            block_type: "text",
-            text: row.text,
-        });
+        blocks_by_document
+            .entry(row.document_id)
+            .or_default()
+            .push(CardBlock {
+                id: row.id,
+                block_type: "text",
+                text: row.text,
+            });
     }
 
     documents
@@ -279,11 +307,7 @@ pub async fn list_worlds(pool: &PgPool, account_id: Uuid) -> Result<Vec<World>, 
     Ok(worlds)
 }
 
-pub async fn get_world(
-    pool: &PgPool,
-    account_id: Uuid,
-    slug: &str,
-) -> Result<World, ApiError> {
+pub async fn get_world(pool: &PgPool, account_id: Uuid, slug: &str) -> Result<World, ApiError> {
     let world_id = require_world(pool, account_id, slug, false).await?;
     load_world(pool, world_id).await
 }
@@ -296,10 +320,14 @@ pub async fn create_world(
     genre: String,
 ) -> Result<World, ApiError> {
     if name.trim().is_empty() || name.chars().count() > 100 {
-        return Err(ApiError::bad_request("World names must contain between 1 and 100 characters."));
+        return Err(ApiError::bad_request(
+            "World names must contain between 1 and 100 characters.",
+        ));
     }
     if description.chars().count() > 2_000 || genre.chars().count() > 80 {
-        return Err(ApiError::bad_request("The description or genre is too long."));
+        return Err(ApiError::bad_request(
+            "The description or genre is too long.",
+        ));
     }
 
     let id = Uuid::new_v4();
@@ -350,7 +378,9 @@ async fn ensure_references_exist(
             .await?;
 
             if !exists {
-                return Err(ApiError::bad_request("A card reference must target a document in the same world."));
+                return Err(ApiError::bad_request(
+                    "A card reference must target a document in the same world.",
+                ));
             }
         }
     }
@@ -380,7 +410,11 @@ async fn insert_properties(
                 .execute(&mut *connection)
                 .await?;
             }
-            CardPropertyInput::Reference { id, label, document_id: target_id } => {
+            CardPropertyInput::Reference {
+                id,
+                label,
+                document_id: target_id,
+            } => {
                 sqlx::query(
                     "INSERT INTO card_properties
                      (world_id, document_id, id, label, kind, reference_document_id)
@@ -452,11 +486,24 @@ pub async fn create_card(
     slug: &str,
     input: CardCreateInput,
 ) -> Result<CardDocument, ApiError> {
-    validate_card_content(&input.name, &input.aliases, &input.properties, &input.blocks)?;
+    validate_card_content(
+        &input.name,
+        &input.aliases,
+        &input.properties,
+        &input.blocks,
+    )?;
     let world_id = require_world(pool, account_id, slug, true).await?;
     let id = Uuid::new_v4();
-    let document_slug = format!("{}-{}", slug_part(&input.name), &id.simple().to_string()[..8]);
-    let aliases = input.aliases.iter().map(|value| value.trim().to_owned()).collect::<Vec<_>>();
+    let document_slug = format!(
+        "{}-{}",
+        slug_part(&input.name),
+        &id.simple().to_string()[..8]
+    );
+    let aliases = input
+        .aliases
+        .iter()
+        .map(|value| value.trim().to_owned())
+        .collect::<Vec<_>>();
 
     let mut transaction = pool.begin().await?;
     ensure_references_exist(&mut *transaction, world_id, &input.properties).await?;
@@ -494,13 +541,24 @@ pub async fn update_card(
     document_id: Uuid,
     input: CardUpdateInput,
 ) -> Result<CardDocument, ApiError> {
-    validate_card_content(&input.name, &input.aliases, &input.properties, &input.blocks)?;
+    validate_card_content(
+        &input.name,
+        &input.aliases,
+        &input.properties,
+        &input.blocks,
+    )?;
     if input.expected_version < 1 {
-        return Err(ApiError::bad_request("expectedVersion must be a positive integer."));
+        return Err(ApiError::bad_request(
+            "expectedVersion must be a positive integer.",
+        ));
     }
 
     let world_id = require_world(pool, account_id, slug, true).await?;
-    let aliases = input.aliases.iter().map(|value| value.trim().to_owned()).collect::<Vec<_>>();
+    let aliases = input
+        .aliases
+        .iter()
+        .map(|value| value.trim().to_owned())
+        .collect::<Vec<_>>();
     let mut transaction: Transaction<'_, Postgres> = pool.begin().await?;
 
     let result = sqlx::query(
@@ -526,7 +584,9 @@ pub async fn update_card(
         .await?;
 
         return if exists {
-            Err(ApiError::conflict("This card changed since it was opened. Reload it before saving again."))
+            Err(ApiError::conflict(
+                "This card changed since it was opened. Reload it before saving again.",
+            ))
         } else {
             Err(ApiError::not_found())
         };
@@ -562,7 +622,10 @@ mod tests {
 
     #[test]
     fn slug_part_is_stable_and_safe_for_routes() {
-        assert_eq!(slug_part("The Shattered Meridian"), "the-shattered-meridian");
+        assert_eq!(
+            slug_part("The Shattered Meridian"),
+            "the-shattered-meridian"
+        );
         assert_eq!(slug_part("  !!!  "), "world");
         assert_eq!(slug_part("North Quay 2"), "north-quay-2");
     }
@@ -588,8 +651,16 @@ mod tests {
         assert!(validate_card_content(&long_name, &[], &[], &[]).is_err());
 
         let duplicate = vec![
-            CardPropertyInput::Text { id: "age".into(), label: "Age".into(), value: "24".into() },
-            CardPropertyInput::Text { id: "age".into(), label: "Age".into(), value: "25".into() },
+            CardPropertyInput::Text {
+                id: "age".into(),
+                label: "Age".into(),
+                value: "24".into(),
+            },
+            CardPropertyInput::Text {
+                id: "age".into(),
+                label: "Age".into(),
+                value: "25".into(),
+            },
         ];
         assert!(validate_card_content("Ari", &[], &duplicate, &[]).is_err());
     }

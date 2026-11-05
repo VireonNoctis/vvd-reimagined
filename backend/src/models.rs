@@ -55,10 +55,22 @@ impl EntityType {
 }
 
 #[derive(Clone, Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum CardProperty {
-    Text { id: String, label: String, value: String },
-    Reference { id: String, label: String, document_id: Uuid },
+    Text {
+        id: String,
+        label: String,
+        value: String,
+    },
+    Reference {
+        id: String,
+        label: String,
+        document_id: Uuid,
+    },
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -96,10 +108,22 @@ pub struct WorldCreateInput {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum CardPropertyInput {
-    Text { id: String, label: String, value: String },
-    Reference { id: String, label: String, document_id: Uuid },
+    Text {
+        id: String,
+        label: String,
+        value: String,
+    },
+    Reference {
+        id: String,
+        label: String,
+        document_id: Uuid,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -172,4 +196,3 @@ pub(crate) struct BlockRow {
     pub position: i32,
     pub text: String,
 }
-

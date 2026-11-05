@@ -21,7 +21,9 @@ use uuid::Uuid;
 use crate::{
     AppState,
     error::ApiError,
-    models::{Account, CardCreateInput, CardUpdateInput, LoginInput, RegisterInput, WorldCreateInput},
+    models::{
+        Account, CardCreateInput, CardUpdateInput, LoginInput, RegisterInput, WorldCreateInput,
+    },
     store,
 };
 
@@ -46,7 +48,12 @@ fn email_value(value: &str) -> Result<String, ApiError> {
         return Err(ApiError::bad_request("Enter a valid email address."));
     };
 
-    if local.is_empty() || domain.len() < 3 || !domain.contains('.') || domain.starts_with('.') || domain.ends_with('.') {
+    if local.is_empty()
+        || domain.len() < 3
+        || !domain.contains('.')
+        || domain.starts_with('.')
+        || domain.ends_with('.')
+    {
         return Err(ApiError::bad_request("Enter a valid email address."));
     }
 
@@ -56,7 +63,9 @@ fn email_value(value: &str) -> Result<String, ApiError> {
 fn validate_password(password: &str) -> Result<(), ApiError> {
     let length = password.chars().count();
     if !(12..=128).contains(&length) {
-        return Err(ApiError::bad_request("Passwords must contain between 12 and 128 characters."));
+        return Err(ApiError::bad_request(
+            "Passwords must contain between 12 and 128 characters.",
+        ));
     }
     Ok(())
 }
@@ -68,7 +77,9 @@ fn check_origin(headers: &HeaderMap, state: &AppState) -> Result<(), ApiError> {
     let Some(origin) = headers.get(ORIGIN) else {
         return Ok(());
     };
-    let origin = origin.to_str().map_err(|_| ApiError::bad_request("Invalid request origin."))?;
+    let origin = origin
+        .to_str()
+        .map_err(|_| ApiError::bad_request("Invalid request origin."))?;
 
     if origin.trim_end_matches('/') != expected.trim_end_matches('/') {
         return Err(ApiError::forbidden());
@@ -78,10 +89,15 @@ fn check_origin(headers: &HeaderMap, state: &AppState) -> Result<(), ApiError> {
 }
 
 fn token_from_cookie(headers: &HeaderMap) -> Option<&str> {
-    headers.get(COOKIE)?.to_str().ok()?.split(';').find_map(|part| {
-        let (name, value) = part.trim().split_once('=')?;
-        (name == SESSION_COOKIE && !value.is_empty()).then_some(value)
-    })
+    headers
+        .get(COOKIE)?
+        .to_str()
+        .ok()?
+        .split(';')
+        .find_map(|part| {
+            let (name, value) = part.trim().split_once('=')?;
+            (name == SESSION_COOKIE && !value.is_empty()).then_some(value)
+        })
 }
 
 fn token_hash(token: &str) -> Vec<u8> {
@@ -89,14 +105,22 @@ fn token_hash(token: &str) -> Vec<u8> {
 }
 
 fn session_cookie(token: &str, state: &AppState) -> String {
-    let secure = if state.config.secure_cookies { "; Secure" } else { "" };
+    let secure = if state.config.secure_cookies {
+        "; Secure"
+    } else {
+        ""
+    };
     format!(
         "{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_SECONDS}{secure}"
     )
 }
 
 fn expired_cookie(state: &AppState) -> String {
-    let secure = if state.config.secure_cookies { "; Secure" } else { "" };
+    let secure = if state.config.secure_cookies {
+        "; Secure"
+    } else {
+        ""
+    };
     format!(
         "{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT{secure}"
     )
@@ -161,7 +185,10 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/auth/me", get(me))
         .route("/v1/worlds", get(list_worlds).post(create_world))
         .route("/v1/worlds/{slug}", get(get_world))
-        .route("/v1/worlds/{slug}/documents", get(list_documents).post(create_card))
+        .route(
+            "/v1/worlds/{slug}/documents",
+            get(list_documents).post(create_card),
+        )
         .route(
             "/v1/worlds/{slug}/documents/{document_id}",
             get(get_document).patch(update_card),
@@ -183,7 +210,9 @@ async fn register(
     let email = email_value(&input.email)?;
     let display_name = input.display_name.trim();
     if display_name.is_empty() || display_name.chars().count() > 60 {
-        return Err(ApiError::bad_request("Display names must contain between 1 and 60 characters."));
+        return Err(ApiError::bad_request(
+            "Display names must contain between 1 and 60 characters.",
+        ));
     }
     validate_password(&input.password)?;
 
@@ -258,10 +287,7 @@ async fn login(
     attach_cookie(Json(account), session_cookie(&token, &state))
 }
 
-async fn logout(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Response, ApiError> {
+async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
     if let Some(token) = token_from_cookie(&headers) {
         if token.len() <= 64 {
@@ -275,10 +301,7 @@ async fn logout(
     attach_cookie(StatusCode::NO_CONTENT, expired_cookie(&state))
 }
 
-async fn me(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Json<Account>, ApiError> {
+async fn me(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<Account>, ApiError> {
     Ok(Json(signed_in_account(&state.db, &headers).await?))
 }
 
@@ -324,7 +347,9 @@ async fn list_documents(
     Path(slug): Path<String>,
 ) -> Result<Json<Vec<crate::models::CardDocument>>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
-    Ok(Json(store::list_documents(&state.db, account.id, &slug).await?))
+    Ok(Json(
+        store::list_documents(&state.db, account.id, &slug).await?,
+    ))
 }
 
 async fn get_document(
@@ -333,7 +358,9 @@ async fn get_document(
     Path((slug, document_id)): Path<(String, Uuid)>,
 ) -> Result<Json<crate::models::CardDocument>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
-    Ok(Json(store::get_document(&state.db, account.id, &slug, document_id).await?))
+    Ok(Json(
+        store::get_document(&state.db, account.id, &slug, document_id).await?,
+    ))
 }
 
 async fn create_card(
@@ -367,7 +394,10 @@ mod tests {
 
     #[test]
     fn email_normalization_is_case_insensitive() {
-        assert_eq!(email_value("  VIREON@example.test ").unwrap(), "vireon@example.test");
+        assert_eq!(
+            email_value("  VIREON@example.test ").unwrap(),
+            "vireon@example.test"
+        );
         assert!(email_value("not-an-email").is_err());
         assert!(email_value("a@@example.test").is_err());
     }

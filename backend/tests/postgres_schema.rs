@@ -61,9 +61,21 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .await
     .expect("create test memberships");
 
-    assert!(store::require_world(&pool, account_id, &format!("first-{unique}"), false).await.is_ok());
-    assert!(store::require_world(&pool, account_id, &format!("first-{unique}"), true).await.is_err());
-    assert!(store::require_world(&pool, Uuid::new_v4(), &format!("first-{unique}"), false).await.is_err());
+    assert!(
+        store::require_world(&pool, account_id, &format!("first-{unique}"), false)
+            .await
+            .is_ok()
+    );
+    assert!(
+        store::require_world(&pool, account_id, &format!("first-{unique}"), true)
+            .await
+            .is_err()
+    );
+    assert!(
+        store::require_world(&pool, Uuid::new_v4(), &format!("first-{unique}"), false)
+            .await
+            .is_err()
+    );
 
     sqlx::query(
         "UPDATE world_memberships SET role = 'editor'
@@ -74,7 +86,11 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .execute(&pool)
     .await
     .expect("promote test editor");
-    assert!(store::require_world(&pool, account_id, &format!("first-{unique}"), true).await.is_ok());
+    assert!(
+        store::require_world(&pool, account_id, &format!("first-{unique}"), true)
+            .await
+            .is_ok()
+    );
 
     for (id, owning_world) in [
         (source_document_id, world_id),
@@ -118,7 +134,10 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .execute(&pool)
     .await;
 
-    assert!(cross_world_reference.is_err(), "cross-world references must be rejected by the database");
+    assert!(
+        cross_world_reference.is_err(),
+        "cross-world references must be rejected by the database"
+    );
 
     sqlx::query("DELETE FROM worlds WHERE id = $1 OR id = $2")
         .bind(world_id)
