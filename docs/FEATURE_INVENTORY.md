@@ -27,7 +27,7 @@ When VVD_API_URL is set, the app uses the Rust API for account sessions, world m
 
 | Capability | Current implementation | Boundary |
 | --- | --- | --- |
-| Accounts and sessions | Rust API registration/login/logout/current-account endpoints; Argon2id hashes and hashed opaque session tokens | Email verification, recovery, rate limiting and device/session management remain open |
+| Accounts and sessions | Rust API registration/login/logout/current-account endpoints, active-session listing and account-scoped remote revocation; Argon2id hashes and hashed opaque session tokens | Email verification, recovery, rate limiting and device identification remain open |
 | World membership | PostgreSQL roles: owner, admin, editor and viewer; server checks on each world/document operation | Studio roles and invitations are not implemented |
 | Canonical documents | PostgreSQL card identities with aliases, scalar/reference properties and ordered text blocks | Cards are the only registered type in this slice |
 | Reference integrity | Composite foreign keys prevent cross-world references | Era-aware references remain future work |

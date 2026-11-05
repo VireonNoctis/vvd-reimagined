@@ -18,6 +18,7 @@ Research baseline: 5 November 2026. Public documentation cannot replace direct i
 - Responsive desktop, tablet and phone layouts.
 - Domain tests for canonical reference resolution and duplicate/missing-reference detection.
 - Login/register/logout, a same-origin API proxy, persistent world creation and a version-checked card editor.
+- Account security page with active-session listing and account-scoped remote session revocation.
 - API tests for input validation plus PostgreSQL integration coverage for membership and same-world reference constraints.
 - CI configured for repository validation, lint, type-check, tests and production build.
 

@@ -26,6 +26,8 @@ Production must set `APP_ENV=production`, `APP_ORIGIN` and `COOKIE_SECURE=true`,
 | POST | `/v1/auth/login` | Verify password and establish a session |
 | POST | `/v1/auth/logout` | Revoke current session |
 | GET | `/v1/auth/me` | Read current account |
+| GET | `/v1/auth/sessions` | List active sessions for the signed-in account and mark this browser |
+| DELETE | `/v1/auth/sessions/{id}` | Revoke another session owned by the signed-in account; current browser must use logout |
 | GET | `/v1/worlds` | List worlds the account belongs to |
 | POST | `/v1/worlds` | Create a world; creator becomes owner |
 | GET | `/v1/worlds/{slug}` | Read one world and its card records |
@@ -40,6 +42,7 @@ Production must set `APP_ENV=production`, `APP_ORIGIN` and `COOKIE_SECURE=true`,
 - Properties and body blocks are replaced atomically with document metadata.
 - PostgreSQL composite foreign keys reject a property reference to a card in another world.
 - Only card documents are registered in this slice; folders, eras and tool-owned document types are later work.
+- Session listing is account-scoped. Remote revocation cannot end the current browser; use logout for that session.
 
 ## Launch boundary
 

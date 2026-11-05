@@ -65,6 +65,7 @@ The Rust integration test applies the migrations and checks membership enforceme
 
 - `POST /v1/auth/register` and `POST /v1/auth/login`: create an account/session or start a session.
 - `POST /v1/auth/logout` and `GET /v1/auth/me`: end/read the current session.
+- `GET /v1/auth/sessions` and `DELETE /v1/auth/sessions/{id}`: list active sessions and revoke another browser session. The current browser is marked and must use logout.
 - `GET /v1/worlds` and `POST /v1/worlds`: list accessible worlds or create an owner-managed world.
 - `GET /v1/worlds/{slug}`: read a world and its canonical card records.
 - `GET/POST /v1/worlds/{slug}/documents`: list or create cards.
@@ -75,4 +76,4 @@ Authentication uses an HttpOnly, SameSite=Strict cookie. Production must set APP
 
 ## Outstanding before public deployment
 
-Email verification/recovery, request rate limits, session revocation/device management, production secret management, audit events, backup/restore drills and a security review are not implemented. S3 and collaboration infrastructure are also not part of this slice.
+Email verification/recovery, request rate limits, device identification, production secret management, audit events, backup/restore drills and a security review are not implemented. Active-session listing and remote session revocation are implemented. S3 and collaboration infrastructure are also not part of this slice.

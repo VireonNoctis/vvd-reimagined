@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
 use vvd_api::store;
@@ -138,6 +139,56 @@ async fn migrations_enforce_membership_and_same_world_references() {
         cross_world_reference.is_err(),
         "cross-world references must be rejected by the database"
     );
+
+
+    let current_session_id = Uuid::new_v4();
+    let other_session_id = Uuid::new_v4();
+    let current_token_hash = Sha256::digest(b"current-browser-token").to_vec();
+    let other_token_hash = Sha256::digest(b"other-browser-token").to_vec();
+
+    sqlx::query(
+        "INSERT INTO sessions (id, account_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, NOW() + INTERVAL '1 day'),
+                ($4, $2, $5, NOW() + INTERVAL '1 day')",
+    )
+    .bind(current_session_id)
+    .bind(account_id)
+    .bind(&current_token_hash)
+    .bind(other_session_id)
+    .bind(&other_token_hash)
+    .execute(&pool)
+    .await
+    .expect("create test sessions");
+
+    let sessions = store::list_sessions(&pool, account_id, &current_token_hash)
+        .await
+        .expect("list account sessions");
+    assert_eq!(sessions.len(), 2);
+    assert!(sessions.iter().any(|session| session.id == current_session_id && session.current));
+    assert!(sessions.iter().any(|session| session.id == other_session_id && !session.current));
+
+    assert!(
+        store::revoke_session(&pool, account_id, current_session_id, &current_token_hash)
+            .await
+            .is_err(),
+        "the active browser must use logout rather than revoke itself"
+    );
+    assert!(
+        store::revoke_session(&pool, Uuid::new_v4(), other_session_id, &current_token_hash)
+            .await
+            .is_err(),
+        "an account must not revoke another account's session"
+    );
+    store::revoke_session(&pool, account_id, other_session_id, &current_token_hash)
+        .await
+        .expect("revoke another browser session");
+
+    let remaining = store::list_sessions(&pool, account_id, &current_token_hash)
+        .await
+        .expect("list sessions after revocation");
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].id, current_session_id);
+    assert!(remaining[0].current);
 
     sqlx::query("DELETE FROM worlds WHERE id = $1 OR id = $2")
         .bind(world_id)

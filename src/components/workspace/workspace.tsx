@@ -63,6 +63,7 @@ export function Workspace({ world, document, interactive }: Props) {
           <button className="icon-button" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? "Collapse document sidebar" : "Open document sidebar"}><Icon name="panel-left" /></button>
           <button className={"toolbar-button graph-view-button" + (showGraph ? " is-active" : "")} type="button" onClick={() => { if (!showGraph) setGraphSelectedId(document?.id ?? ""); setShowGraph((active) => !active); }}><Icon name={showGraph ? "files" : "share-2"} size={15} />{showGraph ? "Editor" : "World graph"}</button>
           {!showGraph && <button className="icon-button inspector-toggle" type="button" onClick={() => setInspectorOpen((open) => !open)} aria-label={inspectorOpen ? "Hide details panel" : "Show details panel"}><Icon name="layers" /></button>}
+          {interactive && <Link className="account-link" href="/account/security">Security</Link>}
           {interactive && <SignOutButton />}
         </div>
       </header>

@@ -10,7 +10,7 @@ use axum::{
         header::{COOKIE, ORIGIN, SET_COOKIE},
     },
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Serialize;
@@ -22,7 +22,8 @@ use crate::{
     AppState,
     error::ApiError,
     models::{
-        Account, CardCreateInput, CardUpdateInput, LoginInput, RegisterInput, WorldCreateInput,
+        Account, CardCreateInput, CardUpdateInput, LoginInput, RegisterInput, SessionSummary,
+        WorldCreateInput,
     },
     store,
 };
@@ -183,6 +184,11 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/logout", post(logout))
         .route("/v1/auth/me", get(me))
+        .route("/v1/auth/sessions", get(list_sessions))
+        .route(
+            "/v1/auth/sessions/{session_id}",
+            delete(revoke_session),
+        )
         .route("/v1/worlds", get(list_worlds).post(create_world))
         .route("/v1/worlds/{slug}", get(get_world))
         .route(
@@ -303,6 +309,34 @@ async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Result<Res
 
 async fn me(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<Account>, ApiError> {
     Ok(Json(signed_in_account(&state.db, &headers).await?))
+}
+
+async fn list_sessions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<SessionSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
+    let sessions = store::list_sessions(&state.db, account.id, &token_hash(token)).await?;
+    Ok(Json(sessions))
+}
+
+async fn revoke_session(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
+    store::revoke_session(
+        &state.db,
+        account.id,
+        session_id,
+        &token_hash(token),
+    )
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn list_worlds(

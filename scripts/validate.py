@@ -59,6 +59,8 @@ REQUIRED_APP_FILES = (
     "src/server/api.ts",
     "src/app/api/[...path]/route.ts",
     "src/app/login/page.tsx",
+    "src/app/account/security/page.tsx",
+    "src/components/account/session-manager.tsx",
     "src/app/worlds/new/page.tsx",
     "tests/domain/world.test.mjs",
     "src/domain/world-graph.ts",

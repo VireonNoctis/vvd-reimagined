@@ -17,6 +17,7 @@ export default async function WorldsPage() {
             ? <span className="preview-pill"><span /> Connected workspace</span>
             : <span className="preview-pill dark-preview"><span /> Preview environment</span>}
           {account && <span className="profile-chip" title={account.displayName}>{account.displayName.slice(0, 1).toUpperCase()}</span>}
+          {account && <Link className="account-link" href="/account/security">Security</Link>}
           {account && <SignOutButton />}
         </div>
       </header>

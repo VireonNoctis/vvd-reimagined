@@ -616,6 +616,55 @@ pub async fn update_card(
     get_document(pool, account_id, slug, document_id).await
 }
 
+pub async fn list_sessions(
+    pool: &PgPool,
+    account_id: Uuid,
+    current_token_hash: &[u8],
+) -> Result<Vec<crate::models::SessionSummary>, ApiError> {
+    let rows = sqlx::query_as::<_, (Uuid, DateTime<Utc>, DateTime<Utc>, Vec<u8>)>(
+        "SELECT id, created_at, expires_at, token_hash
+         FROM sessions
+         WHERE account_id = $1 AND expires_at > NOW()
+         ORDER BY created_at DESC, id DESC",
+    )
+    .bind(account_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| crate::models::SessionSummary {
+            id: row.0,
+            created_at: row.1,
+            expires_at: row.2,
+            current: row.3.as_slice() == current_token_hash,
+        })
+        .collect())
+}
+
+pub async fn revoke_session(
+    pool: &PgPool,
+    account_id: Uuid,
+    session_id: Uuid,
+    current_token_hash: &[u8],
+) -> Result<(), ApiError> {
+    let result = sqlx::query(
+        "DELETE FROM sessions
+         WHERE id = $1 AND account_id = $2 AND token_hash <> $3",
+    )
+    .bind(session_id)
+    .bind(account_id)
+    .bind(current_token_hash.to_vec())
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found());
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

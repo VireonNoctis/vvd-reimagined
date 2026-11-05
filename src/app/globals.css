@@ -252,3 +252,37 @@ a.rail-link:hover, .rail-link.active { background: rgba(255,255,255,.11); color:
 .sign-out-error { max-width: 150px; color: #a15f4d; font-size: 9px; }
 .card-edit-form select { width: 100%; padding: 12px 13px; border: 1px solid #e2e1d8; border-radius: 8px; background: #fffefa; color: #343b31; font: 12px Inter,ui-sans-serif,system-ui,sans-serif; }
 .card-edit-form select:focus { outline: 0; border-color: #aeb9a4; box-shadow: 0 0 0 3px rgba(120,131,111,.09); }
+
+
+.account-link { color: #6c7762; font-size: 10px; font-weight: 650; text-decoration: none; }
+.account-link:hover { color: #44523d; text-decoration: underline; text-underline-offset: 3px; }
+.account-security-panel { width: min(740px,calc(100% - 38px)); margin: auto; padding: 64px 0 76px; }
+.account-security-panel h1 { margin: 12px 0 8px; color: #292f27; font: 400 clamp(33px,5vw,47px)/1.06 Georgia,serif; letter-spacing: -.04em; }
+.account-security-panel > .auth-intro { margin-bottom: 34px; }
+.session-manager { display: flex; flex-direction: column; gap: 15px; }
+.session-manager-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 15px; border-bottom: 1px solid #e5e4dc; }
+.session-manager-heading h2 { margin: 7px 0 5px; color: #343b31; font: 400 25px Georgia,serif; }
+.session-manager-heading p { margin: 0; color: #8b9086; font-size: 11px; line-height: 1.6; }
+.session-count { flex: 0 0 auto; padding: 6px 9px; border: 1px solid #e2e4dc; border-radius: 20px; background: #f7f8f4; color: #687261; font-size: 9px; font-weight: 650; }
+.session-list { overflow: hidden; border: 1px solid #e3e2da; border-radius: 11px; background: #fffefa; }
+.session-row { display: flex; align-items: center; gap: 13px; padding: 16px; border-bottom: 1px solid #eeede7; }
+.session-row:last-child { border-bottom: 0; }
+.session-device-mark { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid #e4e5dc; border-radius: 10px; color: #a5a99f; font-size: 12px; }
+.session-device-mark.is-current { border-color: #dce3d5; background: #f1f4ed; color: #718564; }
+.session-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; color: #858a80; font-size: 10px; }
+.session-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.session-title strong { color: #434a3e; font-size: 11px; font-weight: 650; }
+.session-current-pill { padding: 3px 6px; border-radius: 10px; background: #eff3ea; color: #708264; font-size: 8px; font-weight: 700; }
+.session-copy small { color: #a0a49b; font-size: 9px; }
+.session-current-label { flex: 0 0 auto; color: #829078; font-size: 9px; }
+.session-revoke { min-height: 30px; padding: 0 10px; border: 1px solid #e6dcd7; border-radius: 7px; background: #fffdfa; color: #986e5e; font-size: 9px; font-weight: 650; cursor: pointer; }
+.session-revoke:hover { background: #fbf2ee; }
+.session-revoke:disabled { cursor: wait; opacity: .55; }
+.session-revoke:focus-visible { outline: 2px solid #b58c7d; outline-offset: 3px; }
+.session-empty { margin: 0; padding: 20px 14px; border: 1px dashed #dedfd6; border-radius: 9px; color: #92978d; font-size: 11px; text-align: center; }
+.session-footnote { margin: 0; color: #999d94; font-size: 9px; line-height: 1.7; }
+@media (max-width: 560px) {
+  .account-security-panel { padding: 44px 0 54px; }
+  .session-row { gap: 9px; padding: 13px 10px; }
+  .session-device-mark { width: 30px; height: 30px; }
+}
