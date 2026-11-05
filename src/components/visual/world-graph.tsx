@@ -111,11 +111,18 @@ function makeProgram(gl: WebGL2RenderingContext): WebGLProgram {
 }
 
 function arrange(nodes: Graph["nodes"]): Map<string, Point> {
+  const points = new Map<string, Point>();
   const radius = nodes.length === 1 ? 0 : nodes.length === 2 ? 0.42 : 0.66;
-  return new Map(nodes.map((node, index) => {
+
+  nodes.forEach((node, index) => {
     const angle = (index / Math.max(1, nodes.length)) * Math.PI * 2 - Math.PI / 2;
-    return [node.id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * 0.76 }];
-  }));
+    points.set(node.id, {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius * 0.76
+    });
+  });
+
+  return points;
 }
 
 function addVertex(output: number[], point: Point, color: Color, size: number, view: View) {
