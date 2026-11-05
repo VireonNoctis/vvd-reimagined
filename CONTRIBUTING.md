@@ -1,46 +1,40 @@
 # Contributing
 
-Thanks for taking the time to improve this project.
+This is a research-led product reconstruction. Contributions should improve product accuracy, user workflows or maintainability without presenting assumptions as observed facts.
 
-## Before opening a change
+## Before changing a feature
 
-- Read the README and relevant architecture or setup documentation.
-- Check existing issues and pull requests to avoid duplicate work.
-- For substantial changes, describe the intended approach before implementing it.
+1. Read the relevant entry in docs/FEATURE_INVENTORY.md.
+2. Check its evidence status and source in docs/RESEARCH.md.
+3. Check the domain constraints in docs/PRODUCT_MODEL.md.
+4. Check unresolved behaviour in docs/OPEN_QUESTIONS.md.
+5. Describe the user workflow before selecting components or data structures.
+
+For major changes to the domain model, permissions, collaboration or publication, add or update an ADR.
 
 ## Development workflow
 
-1. Create a focused branch from the default branch.
-2. Make the smallest complete change that solves the problem.
-3. Add or update tests for changed behavior.
-4. Update documentation when setup, behavior, configuration, or public interfaces change.
-5. Run the checks relevant to the code you touched.
-6. Review the complete diff before opening a pull request.
+1. Work from the current default branch.
+2. Keep changes scoped to one coherent workflow.
+3. Update tests and documentation with behaviour changes.
+4. Run the relevant checks and report their exact results.
+5. Review the complete diff for data-loss risks, unverified claims and unnecessary abstraction.
 
-## Baseline checks
+## Current validation
 
-Run the repository's dependency-free validation:
+At this stage, only repository configuration validation exists:
 
-```bash
+~~~sh
 python3 scripts/validate.py
-```
+~~~
 
-Optional local hooks:
-
-```bash
-python3 -m pip install pre-commit
-pre-commit install
-pre-commit run --all-files
-```
-
-Project-specific build, test, lint, and format commands should be documented in the README and added to CI.
+There is no application package or backend yet. Do not invent build/test commands. Add real commands to this file and CI once the first runnable application slice exists.
 
 ## Pull requests
 
-- Explain the problem and the reason for the approach.
-- Describe user-visible or operational impact.
-- Include tests and validation performed, including anything not tested.
-- Call out migration steps, configuration changes, and security implications.
-- Keep each pull request focused and reasonably sized.
-
-Be respectful and constructive in reviews. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- Explain the user problem and the behaviour changed.
+- Identify the relevant feature inventory entries.
+- Call out canonical data, migration, permission and collaboration changes.
+- Include screenshots or recordings for visual changes using synthetic content.
+- List exact checks performed and limitations.
+- Do not include private vvd content, unpublished writing, credentials or copied copyrighted assets.

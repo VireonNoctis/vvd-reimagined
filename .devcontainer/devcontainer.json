@@ -1,5 +1,5 @@
 {
-  "name": "Project Workspace",
+  "name": "vvd Reimagined Workspace",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
   "remoteUser": "codespace",
   "updateRemoteUserUID": true,
@@ -7,6 +7,8 @@
     "vscode": {
       "extensions": [
         "editorconfig.editorconfig",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
         "streetsidesoftware.code-spell-checker",
         "davidanson.vscode-markdownlint",
         "redhat.vscode-yaml",
@@ -23,6 +25,11 @@
       }
     }
   },
-  "forwardPorts": [],
-  "portsAttributes": {}
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js application",
+      "onAutoForward": "notify"
+    }
+  }
 }

@@ -30,7 +30,7 @@ desktop.ini
 !.vscode/settings.json
 !.vscode/extensions.json
 
-# Logs, caches, and temporary files
+# Logs, caches and temporary files
 *.log
 *.tmp
 *.bak
@@ -49,6 +49,9 @@ htmlcov/
 .coverage
 coverage.xml
 *.lcov
+*.tsbuildinfo
+.vercel/
+storybook-static/
 
 # Python
 __pycache__/
@@ -64,7 +67,7 @@ venv/
 ENV/
 .ipynb_checkpoints/
 
-# JavaScript, TypeScript, and frontend frameworks
+# JavaScript and frontend frameworks
 node_modules/
 .npm/
 .pnpm-store/
@@ -101,7 +104,7 @@ node_modules/
 [Oo]bj/
 .vs/
 
-# C, C++, and CMake
+# C, C++ and CMake
 cmake-build-*/
 CMakeFiles/
 CMakeCache.txt
@@ -130,7 +133,7 @@ DerivedData/
 *.sqlite3
 *.db
 
-# Local test and tooling output
+# Browser test output
 playwright-report/
 test-results/
 .nyc_output/

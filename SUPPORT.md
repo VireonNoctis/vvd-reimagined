@@ -1,14 +1,20 @@
 # Support
 
-Before requesting help:
+This repository currently contains research and architecture documentation, not a running application. Support is limited to repository setup and research findings until an application is implemented.
 
-1. Read the README and the relevant documentation.
-2. Search existing issues and discussions for the same question.
-3. Confirm the behavior against the latest supported version.
-4. Remove credentials, tokens, personal data, and other sensitive information from logs.
+## Before opening an issue
 
-Use GitHub Issues for reproducible bugs and actionable feature requests. Use Discussions for general questions when the repository has Discussions enabled.
+1. Read the relevant page in docs/.
+2. Check whether the behaviour is marked confirmed or open in docs/RESEARCH.md and docs/OPEN_QUESTIONS.md.
+3. Search existing issues for the same workflow.
+4. Remove credentials, private links, unpublished writing and personal data from screenshots or logs.
 
-For suspected security vulnerabilities, follow [SECURITY.md](SECURITY.md) instead of opening a public issue. For private support or conduct reports, use the maintainers' privately published contact route. Maintainers should publish a secure contact route before opening public community participation.
+## What to include
 
-When asking for help, include the environment, relevant versions, the exact command or action, expected behavior, actual behavior, and a minimal reproduction where possible.
+For a product/UI issue, include the route or surface, device class, viewport dimensions, input method, exact steps, expected result and observed result. Use synthetic sample data rather than exporting content from a real vvd account.
+
+For a documentation issue, include the page and sentence/workflow that needs correction, plus a current public source if available.
+
+## Security and privacy
+
+Do not open public issues for vulnerabilities. Follow SECURITY.md. Never upload passwords, API keys, private world data or unpublished creative work.

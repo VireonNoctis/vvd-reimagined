@@ -1,40 +1,59 @@
 name: Bug report
-description: Report a reproducible problem.
+description: Report a reproducible problem in the reconstruction.
 title: "[Bug] "
 body:
   - type: markdown
     attributes:
       value: |
-        Please remove secrets and personal data from examples, logs, and screenshots.
+        Please use synthetic sample content. Remove credentials, private links and unpublished writing from logs or screenshots.
   - type: textarea
     id: summary
     attributes:
       label: What happened?
-      description: Describe the problem and its impact.
-      placeholder: A clear description of the issue.
+      description: Describe the affected workflow and impact.
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
       label: Steps to reproduce
-      description: Provide the smallest reliable reproduction.
+      description: Give the smallest reliable reproduction.
       placeholder: |
-        1. Start the application...
-        2. Run...
-        3. Observe...
+        1. Open a synthetic test world...
+        2. Open the relevant document...
+        3. Perform the action...
+        4. Observe the result...
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
+      label: Expected behaviour
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: Actual behavior
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Product surface
+      options:
+        - Workspace/navigation
+        - Cards/documents
+        - Maps
+        - World graph
+        - Relation trees
+        - Canvas
+        - Timeline
+        - Quill
+        - Wiki/publishing
+        - Collaboration
+        - Account/entitlements
+        - Other
     validations:
       required: true
   - type: input
@@ -42,14 +61,19 @@ body:
     attributes:
       label: Version or commit
       placeholder: Version number or commit SHA
+  - type: input
+    id: viewport
+    attributes:
+      label: Viewport
+      placeholder: e.g. 1440x900 or iPad landscape
   - type: textarea
     id: environment
     attributes:
       label: Environment
-      description: OS, runtime, browser, device, or other relevant details.
+      description: OS, browser, device and input method.
   - type: textarea
     id: logs
     attributes:
       label: Relevant logs
-      description: Redact credentials, tokens, private URLs, and personal data.
+      description: Redact tokens, private URLs, personal data and unpublished content.
       render: text

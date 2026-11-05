@@ -1,6 +1,11 @@
 ## Summary
 
-<!-- What changed, and why? -->
+What changed and which user workflow does it improve?
+
+## Product reference
+
+- Relevant feature inventory / research page:
+- Evidence status (confirmed, partially confirmed, inferred):
 
 ## Change type
 
@@ -8,18 +13,19 @@
 - [ ] Bug fix
 - [ ] Refactor
 - [ ] Documentation
-- [ ] Build, tooling, or CI
+- [ ] Build, tooling or CI
 - [ ] Security
 
 ## Validation
 
-<!-- List the exact commands/checks run and their results. -->
-
 - [ ] Relevant tests added or updated.
-- [ ] Formatting, linting, and type checks run where applicable.
-- [ ] Documentation updated where needed.
-- [ ] No secrets, generated artifacts, or unrelated changes included.
+- [ ] Formatting, linting and type checks run where applicable.
+- [ ] Documentation updated.
+- [ ] Permission and data-integrity implications reviewed.
+- [ ] No secrets, private reference content or generated artifacts included.
+
+Commands run and results:
 
 ## Risk and rollout
 
-<!-- Note compatibility, data migrations, configuration changes, operational risk, and rollback steps. -->
+Note compatibility, data migration, publication, permission and rollback implications.

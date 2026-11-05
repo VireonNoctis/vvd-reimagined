@@ -1,4 +1,4 @@
-name: CI
+name: Repository checks
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Repository validation
+    name: Repository configuration
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -23,5 +23,5 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate starter configuration
+      - name: Validate repository configuration
         run: python3 scripts/validate.py

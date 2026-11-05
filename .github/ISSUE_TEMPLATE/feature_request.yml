@@ -1,28 +1,32 @@
 name: Feature request
-description: Suggest a focused improvement.
+description: Suggest a focused improvement to a documented product workflow.
 title: "[Feature] "
 body:
   - type: textarea
-    id: problem
+    id: workflow
     attributes:
-      label: Problem or opportunity
-      description: What limitation or user need would this address?
+      label: User workflow or problem
+      description: What is the user trying to do, and where does the current experience fall short?
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed solution
-      description: Describe the behavior you would expect.
+      label: Proposed behaviour
+      description: Describe the smallest complete improvement.
     validations:
       required: true
+  - type: input
+    id: research
+    attributes:
+      label: Related research entry
+      description: Link a page in docs/ or a current public source if relevant.
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
-      description: Include existing workarounds or other approaches.
   - type: textarea
     id: impact
     attributes:
-      label: Impact and trade-offs
-      description: Who benefits, and what complexity or maintenance cost might this add?
+      label: Data, permission and accessibility impact
+      description: Note effects on canonical data, references, permissions, keyboard/touch use or recovery.

@@ -1,0 +1,27 @@
+# Documentation
+
+This folder is the product and implementation reference for vvd Reimagined. It records public observations, the proposed reconstruction model and unresolved questions. It is not a claim that every screen has been captured or that the application already exists.
+
+## Research and product
+
+1. [Research dossier](RESEARCH.md) — evidence levels, product generations, sources and inspection limits.
+2. [Product model](PRODUCT_MODEL.md) — worlds, eras, documents, projects, apps, tools and blocks.
+3. [Feature inventory](FEATURE_INVENTORY.md) — capabilities and evidence caveats.
+4. [Quill](QUILL.md) — story, chapters, drafts, notes, references, audio and publishing.
+5. [Workspace interactions](WORKSPACE_INTERACTIONS.md) — navigation, menus and known workflows.
+6. [Workshop runtime](WORKSHOP_RUNTIME.md) — manifests, host, app/tool contract, codecs and extension lifecycle.
+7. [Platform and collaboration](PLATFORM_AND_COLLABORATION.md) — REST, MCP, CLI, authentication, CRDTs and presence.
+8. [Publishing and Wiki](PUBLISHING_AND_WIKI.md) — immutable versions, audiences, site publication and reader behaviour.
+9. [Plans and entitlements](PLANS_AND_ENTITLEMENTS.md) — current public plan matrix and downgrade semantics.
+10. [Design reconstruction](DESIGN_RECONSTRUCTION.md) — visual hierarchy, rendering strategy and responsive capture plan.
+
+## Building the reconstruction
+
+11. [Architecture](ARCHITECTURE.md) — proposed application boundaries.
+12. [Roadmap](ROADMAP.md) — dependency-aware development sequence.
+13. [Open questions](OPEN_QUESTIONS.md) — behaviour requiring direct verification.
+14. [Project setup](PROJECT_SETUP.md) — current repository readiness.
+
+## Decisions
+
+[Architecture Decision Records](DECISIONS/README.md) separate accepted directions and proposals. The frontend and rendering choices are accepted; backend and persistence vendors remain proposals.

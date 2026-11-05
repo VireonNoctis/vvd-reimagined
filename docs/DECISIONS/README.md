@@ -1,33 +1,16 @@
 # Architecture Decision Records
 
-Use an Architecture Decision Record (ADR) for decisions that are expensive to reverse or that affect multiple parts of the project.
+ADRs record choices that affect multiple components or are expensive to reverse. The status label is binding: accepted decisions guide implementation; proposed decisions do not.
 
-Keep each record short and include the context, decision, alternatives, and consequences. Do not create an ADR for routine implementation details.
+## Decisions
 
-## Create a record
+| ADR | Decision | Status |
+| --- | --- | --- |
+| [0001](0001-frontend.md) | Next.js with React and TypeScript | Accepted |
+| [0002](0002-rendering.md) | WebGL selectively; Three.js optional and lazy | Accepted |
+| [0003](0003-domain-model.md) | World/era/document/project boundaries | Accepted reconstruction model |
+| [0004](0004-backend-candidates.md) | Rust, PostgreSQL and S3-compatible storage | Proposed, not locked |
 
-Copy the structure below into a new file named `NNNN-short-title.md`.
+## Record format
 
-```markdown
-# NNNN. Decision title
-
-- Status: Proposed | Accepted | Superseded | Deprecated
-- Date: YYYY-MM-DD
-- Owners: Project maintainers
-
-## Context
-
-What problem or constraint requires a decision?
-
-## Decision
-
-What was chosen, and why?
-
-## Alternatives
-
-What realistic alternatives were considered?
-
-## Consequences
-
-What becomes easier, harder, or constrained by this decision?
-```
+Each ADR should include a status, date, context, decision, realistic alternatives and consequences. Superseding an accepted decision requires a new record that links back to the prior ADR.

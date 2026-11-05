@@ -8,5 +8,7 @@
   "search.useIgnoreFiles": true,
   "git.autofetch": true,
   "explorer.compactFolders": false,
-  "terminal.integrated.scrollback": 10000
+  "terminal.integrated.scrollback": 10000,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"]
 }
