@@ -344,7 +344,7 @@ pub async fn create_world(
     .bind(description.trim())
     .bind(genre.trim())
     .bind(account_id)
-    .execute(&mut *transaction)
+    .execute(&mut transaction)
     .await?;
 
     sqlx::query(
@@ -353,7 +353,7 @@ pub async fn create_world(
     )
     .bind(id)
     .bind(account_id)
-    .execute(&mut *transaction)
+    .execute(&mut transaction)
     .await?;
 
     transaction.commit().await?;
@@ -506,7 +506,7 @@ pub async fn create_card(
         .collect::<Vec<_>>();
 
     let mut transaction = pool.begin().await?;
-    ensure_references_exist(&mut *transaction, world_id, &input.properties).await?;
+    ensure_references_exist(&mut transaction, world_id, &input.properties).await?;
 
     sqlx::query(
         "INSERT INTO documents
@@ -520,14 +520,14 @@ pub async fn create_card(
     .bind(input.name.trim())
     .bind(aliases)
     .bind(account_id)
-    .execute(&mut *transaction)
+    .execute(&mut transaction)
     .await?;
 
-    insert_properties(&mut *transaction, world_id, id, &input.properties).await?;
-    insert_blocks(&mut *transaction, world_id, id, &input.blocks).await?;
+    insert_properties(&mut transaction, world_id, id, &input.properties).await?;
+    insert_blocks(&mut transaction, world_id, id, &input.blocks).await?;
     sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
         .bind(world_id)
-        .execute(&mut *transaction)
+        .execute(&mut transaction)
         .await?;
 
     transaction.commit().await?;
@@ -571,7 +571,7 @@ pub async fn update_card(
     .bind(world_id)
     .bind(document_id)
     .bind(input.expected_version)
-    .execute(&mut *transaction)
+    .execute(&mut transaction)
     .await?;
 
     if result.rows_affected() == 0 {
@@ -580,7 +580,7 @@ pub async fn update_card(
         )
         .bind(world_id)
         .bind(document_id)
-        .fetch_one(&mut *transaction)
+        .fetch_one(&mut transaction)
         .await?;
 
         return if exists {
@@ -592,24 +592,24 @@ pub async fn update_card(
         };
     }
 
-    ensure_references_exist(&mut *transaction, world_id, &input.properties).await?;
+    ensure_references_exist(&mut transaction, world_id, &input.properties).await?;
 
     sqlx::query("DELETE FROM card_properties WHERE world_id = $1 AND document_id = $2")
         .bind(world_id)
         .bind(document_id)
-        .execute(&mut *transaction)
+        .execute(&mut transaction)
         .await?;
     sqlx::query("DELETE FROM card_blocks WHERE world_id = $1 AND document_id = $2")
         .bind(world_id)
         .bind(document_id)
-        .execute(&mut *transaction)
+        .execute(&mut transaction)
         .await?;
 
-    insert_properties(&mut *transaction, world_id, document_id, &input.properties).await?;
-    insert_blocks(&mut *transaction, world_id, document_id, &input.blocks).await?;
+    insert_properties(&mut transaction, world_id, document_id, &input.properties).await?;
+    insert_blocks(&mut transaction, world_id, document_id, &input.blocks).await?;
     sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
         .bind(world_id)
-        .execute(&mut *transaction)
+        .execute(&mut transaction)
         .await?;
 
     transaction.commit().await?;

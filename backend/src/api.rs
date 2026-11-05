@@ -236,7 +236,7 @@ async fn register(
     .execute(&mut *transaction)
     .await?;
 
-    insert_session(&mut *transaction, account_id, &token).await?;
+    insert_session(&mut transaction, account_id, &token).await?;
     transaction.commit().await?;
 
     let account = Account {
@@ -289,13 +289,13 @@ async fn login(
 
 async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
-    if let Some(token) = token_from_cookie(&headers) {
-        if token.len() <= 64 {
-            sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
-                .bind(token_hash(token))
-                .execute(&state.db)
-                .await?;
-        }
+    if let Some(token) = token_from_cookie(&headers)
+        && token.len() <= 64
+    {
+        sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
+            .bind(token_hash(token))
+            .execute(&state.db)
+            .await?;
     }
 
     attach_cookie(StatusCode::NO_CONTENT, expired_cookie(&state))

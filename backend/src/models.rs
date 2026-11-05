@@ -193,6 +193,5 @@ pub(crate) struct PropertyRow {
 pub(crate) struct BlockRow {
     pub document_id: Uuid,
     pub id: String,
-    pub position: i32,
     pub text: String,
 }
