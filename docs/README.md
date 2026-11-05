@@ -25,4 +25,4 @@ This folder is the product and implementation reference for vvd Reimagined. It r
 
 ## Decisions
 
-[Architecture Decision Records](DECISIONS/README.md) separate accepted directions and proposals. The frontend and rendering choices are accepted; backend and persistence vendors remain proposals.
+[Architecture Decision Records](DECISIONS/README.md) separate accepted directions and proposals. The frontend, rendering, Rust API and PostgreSQL decisions are accepted. S3 and collaboration-provider choices remain deferred.

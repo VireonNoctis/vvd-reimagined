@@ -1,0 +1,46 @@
+# Rust API
+
+The API is the server-side authority for accounts, sessions, world membership and canonical card operations. It is a modular monolith; the Next.js UI is a separate client and still needs its BFF/session connection.
+
+## Start
+
+From the repository root:
+
+```sh
+docker compose up -d db
+export DATABASE_URL=postgres://vvd:vvd@localhost:5432/vvd_dev
+export APP_ENV=development
+cargo run -p vvd-api
+```
+
+Migrations are applied automatically when the process starts. Default bind address: `127.0.0.1:4100`.
+
+Production must set `APP_ENV=production`, `APP_ORIGIN` and `COOKIE_SECURE=true`, and run behind HTTPS. Secrets must come from a secret manager, not source control.
+
+## Routes
+
+| Method | Route | Behaviour |
+| --- | --- | --- |
+| GET | `/health` | Check database connectivity |
+| POST | `/v1/auth/register` | Create account and establish a session |
+| POST | `/v1/auth/login` | Verify password and establish a session |
+| POST | `/v1/auth/logout` | Revoke current session |
+| GET | `/v1/auth/me` | Read current account |
+| GET | `/v1/worlds` | List worlds the account belongs to |
+| POST | `/v1/worlds` | Create a world; creator becomes owner |
+| GET | `/v1/worlds/{slug}` | Read one world and its card records |
+| GET/POST | `/v1/worlds/{slug}/documents` | List or create cards |
+| GET/PATCH | `/v1/worlds/{slug}/documents/{id}` | Read or version-checked update |
+
+## Data rules
+
+- Every world/document operation checks membership on the server.
+- Viewers can read; owners, admins and editors can write.
+- A document update must carry `expectedVersion`; stale writes return HTTP 409.
+- Properties and body blocks are replaced atomically with document metadata.
+- PostgreSQL composite foreign keys reject a property reference to a card in another world.
+- Only card documents are registered in this slice; folders, eras and tool-owned document types are later work.
+
+## Launch boundary
+
+This is not yet a public production service. Email verification/recovery, rate limits, session-device management, audit events, operational observability, backup/restore drills and a security review remain necessary. Media object storage and collaboration persistence are not included.

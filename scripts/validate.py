@@ -52,6 +52,25 @@ REQUIRED_APP_FILES = (
     "src/components/ui/icon.tsx",
     "src/components/workspace/workspace.tsx",
     "tests/domain/world.test.mjs",
+    "src/domain/world-graph.ts",
+    "src/components/visual/world-graph.tsx",
+    "tests/domain/world-graph.test.mjs",
+)
+REQUIRED_BACKEND_FILES = (
+    "Cargo.toml",
+    "rust-toolchain.toml",
+    "backend/Cargo.toml",
+    "backend/src/main.rs",
+    "backend/src/lib.rs",
+    "backend/src/api.rs",
+    "backend/src/store.rs",
+    "backend/src/models.rs",
+    "backend/src/config.rs",
+    "backend/src/error.rs",
+    "backend/migrations/0001_identity_worlds_documents.sql",
+    "backend/tests/postgres_schema.rs",
+    "backend/README.md",
+    "compose.yaml",
 )
 WORKFLOW_DIR = Path(".github/workflows")
 ACTION_REFERENCE = re.compile(r"^[0-9a-fA-F]{40}$")
@@ -111,6 +130,37 @@ def validate_required_files(paths: tuple[str, ...], label: str) -> list[str]:
         for relative_path in paths
         if not (ROOT / relative_path).is_file()
     ]
+
+
+def validate_rust_workspace() -> list[str]:
+    errors: list[str] = []
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        return ["Python 3.11+ is required to validate Rust TOML configuration"]
+
+    for relative_path in ("Cargo.toml", "backend/Cargo.toml", "rust-toolchain.toml"):
+        path = ROOT / relative_path
+        try:
+            tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+            errors.append(f"{relative_path}: invalid TOML ({exc})")
+
+    try:
+        workspace = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
+        backend = tomllib.loads((ROOT / "backend/Cargo.toml").read_text(encoding="utf-8"))
+        toolchain = tomllib.loads((ROOT / "rust-toolchain.toml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+        return errors
+
+    if "backend" not in workspace.get("workspace", {}).get("members", []):
+        errors.append("Cargo.toml: backend must be a workspace member")
+    if backend.get("package", {}).get("edition") != "2024":
+        errors.append("backend/Cargo.toml: Rust 2024 edition is required")
+    if not toolchain.get("toolchain", {}).get("channel"):
+        errors.append("rust-toolchain.toml: pinned stable toolchain is required")
+
+    return errors
 
 
 def validate_action_pins() -> list[str]:
@@ -193,6 +243,8 @@ def main() -> int:
     errors.extend(validate_package())
     errors.extend(validate_required_files(REQUIRED_DOCS, "documentation"))
     errors.extend(validate_required_files(REQUIRED_APP_FILES, "application"))
+    errors.extend(validate_required_files(REQUIRED_BACKEND_FILES, "backend"))
+    errors.extend(validate_rust_workspace())
     errors.extend(validate_action_pins())
     errors.extend(validate_markdown_links())
 

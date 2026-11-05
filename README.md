@@ -4,25 +4,27 @@ An independent reconstruction of a connected worldbuilding, writing, collaborati
 
 ## Status
 
-The first Next.js application slice is in place: a world selector, responsive workspace shell, searchable document library, typed card view and navigation through canonical card references. It is a read-only preview backed by synthetic fixture data. Authentication, persistence, editing APIs, collaboration and publishing are not connected yet.
+The first Next.js application slice and a separate Rust API are in place. The frontend still shows a read-only synthetic preview, while the API has PostgreSQL-backed accounts, sessions, world membership and canonical card create/read/update operations. The Next.js sign-in and session-aware repository are not connected yet.
 
 Research baseline: 5 November 2026. Public documentation cannot replace direct inspection of the authenticated workspace. Exact current geometry, hidden menus, transition timings and some beta behaviour remain unverified.
 
 ## Current implementation
 
 - Next.js App Router with React and strict TypeScript.
+- Rust 1.99.1 API using Axum and SQLx, with PostgreSQL 18 migrations.
 - A world and card model with stable document IDs, aliases, text blocks, scalar properties and canonical document references.
 - World selector and editor shell with a document library and details inspector.
 - Search across document names, aliases and entity types.
 - Responsive desktop, tablet and phone layouts.
 - Domain tests for canonical reference resolution and duplicate/missing-reference detection.
+- API tests for input validation plus PostgreSQL integration coverage for membership and same-world reference constraints.
 - CI configured for repository validation, lint, type-check, tests and production build.
 
 The sample world is deliberately synthetic. Create and edit controls are disabled rather than pretending to save. No authenticated user data is loaded.
 
 ## Not implemented yet
 
-Real sign-in and sessions, server-side world membership, persistent world/document operations, file uploads, eras, revisions, archive/restore, multi-user collaboration, Quill, visual tools, Workshop, Wiki publishing, billing and account operations.
+Next.js sign-in and API connection, email verification/recovery, rate limits, session-device management, file uploads, eras, revisions, archive/restore, multi-user collaboration, Quill, additional visual tools, Workshop, Wiki publishing, billing and account operations.
 
 ## Technology direction
 
@@ -32,9 +34,9 @@ Real sign-in and sessions, server-side world membership, persistent world/docume
 | Runtime | Node.js 26 LTS | Selected for the scaffold |
 | Visual surfaces | DOM/CSS by default; WebGL where it earns its cost | Accepted |
 | 3D rendering | Three.js, optional and lazy-loaded | Accepted |
-| Backend | Rust | Candidate; not locked |
-| Primary database | PostgreSQL | Candidate; not locked |
-| Media storage | S3-compatible object storage | Candidate; not locked |
+| Backend | Rust + Axum + SQLx | Implemented API slice |
+| Primary database | PostgreSQL 18 | Implemented schema and migrations |
+| Media storage | S3-compatible object storage | Deferred until media slice |
 | Collaboration | Yjs-compatible CRDT model and ephemeral presence | Research-backed target; provider decision pending |
 
 Next.js is the framework, React is the component model and TypeScript is the language. Ordinary product UI stays in the DOM. Use SVG or Canvas for suitable 2D work and WebGL only for surfaces that benefit from it. Three.js is optional and should load only for real 3D features.
@@ -43,7 +45,7 @@ The backend candidates are implementation options, not claims about vvd's privat
 
 ## Run locally
 
-Use Node.js 26 LTS and npm:
+Start PostgreSQL and the Rust API as described in [Project Setup](docs/PROJECT_SETUP.md). For the frontend, use Node.js 26 LTS and npm:
 
 ~~~
 nvm use
@@ -63,7 +65,7 @@ npm run build
 python3 scripts/validate.py
 ~~~
 
-A package lockfile still needs to be generated and committed from a network-enabled environment. Application lint, type-check, tests and production build have not yet been executed in the implementation environment.
+The frontend CI checks run on GitHub Actions. Rust CI also checks formatting, Clippy, unit tests, PostgreSQL migration/membership constraints and the API build. The npm and Cargo lockfiles still need to be generated and committed from the network-enabled runner before treating dependency installs as fully reproducible.
 
 ## Documentation
 

@@ -14,10 +14,23 @@ The first application slice currently includes:
 - Canonical card references that navigate to the referenced document rather than copying its content.
 - Domain tests for stable lookup, reference resolution and duplicate/missing reference detection.
 - A read-only World Graph rendered with WebGL 2 from valid typed card references. Nodes can be selected, dragged and panned; the DOM inspector and record list provide accessible navigation and links back to canonical records.
+- A Rust/Axum API with PostgreSQL migrations for accounts, Argon2id password hashes, hashed opaque sessions, worlds, world memberships, canonical card documents, properties and ordered text blocks.
+- Membership-checked world and card reads, world/card creation, and atomic version-checked card updates. Composite foreign keys keep card references inside their world.
 
 The graph is a derived view, not an editor or a second source of truth. Its temporary node positions are not saved; mention-derived edges, filters and era-aware projections remain future work.
 
-This is a read-only preview. It has no authentication, membership enforcement, persistent storage, editing operations, upload flow or collaboration runtime. These screens are a starting implementation, not a claim of authenticated UI parity.
+The API now has real account/session and document persistence, but the Next.js preview is not connected to it yet. The frontend therefore remains read-only and fixture-backed until the same-origin proxy, sign-in UI and session-aware repository are implemented. Uploads, collaboration, Quill and publishing remain outstanding. These screens are a starting implementation, not a claim of authenticated UI parity.
+
+## Backend and persistence
+
+| Capability | Current implementation | Boundary |
+| --- | --- | --- |
+| Accounts and sessions | Rust API registration/login/logout/current-account endpoints; Argon2id hashes and hashed opaque session tokens | Email verification, recovery, rate limiting and device/session management remain open |
+| World membership | PostgreSQL roles: owner, admin, editor and viewer; server checks on each world/document operation | Studio roles and invitations are not implemented |
+| Canonical documents | PostgreSQL card identities with aliases, scalar/reference properties and ordered text blocks | Cards are the only registered type in this slice |
+| Reference integrity | Composite foreign keys prevent cross-world references | Era-aware references remain future work |
+| Card mutations | Transactional create/update and expected-version checks | UI is not connected; history/archive/restore are outstanding |
+| Media | No upload adapter yet | S3-compatible storage deferred until media work |
 
 ## Workspace and navigation
 

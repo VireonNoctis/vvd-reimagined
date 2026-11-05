@@ -21,19 +21,25 @@ The shared world/document model must work before graph, Quill and publishing sur
 - [x] Add reference navigation, initial design tokens and reduced-motion support.
 - [x] Add domain integrity tests and configure application CI.
 - [ ] Generate and commit a package lockfile.
-- [ ] Run install, lint, type-check, tests and production build successfully.
-- [ ] Establish the real session/auth boundary and route protection.
+- [x] Run frontend install, lint, type-check, tests and production build successfully.
+- [ ] Finish Rust formatting, Clippy, PostgreSQL migration/integration tests and release build in CI.
+- [x] Establish the Rust API session boundary and server-side world membership checks.
+- [ ] Connect the Next.js app to the API through a same-origin proxy and sign-in flow.
 - [ ] Add distinct public, authenticated and published-reader route boundaries.
 
 The application currently has a read-only preview, not real authentication or persistence. CI configuration is in place, but its first complete run remains the verification gate.
 
 ## Phase 2 — World and document engine
 
-- Model account, world, membership and roles.
-- Create and switch persisted worlds.
-- Implement document metadata, nested folders and registered document types.
-- Define card types, templates and typed properties.
-- Define typed content schemas and mutation operations.
+- [x] Model accounts, sessions, worlds and membership roles in PostgreSQL.
+- [x] Create persisted worlds and assign their creator the owner role.
+- [x] Store canonical card identities, aliases, typed properties and ordered text blocks.
+- [x] Add membership-checked list/read/create/update API operations.
+- [x] Make card writes transactional and version-checked; enforce same-world references with composite foreign keys.
+- [ ] Connect the Next.js repository and editor to the API.
+- [ ] Implement nested folders and registered document types beyond cards.
+- [ ] Define card type templates and per-type property definitions.
+- [ ] Add revision history, archive and restore.
 - Implement era inheritance/resolution.
 - Add aliases, references and search.
 - Add revision history, archive and restore.
@@ -100,4 +106,4 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - Optional lazy Three.js Model Viewer.
 - Reduced-motion, keyboard and visual regression coverage.
 
-The next implementation milestone is the server boundary: identity, world membership, canonical document persistence and validated read/write operations. Do not add client-only CRUD or pretend saves while that boundary is missing.
+The next implementation milestone is the Next.js-to-Rust connection: sign-in, session-aware world reads, and a card editor that sends version-checked mutations. The API boundary and first PostgreSQL schema now exist; do not show a saved state until the API confirms the write.

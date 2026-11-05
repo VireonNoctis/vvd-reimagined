@@ -9,7 +9,7 @@ ADRs record choices that affect multiple components or are expensive to reverse.
 | [0001](0001-frontend.md) | Next.js with React and TypeScript | Accepted |
 | [0002](0002-rendering.md) | WebGL selectively; Three.js optional and lazy | Accepted |
 | [0003](0003-domain-model.md) | World/era/document/project boundaries | Accepted reconstruction model |
-| [0004](0004-backend-candidates.md) | Rust, PostgreSQL and S3-compatible storage | Proposed, not locked |
+| [0004](0004-backend-candidates.md) | Rust API and PostgreSQL persistence | Accepted; S3 deferred |
 
 ## Record format
 

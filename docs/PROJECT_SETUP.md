@@ -2,20 +2,39 @@
 
 ## Current state
 
-The repository contains a Next.js App Router application and its first read-only workspace slice. The app uses one synthetic sample world. It has no real account, session, persistence or server-side document service.
+The repository now has a Next.js read-only preview and a separate Rust API with PostgreSQL-backed accounts, sessions, worlds, memberships and card documents. The API is real; the current Next.js repository adapter still uses the synthetic fixture until the same-origin proxy and sign-in UI are connected.
 
 ## Accepted direction
 
 - Frontend: Next.js with React and TypeScript.
 - Runtime: Node.js 26 LTS.
-- Rendering: DOM/CSS by default, WebGL where it improves a visual workload.
-- Three.js: optional and lazy-loaded for actual 3D surfaces.
-- Backend: Rust candidate, not yet accepted.
-- Database: PostgreSQL candidate, not yet accepted.
-- Media storage: S3-compatible object storage candidate, not yet accepted.
-- Collaboration: Yjs-compatible CRDT behaviour is research-backed; provider and durable storage design remain open.
+- Visual surfaces: DOM/CSS by default; WebGL 2 for the World Graph.
+- 3D rendering: Three.js remains optional and lazy-loaded for a real 3D surface.
+- Backend: Rust 1.99.1, Axum 0.8.9 and SQLx 0.9.0.
+- Database: PostgreSQL 18.6 for local development and CI.
+- Media storage: S3-compatible object storage deferred until the media slice.
+- Collaboration: Yjs-compatible behaviour remains the target; provider and durable update design are deferred.
 
 ## Local development
+
+Start PostgreSQL:
+
+~~~sh
+docker compose up -d db
+~~~
+
+Run the API:
+
+~~~sh
+export DATABASE_URL=postgres://vvd:vvd@localhost:5432/vvd_dev
+export APP_ENV=development
+export BIND_ADDRESS=127.0.0.1:4100
+cargo run -p vvd-api
+~~~
+
+The API applies pending migrations on startup. It listens on `http://127.0.0.1:4100` by default.
+
+Run the frontend in a second terminal:
 
 ~~~sh
 nvm use
@@ -23,39 +42,36 @@ npm install
 npm run dev
 ~~~
 
-The initial package manifest uses Next.js 16.4.5 and React 19.3.1. Node.js 26 is selected by .nvmrc and package.json.
+The frontend is not yet connected to the API. Keep the preview label visible until the same-origin proxy, session-aware repository and sign-in flow are integrated.
 
-Available checks:
+## Checks
 
 ~~~sh
+python3 scripts/validate.py
 npm run lint
 npm run typecheck
 npm test
 npm run build
-python3 scripts/validate.py
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+DATABASE_URL=postgres://vvd:vvd@localhost:5432/vvd_dev cargo test --workspace
+cargo build --workspace --release
 ~~~
 
-Generate and commit package-lock.json from a network-enabled environment before relying on npm ci or a reproducible dependency install. The implementation environment could not reach the npm registry, so no lockfile has been generated and application checks have not been run here.
+The Rust integration test applies the migrations and checks membership enforcement plus same-world reference constraints. Unit tests can run without DATABASE_URL; the PostgreSQL integration test is skipped when the variable is absent.
 
-## Current vertical slice
+## API surface
 
-- World selector backed by one synthetic fixture.
-- Responsive editor shell with document library and details inspector.
-- Typed World and CardDocument domain types.
-- Card names, aliases, text blocks, scalar properties and typed references.
-- Navigation from a record to the canonical referenced record.
-- Search across names, aliases and entity types.
-- Read-only preview state is visible. Create/edit controls are disabled.
+- `POST /v1/auth/register` and `POST /v1/auth/login`: create an account/session or start a session.
+- `POST /v1/auth/logout` and `GET /v1/auth/me`: end/read the current session.
+- `GET /v1/worlds` and `POST /v1/worlds`: list accessible worlds or create an owner-managed world.
+- `GET /v1/worlds/{slug}`: read a world and its canonical card records.
+- `GET/POST /v1/worlds/{slug}/documents`: list or create cards.
+- `GET/PATCH /v1/worlds/{slug}/documents/{id}`: read or version-check and update a card.
+- `GET /health`: checks API/database connectivity.
 
-Domain tests cover canonical lookup, reference resolution and basic world integrity. CI is configured to run lint, type-check, tests and a production build, but those checks must still complete on GitHub before being treated as passing.
+Authentication uses an HttpOnly, SameSite=Strict cookie. Production must set APP_ORIGIN and use HTTPS so the cookie is Secure. Never put the session token in a URL or log it.
 
-No edit/create action is wired to local state as a substitute for persistence.
+## Outstanding before public deployment
 
-## Next implementation steps
-
-1. Finalise the backend ADR and service boundary.
-2. Implement identity/session handling and server-side world membership.
-3. Add persistent world/document repositories and migrations.
-4. Replace the fixture adapter with server reads while retaining fixtures for visual review.
-5. Add validated create/update/archive/revision operations and permission tests.
-6. Expand the card editor only after durable write operations exist.
+Email verification/recovery, request rate limits, session revocation/device management, production secret management, audit events, backup/restore drills and a security review are not implemented. S3 and collaboration infrastructure are also not part of this slice.
