@@ -52,7 +52,9 @@ impl Config {
                 return Err("VVD_S3_BUCKET and VVD_S3_REGION must be set together".into());
             };
             if app_env.eq_ignore_ascii_case("production")
-                && endpoint_url.as_deref().is_some_and(|endpoint| !endpoint.starts_with("https://"))
+                && endpoint_url
+                    .as_deref()
+                    .is_some_and(|endpoint| !endpoint.starts_with("https://"))
             {
                 return Err("VVD_S3_ENDPOINT must use HTTPS in production".into());
             }

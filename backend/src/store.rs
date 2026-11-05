@@ -788,7 +788,6 @@ pub async fn move_document(
     get_document(pool, account_id, slug, document_id).await
 }
 
-
 pub async fn create_media_asset(
     pool: &PgPool,
     account_id: Uuid,

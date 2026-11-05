@@ -327,24 +327,16 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .await
     .expect("create pending private media record");
 
-    let pending = store::pending_media_upload(
-        &pool,
-        account_id,
-        &format!("first-{unique}"),
-        media_id,
-    )
-    .await
-    .expect("read the pending media upload");
+    let pending =
+        store::pending_media_upload(&pool, account_id, &format!("first-{unique}"), media_id)
+            .await
+            .expect("read the pending media upload");
     assert_eq!(pending, (object_key.clone(), "image/png".to_owned(), 1_024));
 
-    let media = store::complete_media_upload(
-        &pool,
-        account_id,
-        &format!("first-{unique}"),
-        media_id,
-    )
-    .await
-    .expect("complete verified private media record");
+    let media =
+        store::complete_media_upload(&pool, account_id, &format!("first-{unique}"), media_id)
+            .await
+            .expect("complete verified private media record");
     assert_eq!(media.id, media_id);
     assert_eq!(media.document_id, Some(source_document_id));
     assert_eq!(media.size_bytes, 1_024);

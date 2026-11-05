@@ -25,8 +25,8 @@ use crate::{
     models::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
         DocumentRevisionSummary, DocumentVersionInput, Folder, FolderCreateInput,
-        FolderUpdateInput, LoginInput, MediaAssetSummary, MediaUploadInput,
-        MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
+        FolderUpdateInput, LoginInput, MediaAssetSummary, MediaUploadInput, MediaUploadTicket,
+        MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
     store,
 };
@@ -476,7 +476,6 @@ async fn get_world(
     Ok(Json(store::get_world(&state.db, account.id, &slug).await?))
 }
 
-
 const MAX_IMAGE_BYTES: i64 = 50 * 1024 * 1024;
 const MAX_AUDIO_BYTES: i64 = 60 * 1024 * 1024;
 const MAX_VIDEO_BYTES: i64 = 250 * 1024 * 1024;
@@ -525,7 +524,10 @@ async fn create_media_upload(
 ) -> Result<impl IntoResponse, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
-    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
+    let storage = state
+        .media
+        .as_ref()
+        .ok_or_else(ApiError::service_unavailable)?;
     let (file_name, content_type) = validate_media_upload(&input)?;
     let asset_id = Uuid::new_v4();
     let object_key = format!("assets/{}", asset_id.simple());
@@ -564,7 +566,10 @@ async fn complete_media_upload(
 ) -> Result<Json<MediaAssetSummary>, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
-    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
+    let storage = state
+        .media
+        .as_ref()
+        .ok_or_else(ApiError::service_unavailable)?;
     let (object_key, content_type, size_bytes) =
         store::pending_media_upload(&state.db, account.id, &slug, media_id).await?;
     let stored = storage.inspect(&object_key).await?;
@@ -599,9 +604,11 @@ async fn download_media_asset(
     Path((slug, media_id)): Path<(String, Uuid)>,
 ) -> Result<Response, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
-    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
-    let object_key =
-        store::media_object_key(&state.db, account.id, &slug, media_id, false).await?;
+    let storage = state
+        .media
+        .as_ref()
+        .ok_or_else(ApiError::service_unavailable)?;
+    let object_key = store::media_object_key(&state.db, account.id, &slug, media_id, false).await?;
     let url = storage.presign_download(&object_key).await?;
     let mut response = Redirect::temporary(&url).into_response();
     response.headers_mut().insert(
@@ -618,9 +625,11 @@ async fn delete_media_asset(
 ) -> Result<StatusCode, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
-    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
-    let object_key =
-        store::media_object_key(&state.db, account.id, &slug, media_id, true).await?;
+    let storage = state
+        .media
+        .as_ref()
+        .ok_or_else(ApiError::service_unavailable)?;
+    let object_key = store::media_object_key(&state.db, account.id, &slug, media_id, true).await?;
     storage.delete(&object_key).await?;
     store::delete_media_asset(&state.db, account.id, &slug, media_id).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -826,8 +835,7 @@ mod tests {
             size_bytes: 1_024,
             document_id: None,
         };
-        let (name, content_type) =
-            validate_media_upload(&input).expect("valid image upload");
+        let (name, content_type) = validate_media_upload(&input).expect("valid image upload");
         assert_eq!(name, "portrait.png");
         assert_eq!(content_type, "image/png");
 
