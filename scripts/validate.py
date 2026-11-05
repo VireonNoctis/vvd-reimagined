@@ -54,7 +54,7 @@ REQUIRED_APP_FILES = (
 )
 WORKFLOW_DIR = Path(".github/workflows")
 ACTION_REFERENCE = re.compile(r"^[0-9a-fA-F]{40}$")
-MARKDOWN_LINK = re.compile(r"(?<!!)\\[[^\\]]+\\]\\(([^)]+)\\)")
+MARKDOWN_LINK = re.compile(r"(?<!)\[[^\]]+\]\(([^)]+)\)")
 EXTERNAL_PREFIXES = ("https://", "http://", "mailto:", "tel:", "data:")
 
 
@@ -92,7 +92,12 @@ def validate_package() -> list[str]:
         if name not in dependencies:
             errors.append(f"package.json: missing runtime dependency {name}")
 
-    compiler_options = json.loads((ROOT / "tsconfig.json").read_text(encoding="utf-8")).get("compilerOptions", {})
+    try:
+        tsconfig = json.loads((ROOT / "tsconfig.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return errors
+
+    compiler_options = tsconfig.get("compilerOptions", {})
     if compiler_options.get("strict") is not True:
         errors.append("tsconfig.json: strict TypeScript mode must be enabled")
 
