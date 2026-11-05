@@ -251,7 +251,10 @@ pub fn router(state: AppState) -> Router {
             "/v1/worlds/{slug}/documents/{document_id}",
             get(get_document).patch(update_card),
         )
-        .route("/v1/worlds/{slug}/folders", get(list_folders).post(create_folder))
+        .route(
+            "/v1/worlds/{slug}/folders",
+            get(list_folders).post(create_folder),
+        )
         .route(
             "/v1/worlds/{slug}/folders/{folder_id}",
             patch(update_folder).delete(delete_folder),
@@ -465,7 +468,9 @@ async fn list_folders(
     Path(slug): Path<String>,
 ) -> Result<Json<Vec<Folder>>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
-    Ok(Json(store::list_folders(&state.db, account.id, &slug).await?))
+    Ok(Json(
+        store::list_folders(&state.db, account.id, &slug).await?,
+    ))
 }
 
 async fn create_folder(

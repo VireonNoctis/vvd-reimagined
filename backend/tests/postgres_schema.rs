@@ -3,8 +3,8 @@ use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
 use vvd_api::{
     models::{
-        CardBlockInput, CardPropertyInput, CardUpdateInput, FolderCreateInput,
-        FolderUpdateInput, MoveDocumentInput,
+        CardBlockInput, CardPropertyInput, CardUpdateInput, FolderCreateInput, FolderUpdateInput,
+        MoveDocumentInput,
     },
     store,
 };
@@ -299,9 +299,14 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .expect("rename nested folder");
     assert_eq!(renamed_folder.name, "Main cast");
     assert!(
-        store::delete_folder(&pool, account_id, &format!("first-{unique}"), nested_folder.id)
-            .await
-            .is_err(),
+        store::delete_folder(
+            &pool,
+            account_id,
+            &format!("first-{unique}"),
+            nested_folder.id
+        )
+        .await
+        .is_err(),
         "a folder containing a record cannot be deleted"
     );
     let empty_folder = store::create_folder(
@@ -315,9 +320,14 @@ async fn migrations_enforce_membership_and_same_world_references() {
     )
     .await
     .expect("create empty folder");
-    store::delete_folder(&pool, account_id, &format!("first-{unique}"), empty_folder.id)
-        .await
-        .expect("delete an empty folder");
+    store::delete_folder(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        empty_folder.id,
+    )
+    .await
+    .expect("delete an empty folder");
 
     let current_session_id = Uuid::new_v4();
     let other_session_id = Uuid::new_v4();

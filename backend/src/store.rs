@@ -501,7 +501,9 @@ async fn insert_blocks(
 fn validate_folder_name(name: &str) -> Result<(), ApiError> {
     let clean = name.trim();
     if clean.is_empty() || clean.chars().count() > 80 {
-        return Err(ApiError::bad_request("Folder names must contain between 1 and 80 characters."));
+        return Err(ApiError::bad_request(
+            "Folder names must contain between 1 and 80 characters.",
+        ));
     }
     Ok(())
 }
@@ -520,7 +522,9 @@ async fn ensure_folder_parent(
         .fetch_one(&mut *connection)
         .await?;
         if !exists {
-            return Err(ApiError::bad_request("The parent folder does not belong to this world."));
+            return Err(ApiError::bad_request(
+                "The parent folder does not belong to this world.",
+            ));
         }
     }
     Ok(())
@@ -588,8 +592,18 @@ pub async fn create_folder(
     let world_id = require_world(pool, account_id, slug, true).await?;
     let mut transaction = pool.begin().await?;
     ensure_folder_parent(&mut transaction, world_id, input.parent_id).await?;
-    if folder_name_exists(&mut transaction, world_id, input.parent_id, &input.name, None).await? {
-        return Err(ApiError::conflict("A folder with that name already exists here."));
+    if folder_name_exists(
+        &mut transaction,
+        world_id,
+        input.parent_id,
+        &input.name,
+        None,
+    )
+    .await?
+    {
+        return Err(ApiError::conflict(
+            "A folder with that name already exists here.",
+        ));
     }
 
     let row = sqlx::query_as::<_, FolderRow>(
@@ -632,7 +646,9 @@ pub async fn update_folder(
     .bind(folder_id)
     .fetch_one(&mut *transaction)
     .await?;
-    if !exists { return Err(ApiError::not_found()); }
+    if !exists {
+        return Err(ApiError::not_found());
+    }
 
     ensure_folder_parent(&mut transaction, world_id, input.parent_id).await?;
     if let Some(parent_id) = input.parent_id {
@@ -658,8 +674,18 @@ pub async fn update_folder(
         }
     }
 
-    if folder_name_exists(&mut transaction, world_id, input.parent_id, &input.name, Some(folder_id)).await? {
-        return Err(ApiError::conflict("A folder with that name already exists here."));
+    if folder_name_exists(
+        &mut transaction,
+        world_id,
+        input.parent_id,
+        &input.name,
+        Some(folder_id),
+    )
+    .await?
+    {
+        return Err(ApiError::conflict(
+            "A folder with that name already exists here.",
+        ));
     }
 
     let row = sqlx::query_as::<_, FolderRow>(
@@ -714,7 +740,9 @@ pub async fn delete_folder(
         .bind(folder_id)
         .execute(pool)
         .await?;
-    if result.rows_affected() == 0 { return Err(ApiError::not_found()); }
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found());
+    }
     Ok(())
 }
 
@@ -726,7 +754,9 @@ pub async fn move_document(
     input: MoveDocumentInput,
 ) -> Result<CardDocument, ApiError> {
     if input.expected_version < 1 {
-        return Err(ApiError::bad_request("expectedVersion must be a positive integer."));
+        return Err(ApiError::bad_request(
+            "expectedVersion must be a positive integer.",
+        ));
     }
     let world_id = require_world(pool, account_id, slug, true).await?;
     let mut transaction = pool.begin().await?;
