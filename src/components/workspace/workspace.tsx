@@ -49,7 +49,7 @@ export function Workspace({ world, document }: Props) {
         <div className="topbar-actions">
           <span className="preview-pill"><span /> Preview environment</span>
           <button className="icon-button" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? "Collapse document sidebar" : "Open document sidebar"}><Icon name="panel-left" /></button>
-          <button className="icon-button" type="button" onClick={() => setInspectorOpen((open) => !open)} aria-label={inspectorOpen ? "Hide details panel" : "Show details panel"}><Icon name="layers" /></button>
+          <button className="icon-button inspector-toggle" type="button" onClick={() => setInspectorOpen((open) => !open)} aria-label={inspectorOpen ? "Hide details panel" : "Show details panel"}><Icon name="layers" /></button>
         </div>
       </header>
 
@@ -61,7 +61,7 @@ export function Workspace({ world, document }: Props) {
             <button className="quiet-icon-button" type="button" aria-label="World options" title="Options are not enabled in preview"><Icon name="dots" /></button>
           </div>
           <div className="sidebar-section-heading"><span>Library</span><button className="quiet-icon-button" type="button" disabled aria-label="Create document"><Icon name="plus" size={15} /></button></div>
-          <label className="search-field"><Icon name="search" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a document" aria-label="Find a document" /><kbd>/</kbd></label>
+          <label className="search-field"><Icon name="search" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a document" aria-label="Find a document" /></label>
           <div className="folder-label"><Icon name="chevron-down" size={13} /><span>WORLD RECORDS</span><span className="folder-count">{world.documents.length}</span></div>
           <nav className="document-list" aria-label="World documents">
             {visibleDocuments.map((item) => <Link className={"document-row" + (item.id === document.id ? " selected" : "")} href={href(world, item.id)} key={item.id} aria-current={item.id === document.id ? "page" : undefined}>
