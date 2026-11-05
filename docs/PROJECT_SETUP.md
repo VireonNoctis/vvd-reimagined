@@ -39,6 +39,7 @@ Run the frontend in a second terminal:
 ~~~sh
 nvm use
 npm install
+export VVD_API_URL=http://127.0.0.1:4100
 npm run dev
 ~~~
 
