@@ -2,7 +2,10 @@ use sha2::{Digest, Sha256};
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
 use vvd_api::{
-    models::{CardBlockInput, CardPropertyInput, CardUpdateInput},
+    models::{
+        CardBlockInput, CardPropertyInput, CardUpdateInput, FolderCreateInput,
+        FolderUpdateInput, MoveDocumentInput,
+    },
     store,
 };
 
@@ -143,13 +146,70 @@ async fn migrations_enforce_membership_and_same_world_references() {
         "cross-world references must be rejected by the database"
     );
 
+    let root_folder = store::create_folder(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        FolderCreateInput {
+            name: "Characters".to_owned(),
+            parent_id: None,
+        },
+    )
+    .await
+    .expect("create a root folder");
+    let nested_folder = store::create_folder(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        FolderCreateInput {
+            name: "Leaders".to_owned(),
+            parent_id: Some(root_folder.id),
+        },
+    )
+    .await
+    .expect("create a nested folder");
+    let folders = store::list_folders(&pool, account_id, &format!("first-{unique}"))
+        .await
+        .expect("list nested folders");
+    assert_eq!(folders.len(), 2);
+    assert!(
+        store::update_folder(
+            &pool,
+            account_id,
+            &format!("first-{unique}"),
+            root_folder.id,
+            FolderUpdateInput {
+                name: "Characters".to_owned(),
+                parent_id: Some(nested_folder.id),
+            },
+        )
+        .await
+        .is_err(),
+        "folder moves must reject cycles"
+    );
+
+    let moved = store::move_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        MoveDocumentInput {
+            expected_version: 1,
+            folder_id: Some(nested_folder.id),
+        },
+    )
+    .await
+    .expect("move document into nested folder");
+    assert_eq!(moved.folder_id, Some(nested_folder.id));
+    assert_eq!(moved.version, 2);
+
     let updated = store::update_card(
         &pool,
         account_id,
         &format!("first-{unique}"),
         source_document_id,
         CardUpdateInput {
-            expected_version: 1,
+            expected_version: 2,
             name: "Updated test record".to_owned(),
             aliases: Vec::new(),
             properties: vec![CardPropertyInput::Reference {
@@ -165,7 +225,7 @@ async fn migrations_enforce_membership_and_same_world_references() {
     )
     .await
     .expect("update card and capture its previous version");
-    assert_eq!(updated.version, 2);
+    assert_eq!(updated.version, 3);
 
     let revisions = store::list_document_revisions(
         &pool,
@@ -175,15 +235,15 @@ async fn migrations_enforce_membership_and_same_world_references() {
     )
     .await
     .expect("list document revisions");
-    assert_eq!(revisions.len(), 1);
-    assert_eq!(revisions[0].version, 1);
+    assert_eq!(revisions.len(), 2);
+    assert_eq!(revisions[0].version, 2);
 
     store::archive_document(
         &pool,
         account_id,
         &format!("first-{unique}"),
         source_document_id,
-        2,
+        3,
     )
     .await
     .expect("archive document");
@@ -205,7 +265,7 @@ async fn migrations_enforce_membership_and_same_world_references() {
         account_id,
         &format!("first-{unique}"),
         source_document_id,
-        3,
+        4,
     )
     .await
     .expect("restore archived document");
@@ -216,13 +276,48 @@ async fn migrations_enforce_membership_and_same_world_references() {
         &format!("first-{unique}"),
         source_document_id,
         revisions[0].id,
-        4,
+        5,
     )
     .await
     .expect("restore an earlier revision");
     assert_eq!(restored.name, "Test record");
-    assert_eq!(restored.version, 5);
+    assert_eq!(restored.version, 6);
+    assert_eq!(restored.folder_id, Some(nested_folder.id));
     assert_eq!(restored.blocks.len(), 0);
+
+    let renamed_folder = store::update_folder(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        nested_folder.id,
+        FolderUpdateInput {
+            name: "Main cast".to_owned(),
+            parent_id: Some(root_folder.id),
+        },
+    )
+    .await
+    .expect("rename nested folder");
+    assert_eq!(renamed_folder.name, "Main cast");
+    assert!(
+        store::delete_folder(&pool, account_id, &format!("first-{unique}"), nested_folder.id)
+            .await
+            .is_err(),
+        "a folder containing a record cannot be deleted"
+    );
+    let empty_folder = store::create_folder(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        FolderCreateInput {
+            name: "Empty".to_owned(),
+            parent_id: None,
+        },
+    )
+    .await
+    .expect("create empty folder");
+    store::delete_folder(&pool, account_id, &format!("first-{unique}"), empty_folder.id)
+        .await
+        .expect("delete an empty folder");
 
     let current_session_id = Uuid::new_v4();
     let other_session_id = Uuid::new_v4();

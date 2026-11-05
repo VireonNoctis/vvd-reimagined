@@ -10,14 +10,14 @@ use crate::{
     models::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardUpdateInput, DocumentRevisionSummary,
-        DocumentRow, EntityType, PropertyRow, World, WorldRow,
+        DocumentRow, EntityType, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
+        MoveDocumentInput, PropertyRow, World, WorldRow,
     },
 };
 
 fn date_label(value: DateTime<Utc>) -> String {
     value.date_naive().format("%Y-%m-%d").to_string()
 }
-
 
 fn device_label(user_agent: Option<&str>) -> String {
     let value = user_agent.unwrap_or_default().to_ascii_lowercase();
@@ -212,7 +212,7 @@ pub async fn require_world(
 
 async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocument>, ApiError> {
     let documents = sqlx::query_as::<_, DocumentRow>(
-        "SELECT id, entity_type, name, aliases, updated_at, version
+        "SELECT id, entity_type, name, aliases, updated_at, version, folder_id
          FROM documents
          WHERE world_id = $1 AND archived_at IS NULL
          ORDER BY name ASC, id ASC",
@@ -289,6 +289,7 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
                 aliases: row.aliases,
                 updated_at: date_label(row.updated_at),
                 version: row.version,
+                folder_id: row.folder_id,
                 properties: properties_by_document.remove(&row.id).unwrap_or_default(),
                 blocks: blocks_by_document.remove(&row.id).unwrap_or_default(),
             })
@@ -497,6 +498,266 @@ async fn insert_blocks(
     Ok(())
 }
 
+fn validate_folder_name(name: &str) -> Result<(), ApiError> {
+    let clean = name.trim();
+    if clean.is_empty() || clean.chars().count() > 80 {
+        return Err(ApiError::bad_request("Folder names must contain between 1 and 80 characters."));
+    }
+    Ok(())
+}
+
+async fn ensure_folder_parent(
+    connection: &mut PgConnection,
+    world_id: Uuid,
+    parent_id: Option<Uuid>,
+) -> Result<(), ApiError> {
+    if let Some(parent_id) = parent_id {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (SELECT 1 FROM folders WHERE world_id = $1 AND id = $2)",
+        )
+        .bind(world_id)
+        .bind(parent_id)
+        .fetch_one(&mut *connection)
+        .await?;
+        if !exists {
+            return Err(ApiError::bad_request("The parent folder does not belong to this world."));
+        }
+    }
+    Ok(())
+}
+
+async fn folder_name_exists(
+    connection: &mut PgConnection,
+    world_id: Uuid,
+    parent_id: Option<Uuid>,
+    name: &str,
+    excluding_id: Option<Uuid>,
+) -> Result<bool, ApiError> {
+    Ok(sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM folders
+            WHERE world_id = $1
+              AND parent_id IS NOT DISTINCT FROM $2
+              AND LOWER(name) = LOWER($3)
+              AND ($4::uuid IS NULL OR id <> $4)
+         )",
+    )
+    .bind(world_id)
+    .bind(parent_id)
+    .bind(name.trim())
+    .bind(excluding_id)
+    .fetch_one(&mut *connection)
+    .await?)
+}
+
+pub async fn list_folders(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+) -> Result<Vec<Folder>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let rows = sqlx::query_as::<_, FolderRow>(
+        "SELECT id, name, parent_id, created_at, updated_at
+         FROM folders
+         WHERE world_id = $1
+         ORDER BY parent_id NULLS FIRST, LOWER(name), id",
+    )
+    .bind(world_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| Folder {
+            id: row.id,
+            name: row.name,
+            parent_id: row.parent_id,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
+        .collect())
+}
+
+pub async fn create_folder(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    input: FolderCreateInput,
+) -> Result<Folder, ApiError> {
+    validate_folder_name(&input.name)?;
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    ensure_folder_parent(&mut transaction, world_id, input.parent_id).await?;
+    if folder_name_exists(&mut transaction, world_id, input.parent_id, &input.name, None).await? {
+        return Err(ApiError::conflict("A folder with that name already exists here."));
+    }
+
+    let row = sqlx::query_as::<_, FolderRow>(
+        "INSERT INTO folders (world_id, id, name, parent_id, created_by)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, name, parent_id, created_at, updated_at",
+    )
+    .bind(world_id)
+    .bind(Uuid::new_v4())
+    .bind(input.name.trim())
+    .bind(input.parent_id)
+    .bind(account_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+
+    Ok(Folder {
+        id: row.id,
+        name: row.name,
+        parent_id: row.parent_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    })
+}
+
+pub async fn update_folder(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    folder_id: Uuid,
+    input: FolderUpdateInput,
+) -> Result<Folder, ApiError> {
+    validate_folder_name(&input.name)?;
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (SELECT 1 FROM folders WHERE world_id = $1 AND id = $2)",
+    )
+    .bind(world_id)
+    .bind(folder_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !exists { return Err(ApiError::not_found()); }
+
+    ensure_folder_parent(&mut transaction, world_id, input.parent_id).await?;
+    if let Some(parent_id) = input.parent_id {
+        let would_cycle = sqlx::query_scalar::<_, bool>(
+            "WITH RECURSIVE descendants(id) AS (
+                SELECT id FROM folders WHERE world_id = $1 AND id = $2
+                UNION ALL
+                SELECT child.id FROM folders child
+                INNER JOIN descendants parent ON child.parent_id = parent.id
+                WHERE child.world_id = $1
+             )
+             SELECT EXISTS (SELECT 1 FROM descendants WHERE id = $3)",
+        )
+        .bind(world_id)
+        .bind(folder_id)
+        .bind(parent_id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        if would_cycle {
+            return Err(ApiError::bad_request(
+                "A folder cannot be moved inside itself or one of its descendants.",
+            ));
+        }
+    }
+
+    if folder_name_exists(&mut transaction, world_id, input.parent_id, &input.name, Some(folder_id)).await? {
+        return Err(ApiError::conflict("A folder with that name already exists here."));
+    }
+
+    let row = sqlx::query_as::<_, FolderRow>(
+        "UPDATE folders
+         SET name = $1, parent_id = $2, updated_at = NOW()
+         WHERE world_id = $3 AND id = $4
+         RETURNING id, name, parent_id, created_at, updated_at",
+    )
+    .bind(input.name.trim())
+    .bind(input.parent_id)
+    .bind(world_id)
+    .bind(folder_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+
+    Ok(Folder {
+        id: row.id,
+        name: row.name,
+        parent_id: row.parent_id,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    })
+}
+
+pub async fn delete_folder(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    folder_id: Uuid,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let occupied = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM documents WHERE world_id = $1 AND folder_id = $2
+            UNION ALL
+            SELECT 1 FROM folders WHERE world_id = $1 AND parent_id = $2
+         )",
+    )
+    .bind(world_id)
+    .bind(folder_id)
+    .fetch_one(pool)
+    .await?;
+    if occupied {
+        return Err(ApiError::conflict(
+            "Move its records and child folders before deleting this folder.",
+        ));
+    }
+
+    let result = sqlx::query("DELETE FROM folders WHERE world_id = $1 AND id = $2")
+        .bind(world_id)
+        .bind(folder_id)
+        .execute(pool)
+        .await?;
+    if result.rows_affected() == 0 { return Err(ApiError::not_found()); }
+    Ok(())
+}
+
+pub async fn move_document(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+    input: MoveDocumentInput,
+) -> Result<CardDocument, ApiError> {
+    if input.expected_version < 1 {
+        return Err(ApiError::bad_request("expectedVersion must be a positive integer."));
+    }
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let current_version = lock_active_document(&mut transaction, world_id, document_id).await?;
+    if current_version != input.expected_version {
+        return Err(ApiError::conflict(
+            "This card changed since it was opened. Reload it before moving it.",
+        ));
+    }
+    ensure_folder_parent(&mut transaction, world_id, input.folder_id).await?;
+    save_document_revision(&mut transaction, world_id, document_id, account_id).await?;
+
+    sqlx::query(
+        "UPDATE documents
+         SET folder_id = $1, version = version + 1, updated_at = NOW()
+         WHERE world_id = $2 AND id = $3",
+    )
+    .bind(input.folder_id)
+    .bind(world_id)
+    .bind(document_id)
+    .execute(&mut *transaction)
+    .await?;
+    sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
+        .bind(world_id)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+
+    get_document(pool, account_id, slug, document_id).await
+}
+
 pub async fn list_documents(
     pool: &PgPool,
     account_id: Uuid,
@@ -574,13 +835,14 @@ pub async fn create_card(
     get_document(pool, account_id, slug, id).await
 }
 
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RevisionContent {
     name: String,
     #[serde(default)]
     aliases: Vec<String>,
+    #[serde(default)]
+    folder_id: Option<Uuid>,
     #[serde(default)]
     properties: Vec<CardPropertyInput>,
     #[serde(default)]
@@ -617,6 +879,7 @@ async fn save_document_revision(
             'entityType', d.entity_type,
             'name', d.name,
             'aliases', d.aliases,
+            'folderId', d.folder_id,
             'updatedAt', to_char(d.updated_at, 'YYYY-MM-DD'),
             'version', d.version,
             'properties', COALESCE((
@@ -854,17 +1117,30 @@ pub async fn restore_document_revision(
     .ok_or_else(ApiError::not_found)?;
     let content: RevisionContent =
         serde_json::from_value(snapshot).map_err(|_| ApiError::internal())?;
-    validate_card_content(&content.name, &content.aliases, &content.properties, &content.blocks)?;
+    validate_card_content(
+        &content.name,
+        &content.aliases,
+        &content.properties,
+        &content.blocks,
+    )?;
     ensure_references_exist(&mut transaction, world_id, &content.properties).await?;
+    ensure_folder_parent(&mut transaction, world_id, content.folder_id).await?;
     save_document_revision(&mut transaction, world_id, document_id, account_id).await?;
 
     sqlx::query(
         "UPDATE documents
-         SET name = $1, aliases = $2, version = version + 1, updated_at = NOW()
-         WHERE world_id = $3 AND id = $4",
+         SET folder_id = $1, name = $2, aliases = $3, version = version + 1, updated_at = NOW()
+         WHERE world_id = $4 AND id = $5",
     )
+    .bind(content.folder_id)
     .bind(content.name.trim())
-    .bind(content.aliases.iter().map(|value| value.trim().to_owned()).collect::<Vec<_>>())
+    .bind(
+        content
+            .aliases
+            .iter()
+            .map(|value| value.trim().to_owned())
+            .collect::<Vec<_>>(),
+    )
     .bind(world_id)
     .bind(document_id)
     .execute(&mut *transaction)
@@ -1061,11 +1337,15 @@ mod tests {
     #[test]
     fn session_device_labels_use_browser_and_platform_without_storing_raw_ip() {
         assert_eq!(
-            device_label(Some("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/130.0")),
+            device_label(Some(
+                "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/130.0"
+            )),
             "Chrome on Windows"
         );
         assert_eq!(
-            device_label(Some("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) Version/17 Safari/605.1")),
+            device_label(Some(
+                "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) Version/17 Safari/605.1"
+            )),
             "Safari on iPad"
         );
         assert_eq!(device_label(None), "Unknown browser");

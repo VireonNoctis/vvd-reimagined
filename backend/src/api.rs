@@ -10,13 +10,13 @@ use axum::{
         header::{COOKIE, ORIGIN, SET_COOKIE, USER_AGENT},
     },
     response::{IntoResponse, Response},
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Serialize;
-use std::net::SocketAddr;
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, PgPool};
+use std::net::SocketAddr;
 use uuid::Uuid;
 
 use crate::{
@@ -24,7 +24,8 @@ use crate::{
     error::ApiError,
     models::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
-        DocumentRevisionSummary, DocumentVersionInput, LoginInput, RegisterInput, SessionSummary,
+        DocumentRevisionSummary, DocumentVersionInput, Folder, FolderCreateInput,
+        FolderUpdateInput, LoginInput, MoveDocumentInput, RegisterInput, SessionSummary,
         WorldCreateInput,
     },
     store,
@@ -169,10 +170,7 @@ async fn check_auth_rate_limit(
         .execute(pool)
         .await?;
 
-    for (scope, value, limit) in [
-        ("ip", source_ip, ip_limit),
-        ("email", email, email_limit),
-    ] {
+    for (scope, value, limit) in [("ip", source_ip, ip_limit), ("email", email, email_limit)] {
         let digest = Sha256::digest(format!("{action}:{scope}:{value}").as_bytes()).to_vec();
         let attempts = sqlx::query_scalar::<_, i32>(
             "INSERT INTO auth_rate_limits
@@ -253,6 +251,15 @@ pub fn router(state: AppState) -> Router {
             "/v1/worlds/{slug}/documents/{document_id}",
             get(get_document).patch(update_card),
         )
+        .route("/v1/worlds/{slug}/folders", get(list_folders).post(create_folder))
+        .route(
+            "/v1/worlds/{slug}/folders/{folder_id}",
+            patch(update_folder).delete(delete_folder),
+        )
+        .route(
+            "/v1/worlds/{slug}/documents/{document_id}/move",
+            post(move_document),
+        )
         .route("/v1/worlds/{slug}/archive", get(list_archived_documents))
         .route(
             "/v1/worlds/{slug}/documents/{document_id}/archive",
@@ -286,7 +293,15 @@ async fn register(
 ) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
     let email = email_value(&input.email)?;
-    check_auth_rate_limit(&state.db, "register", &email, &source_ip(connect_info), 20, 4).await?;
+    check_auth_rate_limit(
+        &state.db,
+        "register",
+        &email,
+        &source_ip(connect_info),
+        20,
+        4,
+    )
+    .await?;
     let display_name = input.display_name.trim();
     if display_name.is_empty() || display_name.chars().count() > 60 {
         return Err(ApiError::bad_request(
@@ -444,6 +459,63 @@ async fn get_world(
     Ok(Json(store::get_world(&state.db, account.id, &slug).await?))
 }
 
+async fn list_folders(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+) -> Result<Json<Vec<Folder>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(store::list_folders(&state.db, account.id, &slug).await?))
+}
+
+async fn create_folder(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+    Json(input): Json<FolderCreateInput>,
+) -> Result<impl IntoResponse, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let folder = store::create_folder(&state.db, account.id, &slug, input).await?;
+    Ok((StatusCode::CREATED, Json(folder)))
+}
+
+async fn update_folder(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, folder_id)): Path<(String, Uuid)>,
+    Json(input): Json<FolderUpdateInput>,
+) -> Result<Json<Folder>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::update_folder(&state.db, account.id, &slug, folder_id, input).await?,
+    ))
+}
+
+async fn delete_folder(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, folder_id)): Path<(String, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    store::delete_folder(&state.db, account.id, &slug, folder_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn move_document(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, document_id)): Path<(String, Uuid)>,
+    Json(input): Json<MoveDocumentInput>,
+) -> Result<Json<crate::models::CardDocument>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::move_document(&state.db, account.id, &slug, document_id, input).await?,
+    ))
+}
 
 async fn list_archived_documents(
     State(state): State<AppState>,

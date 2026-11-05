@@ -17,7 +17,8 @@ The current application includes:
 - A connected card editor for name, aliases and the first text block; remaining blocks and typed properties are preserved and card updates use the server version.
 - A read-only World Graph rendered with WebGL 2 from valid typed card references. Nodes can be selected, dragged and panned; the DOM inspector and record list provide accessible navigation and links back to canonical records.
 - A Rust/Axum API with PostgreSQL migrations for accounts, Argon2id password hashes, hashed opaque sessions, database-backed authentication throttles and best-effort browser/platform session labels, worlds, world memberships, canonical card documents, properties and ordered text blocks.
-- Membership-checked world and card reads, world/card creation, and atomic version-checked card updates. Composite foreign keys keep card references inside their world.
+- Membership-checked world and card reads, world/card creation, atomic version-checked card updates, nested world folders and conflict-checked card moves. Composite foreign keys keep card references inside their world.
+- Document snapshots on edits and moves, revision listing/restoration, plus reversible archive operations that retain canonical IDs and inbound database references.
 - Per-document snapshots on mutation, revision listing and conflict-checked restore; archive and restore keep canonical records and inbound references intact.
 
 The graph is a derived view, not an editor or a second source of truth. Its temporary node positions are not saved; mention-derived edges, filters and era-aware projections remain future work.
@@ -30,9 +31,9 @@ When VVD_API_URL is set, the app uses the Rust API for account sessions, world m
 | --- | --- | --- |
 | Accounts and sessions | Rust API registration/login/logout/current-account endpoints, active-session listing and account-scoped remote revocation; Argon2id hashes, hashed opaque session tokens, PostgreSQL-backed IP/email throttles and best-effort browser/platform labels | Email verification and recovery still need a configured delivery provider; forwarded-IP trust and production deployment topology need review |
 | World membership | PostgreSQL roles: owner, admin, editor and viewer; server checks on each world/document operation | Studio roles and invitations are not implemented |
-| Canonical documents | PostgreSQL card identities with aliases, scalar/reference properties and ordered text blocks | Cards are the only registered type in this slice |
+| Canonical documents | PostgreSQL card identities with aliases, scalar/reference properties, ordered text blocks and optional nested-folder membership | Cards are the only registered type in this slice |
 | Reference integrity | Composite foreign keys prevent cross-world references | Era-aware references remain future work |
-| Card mutations | Transactional create/update, automatic snapshots, revision listing and conflict-checked revision restore; archive/restore with version checks | Permanent deletion, retention policy and folder organisation remain open |
+| Card mutations | Transactional create/update, automatic snapshots, revision listing and conflict-checked revision restore; archive/restore and folder moves use version checks | Permanent deletion and revision retention policy remain open |
 | Media | No upload adapter yet | S3-compatible storage deferred until media work |
 
 ## Workspace and navigation

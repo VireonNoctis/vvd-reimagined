@@ -32,8 +32,19 @@ pub struct CardDocument {
     pub aliases: Vec<String>,
     pub updated_at: String,
     pub version: i64,
+    pub folder_id: Option<Uuid>,
     pub properties: Vec<CardProperty>,
     pub blocks: Vec<CardBlock>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Folder {
+    pub id: Uuid,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, Eq, PartialEq)]
@@ -148,6 +159,30 @@ pub struct CardCreateInput {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FolderCreateInput {
+    pub name: String,
+    #[serde(default)]
+    pub parent_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderUpdateInput {
+    pub name: String,
+    #[serde(default)]
+    pub parent_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveDocumentInput {
+    pub expected_version: i64,
+    #[serde(default)]
+    pub folder_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CardUpdateInput {
     pub expected_version: i64,
     pub name: String,
@@ -177,6 +212,16 @@ pub(crate) struct DocumentRow {
     pub aliases: Vec<String>,
     pub updated_at: DateTime<Utc>,
     pub version: i64,
+    pub folder_id: Option<Uuid>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct FolderRow {
+    pub id: Uuid,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -205,7 +250,6 @@ pub struct SessionSummary {
     pub device_label: String,
     pub current: bool,
 }
-
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

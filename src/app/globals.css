@@ -321,3 +321,32 @@ a.rail-link:hover, .rail-link.active { background: rgba(255,255,255,.11); color:
   .archive-row .session-revoke { margin-left: 42px; }
   .revision-popover { right: 12px; width: min(360px,calc(100vw - 86px)); }
 }
+
+
+.document-toolbar { position: relative; }
+.folder-navigation { display: grid; gap: 5px; padding: 11px 9px 13px; border-bottom: 1px solid #eeece6; }
+.folder-navigation-heading { display: flex; align-items: center; justify-content: space-between; padding: 0 3px 4px; color: #a1a397; font-size: 8px; font-weight: 800; letter-spacing: .14em; }
+.folder-navigation-heading button, .folder-tree-action { display: grid; width: 23px; height: 23px; place-items: center; border: 0; border-radius: 5px; background: transparent; color: #999d92; cursor: pointer; }
+.folder-navigation-heading button:hover, .folder-tree-action:hover { background: #ecece5; color: #535d4c; }
+.folder-tree { display: grid; gap: 2px; }
+.folder-tree-item { display: grid; gap: 2px; }
+.folder-tree-row { display: flex; align-items: center; gap: 2px; }
+.folder-tree-select { display: flex; min-width: 0; flex: 1; align-items: center; gap: 8px; min-height: 28px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: #767c70; text-align: left; font-size: 10px; cursor: pointer; }
+.folder-tree-select span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-tree-select:hover, .folder-tree-select.selected { background: #eeeee8; color: #46513f; }
+.folder-tree-select.selected { font-weight: 700; }
+.folder-tree-select small { margin-left: auto; color: #a0a397; }
+.folder-all { width: 100%; }
+.folder-tree-action { flex: 0 0 23px; opacity: .5; }
+.folder-tree-row:hover .folder-tree-action { opacity: 1; }
+.folder-hint { margin: 2px 6px 7px; color: #a0a397; font-size: 9px; line-height: 1.6; }
+.folder-create-form, .folder-inline-form, .folder-move-form { display: grid; gap: 7px; padding: 9px; border: 1px solid #e8e8df; border-radius: 7px; background: #fbfaf6; }
+.folder-create-form input, .folder-create-form select, .folder-inline-form input, .folder-inline-form select, .folder-move-form select { width: 100%; min-width: 0; height: 29px; padding: 0 8px; border: 1px solid #e7e6de; border-radius: 5px; background: white; color: #555c50; font-size: 10px; }
+.folder-create-form > div, .folder-inline-form > div { display: flex; justify-content: flex-end; gap: 6px; }
+.folder-create-form button, .folder-inline-form button, .folder-move-form button { min-height: 26px; padding: 0 9px; border: 1px solid #e5e4dc; border-radius: 5px; background: white; color: #68705f; font-size: 9px; cursor: pointer; }
+.folder-create-form button[type="submit"], .folder-inline-form button[type="submit"], .folder-move-form button { border-color: #53614c; background: #53614c; color: white; }
+.folder-move-form { margin-top: 5px; border-color: transparent; background: #f2f1eb; }
+.folder-move-form label { color: #858b7e; font-size: 9px; font-weight: 700; }
+.folder-move-form button:disabled { cursor: default; opacity: .45; }
+.folder-error { margin: 3px 5px; color: #a15d50; font-size: 9px; line-height: 1.5; }
+.folder-inline-form { margin: 2px 4px 7px 20px; }

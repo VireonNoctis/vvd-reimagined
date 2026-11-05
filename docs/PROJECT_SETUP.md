@@ -73,10 +73,12 @@ The Rust integration test applies the migrations and checks membership enforceme
 - `GET/PATCH /v1/worlds/{slug}/documents/{id}`: read or version-check and update a card.
 - `GET /v1/worlds/{slug}/documents/{id}/revisions` and `POST /v1/worlds/{slug}/documents/{id}/revisions/{revisionId}/restore`: inspect prior snapshots and restore one with an expected-version check.
 - `POST /v1/worlds/{slug}/documents/{id}/archive`, `GET /v1/worlds/{slug}/archive` and `POST /v1/worlds/{slug}/documents/{id}/restore`: archive cards and restore them later. Archive is reversible; there is no permanent-delete endpoint in this slice.
+- `GET/POST /v1/worlds/{slug}/folders`, `PATCH/DELETE /v1/worlds/{slug}/folders/{id}`: list, create, rename, nest, reparent and delete empty folders.
+- `POST /v1/worlds/{slug}/documents/{id}/move`: move a card between folders or back to the world root with an expected-version check.
 - `GET /health`: checks API/database connectivity.
 
 Authentication uses an HttpOnly, SameSite=Strict cookie. Production must set APP_ORIGIN and use HTTPS so the cookie is Secure. Never put the session token in a URL or log it.
 
 ## Outstanding before public deployment
 
-Email verification and recovery still need a real mail-delivery provider and verified sender configuration. Request rate limits and best-effort session device labels are implemented. Production secret management, audit events, backup/restore drills and a security review remain open. Active-session listing and remote session revocation are implemented. S3 and collaboration infrastructure are also not part of this slice.
+Nested world folders, card moves, revision history, reversible archive, request rate limits and best-effort session device labels are implemented. Email verification and recovery still need a real mail-delivery provider and verified sender configuration. Production secret management, audit events, backup/restore drills and a security review remain open. S3 and collaboration infrastructure are also not part of this slice.

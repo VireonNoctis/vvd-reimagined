@@ -12,6 +12,7 @@ export type CardDocument = {
   aliases: string[];
   updatedAt: string;
   version: number;
+  folderId?: string | null;
   properties: CardProperty[];
   blocks: { id: string; type: "text"; text: string }[];
 };

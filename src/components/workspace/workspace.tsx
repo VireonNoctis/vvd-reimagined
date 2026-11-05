@@ -7,6 +7,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CardEditForm } from "@/components/workspace/card-edit-form";
 import { CardCreateForm } from "@/components/workspace/card-create-form";
 import { DocumentLifecycleActions } from "@/components/workspace/document-lifecycle-actions";
+import { FolderSidebar } from "@/components/workspace/folder-sidebar";
 import { WorldGraph } from "@/components/visual/world-graph";
 import { resolveCardReference, type CardDocument, type World } from "@/domain/world";
 
@@ -28,12 +29,17 @@ export function Workspace({ world, document, interactive }: Props) {
   const [graphSelectedId, setGraphSelectedId] = useState(document?.id ?? "");
   const [creatingCard, setCreatingCard] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const visibleDocuments = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase();
-    if (!needle) return world.documents;
-    return world.documents.filter((item) => [item.name, ...item.aliases, item.entityType].join(" ").toLocaleLowerCase().includes(needle));
-  }, [search, world.documents]);
+    return world.documents.filter((item) => {
+      const matchesFolder = !selectedFolderId || item.folderId === selectedFolderId;
+      const matchesSearch = !needle || [item.name, ...item.aliases, item.entityType]
+        .join(" ").toLocaleLowerCase().includes(needle);
+      return matchesFolder && matchesSearch;
+    });
+  }, [search, selectedFolderId, world.documents]);
 
   const updated = document
     ? new Date(document.updatedAt + "T12:00:00").toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric" })
@@ -78,6 +84,7 @@ export function Workspace({ world, document, interactive }: Props) {
           </div>
           <div className="sidebar-section-heading"><span>Library</span><button className="quiet-icon-button" type="button" disabled={!interactive} onClick={() => { setEditing(false); setCreatingCard(true); }} aria-label="Create card" title={interactive ? "Create a world record" : "Connect the API to create records"}><Icon name="plus" size={15} /></button></div>
           <label className="search-field"><Icon name="search" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a document" aria-label="Find a document" /></label>
+          {interactive && <FolderSidebar worldSlug={world.slug} document={document} selectedFolderId={selectedFolderId} onSelectFolder={setSelectedFolderId} />}
           <div className="folder-label"><Icon name="chevron-down" size={13} /><span>WORLD RECORDS</span><span className="folder-count">{world.documents.length}</span></div>
           <nav className="document-list" aria-label="World documents">
             {visibleDocuments.map((item) => <Link className={"document-row" + (item.id === (document?.id ?? "") ? " selected" : "")} href={href(world, item.id)} key={item.id} aria-current={item.id === (document?.id ?? "") ? "page" : undefined}>
