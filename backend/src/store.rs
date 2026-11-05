@@ -1,20 +1,23 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
+use serde::Deserialize;
 use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{
     error::ApiError,
     models::{
-        BlockRow, CardBlock, CardBlockInput, CardCreateInput, CardDocument, CardProperty,
-        CardPropertyInput, CardUpdateInput, DocumentRow, EntityType, PropertyRow, World, WorldRow,
+        ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
+        CardDocument, CardProperty, CardPropertyInput, CardUpdateInput, DocumentRevisionSummary,
+        DocumentRow, EntityType, PropertyRow, World, WorldRow,
     },
 };
 
 fn date_label(value: DateTime<Utc>) -> String {
     value.date_naive().format("%Y-%m-%d").to_string()
 }
+
 
 fn device_label(user_agent: Option<&str>) -> String {
     let value = user_agent.unwrap_or_default().to_ascii_lowercase();
@@ -211,7 +214,7 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
     let documents = sqlx::query_as::<_, DocumentRow>(
         "SELECT id, entity_type, name, aliases, updated_at, version
          FROM documents
-         WHERE world_id = $1
+         WHERE world_id = $1 AND archived_at IS NULL
          ORDER BY name ASC, id ASC",
     )
     .bind(world_id)
@@ -571,6 +574,322 @@ pub async fn create_card(
     get_document(pool, account_id, slug, id).await
 }
 
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RevisionContent {
+    name: String,
+    #[serde(default)]
+    aliases: Vec<String>,
+    #[serde(default)]
+    properties: Vec<CardPropertyInput>,
+    #[serde(default)]
+    blocks: Vec<CardBlockInput>,
+}
+
+async fn lock_active_document(
+    connection: &mut PgConnection,
+    world_id: Uuid,
+    document_id: Uuid,
+) -> Result<i64, ApiError> {
+    sqlx::query_scalar::<_, i64>(
+        "SELECT version FROM documents
+         WHERE world_id = $1 AND id = $2 AND archived_at IS NULL
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_optional(&mut *connection)
+    .await?
+    .ok_or_else(ApiError::not_found)
+}
+
+async fn save_document_revision(
+    connection: &mut PgConnection,
+    world_id: Uuid,
+    document_id: Uuid,
+    account_id: Uuid,
+) -> Result<Uuid, ApiError> {
+    let snapshot = sqlx::query_scalar::<_, serde_json::Value>(
+        r#"SELECT jsonb_build_object(
+            'id', d.id,
+            'kind', 'card',
+            'entityType', d.entity_type,
+            'name', d.name,
+            'aliases', d.aliases,
+            'updatedAt', to_char(d.updated_at, 'YYYY-MM-DD'),
+            'version', d.version,
+            'properties', COALESCE((
+                SELECT jsonb_agg(
+                    CASE WHEN p.kind = 'text' THEN
+                        jsonb_build_object('kind', 'text', 'id', p.id, 'label', p.label, 'value', p.text_value)
+                    ELSE
+                        jsonb_build_object('kind', 'reference', 'id', p.id, 'label', p.label, 'documentId', p.reference_document_id)
+                    END ORDER BY p.id
+                )
+                FROM card_properties p
+                WHERE p.world_id = d.world_id AND p.document_id = d.id
+            ), '[]'::jsonb),
+            'blocks', COALESCE((
+                SELECT jsonb_agg(
+                    jsonb_build_object('id', b.id, 'type', 'text', 'text', b.text)
+                    ORDER BY b.position
+                )
+                FROM card_blocks b
+                WHERE b.world_id = d.world_id AND b.document_id = d.id
+            ), '[]'::jsonb)
+        )
+        FROM documents d
+        WHERE d.world_id = $1 AND d.id = $2"#,
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_optional(&mut *connection)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    let version = snapshot
+        .get("version")
+        .and_then(serde_json::Value::as_i64)
+        .ok_or_else(ApiError::internal)?;
+    let revision_id = Uuid::new_v4();
+
+    sqlx::query(
+        "INSERT INTO document_revisions
+         (id, world_id, document_id, version, snapshot, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(revision_id)
+    .bind(world_id)
+    .bind(document_id)
+    .bind(version)
+    .bind(snapshot)
+    .bind(account_id)
+    .execute(&mut *connection)
+    .await?;
+
+    Ok(revision_id)
+}
+
+pub async fn list_document_revisions(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+) -> Result<Vec<DocumentRevisionSummary>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM documents
+            WHERE world_id = $1 AND id = $2 AND archived_at IS NULL
+         )",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_one(pool)
+    .await?;
+    if !exists {
+        return Err(ApiError::not_found());
+    }
+
+    let rows = sqlx::query_as::<_, (Uuid, i64, DateTime<Utc>)>(
+        "SELECT id, version, created_at
+         FROM document_revisions
+         WHERE world_id = $1 AND document_id = $2
+         ORDER BY version DESC, created_at DESC",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| DocumentRevisionSummary {
+            id: row.0,
+            version: row.1,
+            created_at: row.2,
+        })
+        .collect())
+}
+
+pub async fn archive_document(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+    expected_version: i64,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let version = lock_active_document(&mut transaction, world_id, document_id).await?;
+    if version != expected_version {
+        return Err(ApiError::conflict(
+            "This card changed since it was opened. Reload it before archiving.",
+        ));
+    }
+
+    save_document_revision(&mut transaction, world_id, document_id, account_id).await?;
+    sqlx::query(
+        "UPDATE documents
+         SET archived_at = NOW(), archived_by = $1, version = version + 1, updated_at = NOW()
+         WHERE world_id = $2 AND id = $3",
+    )
+    .bind(account_id)
+    .bind(world_id)
+    .bind(document_id)
+    .execute(&mut *transaction)
+    .await?;
+    sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
+        .bind(world_id)
+        .execute(&mut *transaction)
+        .await?;
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn list_archived_documents(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+) -> Result<Vec<ArchivedDocumentSummary>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let rows = sqlx::query_as::<_, (Uuid, String, String, i64, DateTime<Utc>)>(
+        "SELECT id, name, entity_type, version, archived_at
+         FROM documents
+         WHERE world_id = $1 AND archived_at IS NOT NULL
+         ORDER BY archived_at DESC, name ASC",
+    )
+    .bind(world_id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter()
+        .map(|row| {
+            Ok(ArchivedDocumentSummary {
+                id: row.0,
+                name: row.1,
+                entity_type: entity_type(&row.2)?,
+                version: row.3,
+                archived_at: row.4,
+            })
+        })
+        .collect()
+}
+
+pub async fn restore_archived_document(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+    expected_version: i64,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let row = sqlx::query_as::<_, (i64, Option<DateTime<Utc>>)>(
+        "SELECT version, archived_at FROM documents
+         WHERE world_id = $1 AND id = $2
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    if row.0 != expected_version {
+        return Err(ApiError::conflict(
+            "This archived card changed. Reload the archive before restoring it.",
+        ));
+    }
+    if row.1.is_none() {
+        return Err(ApiError::conflict("This card is already active."));
+    }
+
+    sqlx::query(
+        "UPDATE documents
+         SET archived_at = NULL, archived_by = NULL, version = version + 1, updated_at = NOW()
+         WHERE world_id = $1 AND id = $2",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .execute(&mut *transaction)
+    .await?;
+    sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
+        .bind(world_id)
+        .execute(&mut *transaction)
+        .await?;
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+pub async fn restore_document_revision(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+    revision_id: Uuid,
+    expected_version: i64,
+) -> Result<CardDocument, ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let version = lock_active_document(&mut transaction, world_id, document_id).await?;
+    if version != expected_version {
+        return Err(ApiError::conflict(
+            "This card changed since you opened it. Reload it before restoring a revision.",
+        ));
+    }
+
+    let snapshot = sqlx::query_scalar::<_, serde_json::Value>(
+        "SELECT snapshot FROM document_revisions
+         WHERE id = $1 AND world_id = $2 AND document_id = $3",
+    )
+    .bind(revision_id)
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+    let content: RevisionContent =
+        serde_json::from_value(snapshot).map_err(|_| ApiError::internal())?;
+    validate_card_content(&content.name, &content.aliases, &content.properties, &content.blocks)?;
+    ensure_references_exist(&mut transaction, world_id, &content.properties).await?;
+    save_document_revision(&mut transaction, world_id, document_id, account_id).await?;
+
+    sqlx::query(
+        "UPDATE documents
+         SET name = $1, aliases = $2, version = version + 1, updated_at = NOW()
+         WHERE world_id = $3 AND id = $4",
+    )
+    .bind(content.name.trim())
+    .bind(content.aliases.iter().map(|value| value.trim().to_owned()).collect::<Vec<_>>())
+    .bind(world_id)
+    .bind(document_id)
+    .execute(&mut *transaction)
+    .await?;
+    sqlx::query("DELETE FROM card_properties WHERE world_id = $1 AND document_id = $2")
+        .bind(world_id)
+        .bind(document_id)
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query("DELETE FROM card_blocks WHERE world_id = $1 AND document_id = $2")
+        .bind(world_id)
+        .bind(document_id)
+        .execute(&mut *transaction)
+        .await?;
+    insert_properties(&mut transaction, world_id, document_id, &content.properties).await?;
+    insert_blocks(&mut transaction, world_id, document_id, &content.blocks).await?;
+    sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
+        .bind(world_id)
+        .execute(&mut *transaction)
+        .await?;
+
+    transaction.commit().await?;
+    get_document(pool, account_id, slug, document_id).await
+}
+
 pub async fn update_card(
     pool: &PgPool,
     account_id: Uuid,
@@ -597,6 +916,13 @@ pub async fn update_card(
         .map(|value| value.trim().to_owned())
         .collect::<Vec<_>>();
     let mut transaction: Transaction<'_, Postgres> = pool.begin().await?;
+    let current_version = lock_active_document(&mut transaction, world_id, document_id).await?;
+    if current_version != input.expected_version {
+        return Err(ApiError::conflict(
+            "This card changed since it was opened. Reload it before saving again.",
+        ));
+    }
+    save_document_revision(&mut transaction, world_id, document_id, account_id).await?;
 
     let result = sqlx::query(
         "UPDATE documents
@@ -735,15 +1061,11 @@ mod tests {
     #[test]
     fn session_device_labels_use_browser_and_platform_without_storing_raw_ip() {
         assert_eq!(
-            device_label(Some(
-                "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/130.0"
-            )),
+            device_label(Some("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/130.0")),
             "Chrome on Windows"
         );
         assert_eq!(
-            device_label(Some(
-                "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) Version/17 Safari/605.1"
-            )),
+            device_label(Some("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) Version/17 Safari/605.1")),
             "Safari on iPad"
         );
         assert_eq!(device_label(None), "Unknown browser");

@@ -205,3 +205,28 @@ pub struct SessionSummary {
     pub device_label: String,
     pub current: bool,
 }
+
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentRevisionSummary {
+    pub id: Uuid,
+    pub version: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchivedDocumentSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub entity_type: EntityType,
+    pub version: i64,
+    pub archived_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentVersionInput {
+    pub expected_version: i64,
+}

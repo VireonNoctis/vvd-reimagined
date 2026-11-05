@@ -71,6 +71,8 @@ The Rust integration test applies the migrations and checks membership enforceme
 - `GET /v1/worlds/{slug}`: read a world and its canonical card records.
 - `GET/POST /v1/worlds/{slug}/documents`: list or create cards.
 - `GET/PATCH /v1/worlds/{slug}/documents/{id}`: read or version-check and update a card.
+- `GET /v1/worlds/{slug}/documents/{id}/revisions` and `POST /v1/worlds/{slug}/documents/{id}/revisions/{revisionId}/restore`: inspect prior snapshots and restore one with an expected-version check.
+- `POST /v1/worlds/{slug}/documents/{id}/archive`, `GET /v1/worlds/{slug}/archive` and `POST /v1/worlds/{slug}/documents/{id}/restore`: archive cards and restore them later. Archive is reversible; there is no permanent-delete endpoint in this slice.
 - `GET /health`: checks API/database connectivity.
 
 Authentication uses an HttpOnly, SameSite=Strict cookie. Production must set APP_ORIGIN and use HTTPS so the cookie is Secure. Never put the session token in a URL or log it.

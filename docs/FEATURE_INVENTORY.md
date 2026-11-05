@@ -18,6 +18,7 @@ The current application includes:
 - A read-only World Graph rendered with WebGL 2 from valid typed card references. Nodes can be selected, dragged and panned; the DOM inspector and record list provide accessible navigation and links back to canonical records.
 - A Rust/Axum API with PostgreSQL migrations for accounts, Argon2id password hashes, hashed opaque sessions, database-backed authentication throttles and best-effort browser/platform session labels, worlds, world memberships, canonical card documents, properties and ordered text blocks.
 - Membership-checked world and card reads, world/card creation, and atomic version-checked card updates. Composite foreign keys keep card references inside their world.
+- Per-document snapshots on mutation, revision listing and conflict-checked restore; archive and restore keep canonical records and inbound references intact.
 
 The graph is a derived view, not an editor or a second source of truth. Its temporary node positions are not saved; mention-derived edges, filters and era-aware projections remain future work.
 
@@ -31,7 +32,7 @@ When VVD_API_URL is set, the app uses the Rust API for account sessions, world m
 | World membership | PostgreSQL roles: owner, admin, editor and viewer; server checks on each world/document operation | Studio roles and invitations are not implemented |
 | Canonical documents | PostgreSQL card identities with aliases, scalar/reference properties and ordered text blocks | Cards are the only registered type in this slice |
 | Reference integrity | Composite foreign keys prevent cross-world references | Era-aware references remain future work |
-| Card mutations | Transactional create/update and expected-version checks; connected card editor uses expectedVersion | Revision history, archive and restore are outstanding |
+| Card mutations | Transactional create/update, automatic snapshots, revision listing and conflict-checked revision restore; archive/restore with version checks | Permanent deletion, retention policy and folder organisation remain open |
 | Media | No upload adapter yet | S3-compatible storage deferred until media work |
 
 ## Workspace and navigation

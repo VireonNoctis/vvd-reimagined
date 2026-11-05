@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CardEditForm } from "@/components/workspace/card-edit-form";
 import { CardCreateForm } from "@/components/workspace/card-create-form";
+import { DocumentLifecycleActions } from "@/components/workspace/document-lifecycle-actions";
 import { WorldGraph } from "@/components/visual/world-graph";
 import { resolveCardReference, type CardDocument, type World } from "@/domain/world";
 
@@ -86,6 +87,7 @@ export function Workspace({ world, document, interactive }: Props) {
             </Link>)}
             {visibleDocuments.length === 0 && <p className="empty-search">No records match “{search}”.</p>}
           </nav>
+          {interactive && <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/archive"}><Icon name="archive" size={14} />Archived records</Link>}
           <div className="sidebar-footnote"><span className="status-dot" />{interactive ? "Connected · server-backed" : "Sample world · Read only"}</div>
         </aside>}
 
@@ -93,7 +95,11 @@ export function Workspace({ world, document, interactive }: Props) {
           {showGraph ? <WorldGraph key={world.id} world={world} selectedDocumentId={graphSelectedId} onSelectDocument={setGraphSelectedId} /> : creatingCard || !document ? <CardCreateForm world={world} onCancel={document ? () => setCreatingCard(false) : undefined} /> : editing ? <CardEditForm world={world} document={document} onCancel={() => setEditing(false)} /> : <>
           <div className="document-toolbar">
             <div className="document-toolbar-left"><span className="toolbar-kind">CARD</span><span className="toolbar-separator">/</span><span className="toolbar-muted">{document.entityType}</span><span className="toolbar-separator">·</span><span className="toolbar-muted">Updated {updated}</span></div>
-            <div className="document-toolbar-right"><button className="toolbar-button" type="button" disabled={!interactive} onClick={() => setEditing(true)} title={interactive ? "Edit this card" : "Editing is unavailable in the read-only preview"}>Edit</button><button className="icon-button" type="button" disabled aria-label="More document actions"><Icon name="dots" /></button></div>
+            <div className="document-toolbar-right">
+              <button className="toolbar-button" type="button" disabled={!interactive} onClick={() => setEditing(true)} title={interactive ? "Edit this card" : "Editing is unavailable in the read-only preview"}>Edit</button>
+              {interactive && <DocumentLifecycleActions worldSlug={world.slug} documentId={document.id} expectedVersion={document.version} />}
+              <button className="icon-button" type="button" disabled aria-label="More document actions"><Icon name="dots" /></button>
+            </div>
           </div>
           <article className="card-document">
             <div className="card-heading">

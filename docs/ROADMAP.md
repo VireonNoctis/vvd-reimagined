@@ -39,7 +39,7 @@ Without VVD_API_URL the app remains a read-only preview. With it configured, acc
 - [x] Connect the Next.js world library and card editor to API-backed reads and version-checked writes.
 - [ ] Implement nested folders and registered document types beyond cards.
 - [ ] Define card type templates and per-type property definitions.
-- [ ] Add revision history, archive and restore.
+- [x] Add revision history, archive and restore.
 - Implement era inheritance/resolution.
 - Add aliases, references and search.
 
@@ -105,4 +105,4 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - Optional lazy Three.js Model Viewer.
 - Reduced-motion, keyboard and visual regression coverage.
 
-Authentication now has PostgreSQL-backed 15-minute throttles keyed by hashed direct-peer IP and normalized email, and session rows retain a bounded user-agent string for a best-effort device label. Email verification and account recovery remain blocked on choosing and configuring a mail-delivery provider; the API does not claim to send mail. Next: revision history, archive/restore and document folders, followed by private media storage. The connected sign-in/world/card path and the first WebGL graph are already implemented; do not mark the reconstruction production-ready while the hardening and recovery paths remain open.
+Authentication has PostgreSQL-backed 15-minute throttles and best-effort session device labels. Cards now keep immutable JSONB snapshots on edits and archive transitions; members can inspect prior versions, restore a revision with optimistic concurrency, and archive/restore records without deleting their references. Email verification and account recovery still need a configured mail-delivery provider; folders, private media storage and collaboration remain next. The connected sign-in/world/card path and the first WebGL graph are already implemented; do not mark the reconstruction production-ready while the hardening and recovery paths remain open.

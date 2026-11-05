@@ -1,7 +1,10 @@
 use sha2::{Digest, Sha256};
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
-use vvd_api::store;
+use vvd_api::{
+    models::{CardBlockInput, CardPropertyInput, CardUpdateInput},
+    store,
+};
 
 #[tokio::test]
 async fn migrations_enforce_membership_and_same_world_references() {
@@ -139,6 +142,87 @@ async fn migrations_enforce_membership_and_same_world_references() {
         cross_world_reference.is_err(),
         "cross-world references must be rejected by the database"
     );
+
+    let updated = store::update_card(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        CardUpdateInput {
+            expected_version: 1,
+            name: "Updated test record".to_owned(),
+            aliases: Vec::new(),
+            properties: vec![CardPropertyInput::Reference {
+                id: "local-link".to_owned(),
+                label: "Local link".to_owned(),
+                document_id: local_target_id,
+            }],
+            blocks: vec![CardBlockInput {
+                id: "body".to_owned(),
+                text: "A recoverable body".to_owned(),
+            }],
+        },
+    )
+    .await
+    .expect("update card and capture its previous version");
+    assert_eq!(updated.version, 2);
+
+    let revisions = store::list_document_revisions(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+    )
+    .await
+    .expect("list document revisions");
+    assert_eq!(revisions.len(), 1);
+    assert_eq!(revisions[0].version, 1);
+
+    store::archive_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        2,
+    )
+    .await
+    .expect("archive document");
+    assert!(
+        store::list_documents(&pool, account_id, &format!("first-{unique}"))
+            .await
+            .expect("list active documents")
+            .iter()
+            .all(|document| document.id != source_document_id)
+    );
+    let archive = store::list_archived_documents(&pool, account_id, &format!("first-{unique}"))
+        .await
+        .expect("list archive");
+    assert_eq!(archive.len(), 1);
+    assert_eq!(archive[0].id, source_document_id);
+
+    store::restore_archived_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        3,
+    )
+    .await
+    .expect("restore archived document");
+
+    let restored = store::restore_document_revision(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        revisions[0].id,
+        4,
+    )
+    .await
+    .expect("restore an earlier revision");
+    assert_eq!(restored.name, "Test record");
+    assert_eq!(restored.version, 5);
+    assert_eq!(restored.blocks.len(), 0);
 
     let current_session_id = Uuid::new_v4();
     let other_session_id = Uuid::new_v4();

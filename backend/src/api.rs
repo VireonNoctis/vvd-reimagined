@@ -14,16 +14,17 @@ use axum::{
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Serialize;
+use std::net::SocketAddr;
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, PgPool};
-use std::net::SocketAddr;
 use uuid::Uuid;
 
 use crate::{
     AppState,
     error::ApiError,
     models::{
-        Account, CardCreateInput, CardUpdateInput, LoginInput, RegisterInput, SessionSummary,
+        Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
+        DocumentRevisionSummary, DocumentVersionInput, LoginInput, RegisterInput, SessionSummary,
         WorldCreateInput,
     },
     store,
@@ -168,7 +169,10 @@ async fn check_auth_rate_limit(
         .execute(pool)
         .await?;
 
-    for (scope, value, limit) in [("ip", source_ip, ip_limit), ("email", email, email_limit)] {
+    for (scope, value, limit) in [
+        ("ip", source_ip, ip_limit),
+        ("email", email, email_limit),
+    ] {
         let digest = Sha256::digest(format!("{action}:{scope}:{value}").as_bytes()).to_vec();
         let attempts = sqlx::query_scalar::<_, i32>(
             "INSERT INTO auth_rate_limits
@@ -249,6 +253,23 @@ pub fn router(state: AppState) -> Router {
             "/v1/worlds/{slug}/documents/{document_id}",
             get(get_document).patch(update_card),
         )
+        .route("/v1/worlds/{slug}/archive", get(list_archived_documents))
+        .route(
+            "/v1/worlds/{slug}/documents/{document_id}/archive",
+            post(archive_document),
+        )
+        .route(
+            "/v1/worlds/{slug}/documents/{document_id}/restore",
+            post(restore_archived_document),
+        )
+        .route(
+            "/v1/worlds/{slug}/documents/{document_id}/revisions",
+            get(list_document_revisions),
+        )
+        .route(
+            "/v1/worlds/{slug}/documents/{document_id}/revisions/{revision_id}/restore",
+            post(restore_document_revision),
+        )
         .with_state(state)
 }
 
@@ -265,15 +286,7 @@ async fn register(
 ) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
     let email = email_value(&input.email)?;
-    check_auth_rate_limit(
-        &state.db,
-        "register",
-        &email,
-        &source_ip(connect_info),
-        20,
-        4,
-    )
-    .await?;
+    check_auth_rate_limit(&state.db, "register", &email, &source_ip(connect_info), 20, 4).await?;
     let display_name = input.display_name.trim();
     if display_name.is_empty() || display_name.chars().count() > 60 {
         return Err(ApiError::bad_request(
@@ -429,6 +442,88 @@ async fn get_world(
 ) -> Result<Json<crate::models::World>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
     Ok(Json(store::get_world(&state.db, account.id, &slug).await?))
+}
+
+
+async fn list_archived_documents(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+) -> Result<Json<Vec<ArchivedDocumentSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::list_archived_documents(&state.db, account.id, &slug).await?,
+    ))
+}
+
+async fn archive_document(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, document_id)): Path<(String, Uuid)>,
+    Json(input): Json<DocumentVersionInput>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    store::archive_document(
+        &state.db,
+        account.id,
+        &slug,
+        document_id,
+        input.expected_version,
+    )
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn restore_archived_document(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, document_id)): Path<(String, Uuid)>,
+    Json(input): Json<DocumentVersionInput>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    store::restore_archived_document(
+        &state.db,
+        account.id,
+        &slug,
+        document_id,
+        input.expected_version,
+    )
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn list_document_revisions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, document_id)): Path<(String, Uuid)>,
+) -> Result<Json<Vec<DocumentRevisionSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::list_document_revisions(&state.db, account.id, &slug, document_id).await?,
+    ))
+}
+
+async fn restore_document_revision(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, document_id, revision_id)): Path<(String, Uuid, Uuid)>,
+    Json(input): Json<DocumentVersionInput>,
+) -> Result<Json<crate::models::CardDocument>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::restore_document_revision(
+            &state.db,
+            account.id,
+            &slug,
+            document_id,
+            revision_id,
+            input.expected_version,
+        )
+        .await?,
+    ))
 }
 
 async fn list_documents(
