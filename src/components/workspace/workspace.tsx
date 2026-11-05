@@ -79,7 +79,7 @@ export function Workspace({ world, document }: Props) {
         </aside>}
 
         <main className={"document-stage" + (showGraph ? " graph-document-stage" : "")}>
-          {showGraph ? <WorldGraph world={world} selectedDocumentId={graphSelectedId} onSelectDocument={setGraphSelectedId} /> : <>
+          {showGraph ? <WorldGraph key={world.id} world={world} selectedDocumentId={graphSelectedId} onSelectDocument={setGraphSelectedId} /> : <>
           <div className="document-toolbar">
             <div className="document-toolbar-left"><span className="toolbar-kind">CARD</span><span className="toolbar-separator">/</span><span className="toolbar-muted">{document.entityType}</span><span className="toolbar-separator">·</span><span className="toolbar-muted">Updated {updated}</span></div>
             <div className="document-toolbar-right"><button className="toolbar-button" type="button" disabled title="Editing will be wired to the document service">Edit</button><button className="icon-button" type="button" disabled aria-label="More document actions"><Icon name="dots" /></button></div>

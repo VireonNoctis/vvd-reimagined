@@ -12,11 +12,18 @@ type Props = {
   selectedDocumentId: string;
   onSelectDocument: (id: string) => void;
 };
-
 type Point = { x: number; y: number };
 type View = { x: number; y: number; zoom: number };
 type Gesture = { nodeId: string | null; x: number; y: number; viewX: number; viewY: number; moved: boolean };
 type Color = [number, number, number, number];
+type Graph = ReturnType<typeof buildWorldGraph>;
+type DrawingState = {
+  graph: Graph;
+  positions: Map<string, Point>;
+  view: View;
+  selectedDocumentId: string;
+  hoveredId: string | null;
+};
 type Renderer = {
   gl: WebGL2RenderingContext;
   program: WebGLProgram;
@@ -28,11 +35,11 @@ type Renderer = {
   pixelRatio: WebGLUniformLocation | null;
 };
 
-const palette = {
-  character: [0.58, 0.7, 0.49],
-  place: [0.77, 0.61, 0.41],
-  faction: [0.62, 0.59, 0.77]
-} as const;
+const palette: Record<"character" | "place" | "faction", Color> = {
+  character: [0.58, 0.7, 0.49, 1],
+  place: [0.77, 0.61, 0.41, 1],
+  faction: [0.62, 0.59, 0.77, 1]
+};
 
 const vertexSource = `#version 300 es
 precision highp float;
@@ -103,19 +110,15 @@ function makeProgram(gl: WebGL2RenderingContext): WebGLProgram {
   return program;
 }
 
-function arrange(nodes: ReturnType<typeof buildWorldGraph>["nodes"]): Map<string, Point> {
-  const points = new Map<string, Point>();
+function arrange(nodes: Graph["nodes"]): Map<string, Point> {
   const radius = nodes.length === 1 ? 0 : nodes.length === 2 ? 0.42 : 0.66;
-
-  nodes.forEach((node, index) => {
+  return new Map(nodes.map((node, index) => {
     const angle = (index / Math.max(1, nodes.length)) * Math.PI * 2 - Math.PI / 2;
-    points.set(node.id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * 0.76 });
-  });
-
-  return points;
+    return [node.id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius * 0.76 }];
+  }));
 }
 
-function vertex(output: number[], point: Point, color: Color, size: number, view: View) {
+function addVertex(output: number[], point: Point, color: Color, size: number, view: View) {
   output.push(
     point.x * view.zoom + view.x,
     point.y * view.zoom + view.y,
@@ -134,30 +137,28 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
   const [positions, setPositions] = useState(() => arrange(graph.nodes));
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [rendererIssue, setRendererIssue] = useState("");
 
-  const graphRef = useRef(graph);
-  const positionsRef = useRef(positions);
-  const viewRef = useRef(view);
-  const selectionRef = useRef({ selectedDocumentId, hoveredId });
-
-  graphRef.current = graph;
-  positionsRef.current = positions;
-  viewRef.current = view;
-  selectionRef.current = { selectedDocumentId, hoveredId };
+  const dataRef = useRef<DrawingState>({
+    graph,
+    positions,
+    view,
+    selectedDocumentId,
+    hoveredId
+  });
 
   useEffect(() => {
-    setPositions(arrange(graph.nodes));
-    setView({ x: 0, y: 0, zoom: 1 });
-  }, [graph]);
+    dataRef.current = { graph, positions, view, selectedDocumentId, hoveredId };
+    drawRef.current();
+  }, [graph, positions, view, selectedDocumentId, hoveredId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const fallback = canvas.parentElement?.querySelector<HTMLElement>("[data-graph-fallback]");
     const gl = canvas.getContext("webgl2", { alpha: false, antialias: true, depth: false });
     if (!gl) {
-      setRendererIssue("WebGL 2 is not available here. Use the record list to explore connections.");
+      fallback?.removeAttribute("hidden");
       return;
     }
 
@@ -177,66 +178,61 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
         pixelRatio: gl.getUniformLocation(program, "u_pixel_ratio")
       };
       rendererRef.current = renderer;
-      setRendererIssue("");
 
       const draw = () => {
         const current = rendererRef.current;
         const target = canvasRef.current;
         if (!current || !target || !target.width || !target.height) return;
 
-        const { gl: context } = current;
-        const activeView = viewRef.current;
-        const selected = selectionRef.current.selectedDocumentId;
-        const hovered = selectionRef.current.hoveredId;
-        const points = positionsRef.current;
-        const edges: number[] = [];
+        const { graph: currentGraph, positions: currentPositions, view: currentView, selectedDocumentId: selected, hoveredId: hovered } = dataRef.current;
+        const lines: number[] = [];
         const nodes: number[] = [];
 
-        for (const edge of graphRef.current.edges) {
-          const source = points.get(edge.source);
-          const targetPoint = points.get(edge.target);
+        for (const edge of currentGraph.edges) {
+          const source = currentPositions.get(edge.source);
+          const targetPoint = currentPositions.get(edge.target);
           if (!source || !targetPoint) continue;
-          const focused = edge.source === selected || edge.target === selected;
-          const color: Color = focused ? [0.52, 0.65, 0.43, 0.95] : [0.54, 0.59, 0.51, 0.46];
-          vertex(edges, source, color, 1, activeView);
-          vertex(edges, targetPoint, color, 1, activeView);
+          const color: Color = edge.source === selected || edge.target === selected
+            ? [0.52, 0.65, 0.43, 0.95]
+            : [0.54, 0.59, 0.51, 0.46];
+          addVertex(lines, source, color, 1, currentView);
+          addVertex(lines, targetPoint, color, 1, currentView);
         }
 
-        for (const node of graphRef.current.nodes) {
-          const point = points.get(node.id);
+        for (const node of currentGraph.nodes) {
+          const point = currentPositions.get(node.id);
           if (!point) continue;
           const base = palette[node.entityType];
-          const focused = node.id === selected || node.id === hovered;
+          const active = node.id === selected || node.id === hovered;
           const color: Color = [
-            Math.min(1, base[0] + (node.id === selected ? 0.2 : focused ? 0.1 : 0)),
-            Math.min(1, base[1] + (node.id === selected ? 0.2 : focused ? 0.1 : 0)),
-            Math.min(1, base[2] + (node.id === selected ? 0.2 : focused ? 0.1 : 0)),
+            Math.min(1, base[0] + (node.id === selected ? 0.2 : active ? 0.1 : 0)),
+            Math.min(1, base[1] + (node.id === selected ? 0.2 : active ? 0.1 : 0)),
+            Math.min(1, base[2] + (node.id === selected ? 0.2 : active ? 0.1 : 0)),
             1
           ];
-          vertex(nodes, point, color, node.id === selected ? 23 : focused ? 20 : 17, activeView);
+          addVertex(nodes, point, color, node.id === selected ? 23 : active ? 20 : 17, currentView);
         }
 
-        const data = new Float32Array([...edges, ...nodes]);
         const stride = 7 * Float32Array.BYTES_PER_ELEMENT;
-        context.viewport(0, 0, target.width, target.height);
-        context.clearColor(0.956, 0.957, 0.934, 1);
-        context.clear(context.COLOR_BUFFER_BIT);
-        context.useProgram(current.program);
-        context.bindBuffer(context.ARRAY_BUFFER, current.buffer);
-        context.bufferData(context.ARRAY_BUFFER, data, context.DYNAMIC_DRAW);
-        context.enableVertexAttribArray(current.position);
-        context.vertexAttribPointer(current.position, 2, context.FLOAT, false, stride, 0);
-        context.enableVertexAttribArray(current.color);
-        context.vertexAttribPointer(current.color, 4, context.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
-        context.enableVertexAttribArray(current.size);
-        context.vertexAttribPointer(current.size, 1, context.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
-        context.enable(context.BLEND);
-        context.blendFunc(context.SRC_ALPHA, context.ONE_MINUS_SRC_ALPHA);
-        context.uniform1f(current.pixelRatio, Math.min(window.devicePixelRatio || 1, 2));
-        context.uniform1f(current.pointMode, 0);
-        context.drawArrays(context.LINES, 0, edges.length / 7);
-        context.uniform1f(current.pointMode, 1);
-        context.drawArrays(context.POINTS, edges.length / 7, nodes.length / 7);
+        gl.viewport(0, 0, target.width, target.height);
+        gl.clearColor(0.956, 0.957, 0.934, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...lines, ...nodes]), gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(renderer.position);
+        gl.vertexAttribPointer(renderer.position, 2, gl.FLOAT, false, stride, 0);
+        gl.enableVertexAttribArray(renderer.color);
+        gl.vertexAttribPointer(renderer.color, 4, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
+        gl.enableVertexAttribArray(renderer.size);
+        gl.vertexAttribPointer(renderer.size, 1, gl.FLOAT, false, stride, 6 * Float32Array.BYTES_PER_ELEMENT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.uniform1f(renderer.pixelRatio, Math.min(window.devicePixelRatio || 1, 2));
+        gl.uniform1f(renderer.pointMode, 0);
+        gl.drawArrays(gl.LINES, 0, lines.length / 7);
+        gl.uniform1f(renderer.pointMode, 1);
+        gl.drawArrays(gl.POINTS, lines.length / 7, nodes.length / 7);
       };
 
       drawRef.current = draw;
@@ -247,6 +243,7 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
         canvas.height = Math.max(1, Math.round(bounds.height * ratio));
         draw();
       };
+
       const observer = new ResizeObserver(resize);
       observer.observe(canvas);
       resize();
@@ -259,24 +256,19 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
         gl.deleteProgram(program);
       };
     } catch {
-      setRendererIssue("The WebGL renderer could not start. The record list remains available.");
+      fallback?.removeAttribute("hidden");
     }
   }, []);
-
-  useEffect(() => {
-    drawRef.current();
-  }, [positions, view, selectedDocumentId, hoveredId, graph]);
 
   function hitTest(clientX: number, clientY: number): string | null {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const bounds = canvas.getBoundingClientRect();
-    const activeView = viewRef.current;
-    const points = positionsRef.current;
+    const { positions: points, view: activeView, graph: activeGraph } = dataRef.current;
     let nearest: string | null = null;
     let nearestDistance = 25;
 
-    for (const node of graphRef.current.nodes) {
+    for (const node of activeGraph.nodes) {
       const point = points.get(node.id);
       if (!point) continue;
       const x = bounds.left + ((point.x * activeView.zoom + activeView.x + 1) / 2) * bounds.width;
@@ -287,7 +279,6 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
         nearest = node.id;
       }
     }
-
     return nearest;
   }
 
@@ -297,8 +288,8 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
       nodeId,
       x: event.clientX,
       y: event.clientY,
-      viewX: viewRef.current.x,
-      viewY: viewRef.current.y,
+      viewX: dataRef.current.view.x,
+      viewY: dataRef.current.view.y,
       moved: false
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -317,7 +308,7 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
       if (gesture.nodeId) {
         const clipX = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
         const clipY = 1 - ((event.clientY - bounds.top) / bounds.height) * 2;
-        const activeView = viewRef.current;
+        const activeView = dataRef.current.view;
         setPositions((current) => {
           const next = new Map(current);
           next.set(gesture.nodeId as string, {
@@ -348,15 +339,6 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
     }
   }
 
-  function zoom(factor: number) {
-    setView((current) => ({ ...current, zoom: Math.min(2.5, Math.max(0.55, current.zoom * factor)) }));
-  }
-
-  function reset() {
-    setPositions(arrange(graph.nodes));
-    setView({ x: 0, y: 0, zoom: 1 });
-  }
-
   const selected = graph.nodes.find((node) => node.id === selectedDocumentId) ?? graph.nodes[0];
   const relatedEdges = selected
     ? graph.edges.filter((edge) => edge.source === selected.id || edge.target === selected.id)
@@ -371,9 +353,9 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
           <p>Typed references between this world&apos;s canonical records.</p>
         </div>
         <div className="graph-controls" aria-label="Graph controls">
-          <button type="button" onClick={() => zoom(0.82)} aria-label="Zoom out">−</button>
-          <button type="button" onClick={() => zoom(1.22)} aria-label="Zoom in">+</button>
-          <button type="button" onClick={reset}>Reset</button>
+          <button type="button" onClick={() => setView((current) => ({ ...current, zoom: Math.max(0.55, current.zoom * 0.82) }))} aria-label="Zoom out">−</button>
+          <button type="button" onClick={() => setView((current) => ({ ...current, zoom: Math.min(2.5, current.zoom * 1.22) }))} aria-label="Zoom in">+</button>
+          <button type="button" onClick={() => { setPositions(arrange(graph.nodes)); setView({ x: 0, y: 0, zoom: 1 }); }}>Reset</button>
         </div>
       </header>
 
@@ -389,7 +371,9 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
             onPointerCancel={handlePointerUp}
             onPointerLeave={() => setHoveredId(null)}
           />
-          {rendererIssue && <p className="graph-renderer-note" role="status">{rendererIssue}</p>}
+          <p className="graph-renderer-note" data-graph-fallback hidden>
+            WebGL 2 is unavailable. Use the record list to explore this world&apos;s connections.
+          </p>
           <div className="graph-viewport-footer">
             <span>DRAG TO REARRANGE</span>
             <span>{graph.nodes.length} RECORDS · {graph.edges.length} REFERENCES</span>
