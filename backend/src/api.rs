@@ -198,10 +198,8 @@ async fn check_auth_rate_limit(
     Ok(())
 }
 
-fn source_ip(connect_info: Option<ConnectInfo<SocketAddr>>) -> String {
-    connect_info
-        .map(|ConnectInfo(address)| address.ip().to_string())
-        .unwrap_or_else(|| "unknown".to_owned())
+fn source_ip(ConnectInfo(address): ConnectInfo<SocketAddr>) -> String {
+    address.ip().to_string()
 }
 
 fn user_agent(headers: &HeaderMap) -> Option<&str> {
@@ -262,7 +260,7 @@ async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse>, A
 async fn register(
     State(state): State<AppState>,
     headers: HeaderMap,
-    connect_info: Option<ConnectInfo<SocketAddr>>,
+    connect_info: ConnectInfo<SocketAddr>,
     Json(input): Json<RegisterInput>,
 ) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
@@ -321,7 +319,7 @@ async fn register(
 async fn login(
     State(state): State<AppState>,
     headers: HeaderMap,
-    connect_info: Option<ConnectInfo<SocketAddr>>,
+    connect_info: ConnectInfo<SocketAddr>,
     Json(input): Json<LoginInput>,
 ) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;

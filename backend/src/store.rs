@@ -16,6 +16,44 @@ fn date_label(value: DateTime<Utc>) -> String {
     value.date_naive().format("%Y-%m-%d").to_string()
 }
 
+
+fn device_label(user_agent: Option<&str>) -> String {
+    let value = user_agent.unwrap_or_default().to_ascii_lowercase();
+    if value.is_empty() {
+        return "Unknown browser".to_owned();
+    }
+
+    let platform = if value.contains("ipad") {
+        "iPad"
+    } else if value.contains("iphone") {
+        "iPhone"
+    } else if value.contains("android") {
+        "Android"
+    } else if value.contains("windows") {
+        "Windows"
+    } else if value.contains("mac os") || value.contains("macintosh") {
+        "macOS"
+    } else if value.contains("linux") {
+        "Linux"
+    } else {
+        "Unknown device"
+    };
+
+    let browser = if value.contains("edg/") {
+        "Edge"
+    } else if value.contains("firefox/") {
+        "Firefox"
+    } else if value.contains("chrome/") || value.contains("chromium/") {
+        "Chrome"
+    } else if value.contains("safari/") {
+        "Safari"
+    } else {
+        "Browser"
+    };
+
+    format!("{browser} on {platform}")
+}
+
 fn entity_type(value: &str) -> Result<EntityType, ApiError> {
     match value {
         "character" => Ok(EntityType::Character),
@@ -621,8 +659,8 @@ pub async fn list_sessions(
     account_id: Uuid,
     current_token_hash: &[u8],
 ) -> Result<Vec<crate::models::SessionSummary>, ApiError> {
-    let rows = sqlx::query_as::<_, (Uuid, DateTime<Utc>, DateTime<Utc>, Vec<u8>)>(
-        "SELECT id, created_at, expires_at, token_hash
+    let rows = sqlx::query_as::<_, (Uuid, DateTime<Utc>, DateTime<Utc>, Vec<u8>, Option<String>)>(
+        "SELECT id, created_at, expires_at, token_hash, user_agent
          FROM sessions
          WHERE account_id = $1 AND expires_at > NOW()
          ORDER BY created_at DESC, id DESC",
@@ -637,6 +675,7 @@ pub async fn list_sessions(
             id: row.0,
             created_at: row.1,
             expires_at: row.2,
+            device_label: device_label(row.4.as_deref()),
             current: row.3.as_slice() == current_token_hash,
         })
         .collect())
