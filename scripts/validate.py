@@ -48,6 +48,7 @@ REQUIRED_APP_FILES = (
     "src/app/worlds/[worldSlug]/page.tsx",
     "src/domain/world.ts",
     "src/data/demo-world.ts",
+    "src/server/worlds/repository.ts",
     "src/components/ui/icon.tsx",
     "src/components/workspace/workspace.tsx",
     "tests/domain/world.test.mjs",

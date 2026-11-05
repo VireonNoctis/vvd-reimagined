@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui/icon";
-import { demoWorld } from "@/data/demo-world";
+import { worldRepository } from "@/server/worlds/repository";
 
-export default function WorldsPage() {
-  const updated = new Date(demoWorld.updatedAt + "T12:00:00").toLocaleDateString("en", { day: "numeric", month: "short" });
+export default async function WorldsPage() {
+  const [world] = await worldRepository.list();
+  if (!world) {
+    return <main className="not-found-page"><span className="eyebrow">NO WORLDS YET</span><h1>Your workspace is ready.</h1><p>There are no worlds in this preview repository.</p></main>;
+  }
+  const updated = new Date(world.updatedAt + "T12:00:00").toLocaleDateString("en", { day: "numeric", month: "short" });
 
   return <main className="worlds-page">
     <header className="worlds-topbar">
@@ -16,12 +20,12 @@ export default function WorldsPage() {
         <div><span className="eyebrow">LIBRARY</span><h2>Your worlds <span>01</span></h2></div>
         <button className="toolbar-button create-world-button" type="button" disabled title="World creation is not connected to persistence"><Icon name="plus" size={15} />New world</button>
       </div>
-      <Link className="world-card" href={"/worlds/" + demoWorld.slug}>
+      <Link className="world-card" href={"/worlds/" + world.slug}>
         <div className="world-card-art"><div className="art-sun" /><div className="art-horizon" /><div className="art-mountain art-mountain-back" /><div className="art-mountain art-mountain-front" /><div className="art-water" /><span className="art-caption">WORLD NO. 001</span><span className="art-coordinate">41° 08′ N / 08° 36′ W</span></div>
         <div className="world-card-body">
-          <div className="world-card-title"><div><span className="eyebrow">{demoWorld.genre}</span><h3>{demoWorld.name}</h3></div><span className="world-card-arrow"><Icon name="chevron-right" size={18} /></span></div>
-          <p>{demoWorld.description}</p>
-          <div className="world-card-footer"><span><Icon name="files" size={14} />{demoWorld.documents.length} records</span><span>Updated {updated}</span></div>
+          <div className="world-card-title"><div><span className="eyebrow">{world.genre}</span><h3>{world.name}</h3></div><span className="world-card-arrow"><Icon name="chevron-right" size={18} /></span></div>
+          <p>{world.description}</p>
+          <div className="world-card-footer"><span><Icon name="files" size={14} />{world.documents.length} records</span><span>Updated {updated}</span></div>
         </div>
       </Link>
       <div className="worlds-footnote"><Icon name="spark" size={15} /><span>This is a read-only preview populated with synthetic content. Nothing is saved to a server.</span></div>
