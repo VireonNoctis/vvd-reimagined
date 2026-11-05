@@ -16,7 +16,6 @@ fn date_label(value: DateTime<Utc>) -> String {
     value.date_naive().format("%Y-%m-%d").to_string()
 }
 
-
 fn device_label(user_agent: Option<&str>) -> String {
     let value = user_agent.unwrap_or_default().to_ascii_lowercase();
     if value.is_empty() {
