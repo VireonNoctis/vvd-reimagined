@@ -57,6 +57,8 @@ Exit condition: cards and media work end-to-end with permissions, history and te
 - Relation Trees with independent nodes, typed edges and variants.
 - Canvas with cards, images, text, groups and drawing.
 - Timeline with calendar and typed event operations.
+- Trade Routes: settlement resources, road/river networks and supply-flow simulation; verify mechanics against the current core tool.
+- Calendar/custom-calendar support through the extensible tool system, keeping community tool behaviour distinct from built-in Timeline.
 - Tables and specialist tools.
 
 Exit condition: every visual tool uses the shared document model and retains its own relationship semantics.
@@ -92,7 +94,8 @@ Exit condition: two users can edit the same document without silent data loss, a
 ## Phase 7 — Wiki and publication
 
 - Wiki app that reads canonical world data.
-- Theme and layout editor.
+- Theme and layout editor, including the first-party Default and Overworld templates.
+- Map-first Wiki layout with interactive regions/pins and optional animated atmosphere.
 - Search, sections, card links and map-pin navigation.
 - Public, unlisted, password and entitled audiences.
 - Custom domains.
@@ -118,7 +121,7 @@ Verify prices and plan limits from the live product before implementing checkout
 - Desktop and tablet multi-panel layouts.
 - Touch-safe menus, drag alternatives and stylus drawing.
 - Reader-first phone layout.
-- Profiling for graph, canvas and map performance.
+- Profiling for graph, canvas, map, Trade Routes and long Wiki pages; check memory cleanup and GPU costs.
 - Optional lazy Three.js Model Viewer.
 - Reduced-motion and keyboard navigation audit.
 - Visual regression coverage for captured workflows.

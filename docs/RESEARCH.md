@@ -194,3 +194,19 @@ Do not send passwords, API keys or unpublished private creative content.
 - https://www.vvd.world/pricing
 - https://vvd.world/terms
 - https://legacy.vvd.world/
+
+
+## Instagram and product-demonstration research
+
+The official account is **@vvdworldbuilding**, linked from vvd's official Linktree. Direct Instagram requests were throttled during the 2026-11-05 research pass, so public captions were cross-checked through third-party post mirrors. Their metrics were not used as authoritative data.
+
+The account's public demonstrations add product scope beyond the earlier help-centre inventory:
+- Trade Routes was announced as an in-development economy/logistics tool in September 2026. The first-party `/t/trade-routes` page now lists it as a core vvd tool, version 0.1.50, although the page has no detailed description. The social caption describes assigning resources to settlements, drawing roads/rivers and simulating supply movement.
+- Overworld is a first-party Wiki template. The social demonstration highlights a map-led layout, interactive regions/pins and animated cloud layers. The current Wiki developer reference confirms the built-in Overworld template and the host-provided Wiki design/publish chrome.
+- A custom fictional calendar with holidays and lunar cycles appears in a social demonstration. The current `/t/calendar` page attributes that tool to HHaseeb, so it should be treated as a community Workshop creation rather than a built-in vvd tool.
+- A creator link-in-bio surface is announced in profile content for portfolios, shops, products and external links, but its current availability and data model were not corroborated by the current product/developer docs.
+- A product showcase combines 3D maps, historical timelines and Quill writing. This is not enough to conclude there is a native 3D cartography editor; the first-party 3D Model Viewer is a separate documented asset-viewing tool.
+
+The account also publishes storytelling education, creator spotlights, events and the vvd Fellowship. Those are part of the wider creator ecosystem, not automatically application features.
+
+See [Instagram Research](INSTAGRAM_RESEARCH.md) for the source-quality caveat, exact public sources, functional claims, evidence classification and implementation implications.

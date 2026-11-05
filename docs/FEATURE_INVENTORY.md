@@ -150,3 +150,32 @@ A feature is not complete when its main canvas renders. For every major surface,
 - Undo, history and export behaviour.
 - Responsive behaviour and accessibility.
 - Server-side permission tests and data integrity tests.
+
+
+## Instagram-led additions and product-status corrections
+
+### Trade Routes — first-party core tool
+
+The Instagram announcement describes a trade/economy simulation for fictional worlds: assign resources to settlements, connect settlements with roads and rivers, and simulate supply movement. The first-party listing at https://vvd.world/t/trade-routes now classifies Trade Routes as a core vvd tool (version 0.1.50 at the 2026-11-05 research snapshot). Its public tool page currently has no detailed description, so the social post is the only public functional summary found in this pass.
+
+Treat this as a real first-party tool in the current product inventory. The precise resource schema, route graph, simulation rules, event cadence, visual outputs and persistence behaviour remain unverified.
+
+### Overworld — first-party Wiki template
+
+The current Wiki developer reference identifies Default and Overworld as built-in first-party site templates. Instagram's Overworld demonstration describes map-first Wiki navigation, interactive regions/pins, a cleaner page UI and animated clouds. This is an extension of Wiki publishing, not an independent content database or a new world model.
+
+### Calendar — community Workshop creation
+
+Instagram demonstrates a custom fictional calendar with events, holidays, lunar cycles and a world-matched visual theme. The public listing at https://vvd.world/t/calendar identifies HHaseeb as its creator, not vvd. Treat it as a community Workshop tool example and a requirement for extensible custom calendar codecs—not as a built-in core tool. The social caption's detailed calendar functions still need direct inspection.
+
+### 3D showcase versus 3D Model Viewer
+
+Instagram showcases a creator workflow involving 3D maps, timelines and Quill. That is a product-use example, not evidence of a native 3D map editor. The first-party 3D Model Viewer is a separate documented tool for inspecting 3D characters, environments and items from different angles. Keep 2D map authoring, 3D asset viewing and any future 3D scene surface as distinct capabilities until the current app demonstrates otherwise.
+
+### Creator link-in-bio — announcement, status unverified
+
+A profile post previews customisable creator link-in-bio pages for writers, worldbuilders, artists and studios, with portfolio, shop, product and external links. No current route or technical reference was found. Keep it outside the core world/document model until its current availability and relation to Wiki/profile features are confirmed.
+
+### Fellowship and editorial activity
+
+The profile also promotes the vvd Fellowship, creator spotlights, storytelling articles, events and human-creativity/editorial content. These belong to the wider creator ecosystem; they are not application features or account-plan entitlements.

@@ -51,6 +51,7 @@ Start with [the documentation index](docs/README.md).
 | [Research dossier](docs/RESEARCH.md) | Sources, evidence levels, product generations and inspection limits |
 | [Product model](docs/PRODUCT_MODEL.md) | Worlds, eras, documents, projects, apps, tools and blocks |
 | [Feature inventory](docs/FEATURE_INVENTORY.md) | Product capabilities and evidence caveats |
+| [Instagram research](docs/INSTAGRAM_RESEARCH.md) | Public product demos, tool announcements and creator ecosystem |
 | [Quill](docs/QUILL.md) | Writing, drafts, notes, references, audio and publishing |
 | [Workspace interactions](docs/WORKSPACE_INTERACTIONS.md) | Navigation, menus and known interaction patterns |
 | [Workshop runtime](docs/WORKSHOP_RUNTIME.md) | Tool/app manifests, codecs, capabilities and extension lifecycle |

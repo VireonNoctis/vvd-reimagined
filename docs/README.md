@@ -7,6 +7,7 @@ This folder is the product and implementation reference for vvd Reimagined. It r
 1. [Research dossier](RESEARCH.md) — evidence levels, product generations, sources and inspection limits.
 2. [Product model](PRODUCT_MODEL.md) — worlds, eras, documents, projects, apps, tools and blocks.
 3. [Feature inventory](FEATURE_INVENTORY.md) — capabilities and evidence caveats.
+4. [Instagram research](INSTAGRAM_RESEARCH.md) — public demos, current tool announcements, Wiki templates and creator ecosystem.
 4. [Quill](QUILL.md) — story, chapters, drafts, notes, references, audio and publishing.
 5. [Workspace interactions](WORKSPACE_INTERACTIONS.md) — navigation, menus and known workflows.
 6. [Workshop runtime](WORKSHOP_RUNTIME.md) — manifests, host, app/tool contract, codecs and extension lifecycle.

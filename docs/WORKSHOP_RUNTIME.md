@@ -132,3 +132,15 @@ The SDK documents a fake host for previews and tests. Test tools against the hos
 - Assets resolve at each override layer.
 - App project scope remains separate from world scope.
 - An old pinned version remains stable after a new save.
+
+
+## First-party versus community creations
+
+The public tool catalogue should not be treated as a list of exclusively vvd-authored features. The Instagram research pass cross-checked two examples against their first-party listing pages:
+
+- **Trade Routes** is marked as a core vvd tool and is created by vvd. The social announcement describes assigning resources to settlements, connecting them with roads/rivers and simulating supply movement. Its current public tool page still lacks a detailed interaction specification.
+- **Calendar** is a community creation credited to HHaseeb, not vvd. Social content demonstrates custom fictional dates, holidays and lunar cycles. This is a good example of the extension model, but it should not be represented as a built-in Timeline replacement.
+
+Keep author/ownership and catalog category attached to tool metadata. In UI, distinguish first-party/core tools from community Workshop creations. The platform host and codec contract should be the same where applicable, but authorship, version source, review status and install/update provenance remain distinct.
+
+The profile also announces a creator link-in-bio surface; no public manifest or SDK route was found, so it is not included in the tool/app runtime model yet.

@@ -18,6 +18,7 @@ CONFIG_FILES = (
 REQUIRED_DOCS = (
     "docs/README.md",
     "docs/RESEARCH.md",
+    "docs/INSTAGRAM_RESEARCH.md",
     "docs/PRODUCT_MODEL.md",
     "docs/FEATURE_INVENTORY.md",
     "docs/QUILL.md",

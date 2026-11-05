@@ -127,3 +127,12 @@ The wiki's current exact editor, layout editor and reader shell need screenshot/
 - Archive, restore, permanently delete, remove and unpublish are distinct operations.
 - Opening a reference must preserve writing cursor and scroll position.
 - Major surfaces need empty, loading, offline, read-only, error and permission-denied states.
+
+
+## Wiki template selection and the Overworld surface
+
+The current developer reference describes site-category apps as Wiki templates rather than separate launcher apps. A user opens the shared Wiki surface and switches the template in the design rail. The platform supplies the Customize controls in that rail and the Publish action; a template should not add duplicate Customize or Publish buttons.
+
+Instagram's Overworld demonstration describes a map-first published layout with interactive regions and pins, a cleaner navigation surface and animated cloud layers. The exact current template layout still needs direct screenshot capture. Preserve the distinction between the map's editable content and decorative atmospheric effects. Cloud animation must not block pin hit-testing, focus, or reduced-motion settings.
+
+See [Instagram Research](INSTAGRAM_RESEARCH.md) and the [Wiki developer reference](https://docs.vvd.world/workshop/reference/wiki).

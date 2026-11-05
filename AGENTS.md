@@ -6,6 +6,7 @@ These instructions apply throughout the repository. Read the relevant research a
 
 - The target is an independent reconstruction of vvd.world, not a claim to possess or reproduce its private source code.
 - Read docs/RESEARCH.md, docs/PRODUCT_MODEL.md and docs/OPEN_QUESTIONS.md before changing foundational behaviour.
+- For Trade Routes, Wiki templates, community calendars, 3D showcases or creator link-in-bio surfaces, also read docs/INSTAGRAM_RESEARCH.md and preserve its evidence classifications.
 - Mark statements as confirmed, partially confirmed, inferred or unknown.
 - Keep older help-centre UI descriptions separate from the newer developer-platform model.
 - Do not implement legacy Campaigns as a current feature. The help centre says they are unavailable in the current product and legacy data is separate.

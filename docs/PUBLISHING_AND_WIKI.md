@@ -96,3 +96,14 @@ Implementation questions include domain verification, ownership checks, SSL prov
 - Re-check permissions at read time.
 - Do not expose archived or private records from public site queries.
 - Keep a publication audit trail.
+
+
+## Overworld template and map-first publication
+
+The current Wiki developer reference confirms that vvd ships Default and Overworld as first-party site templates. They are not separate copies of a world's content and are selected through the shared Wiki template switcher/design rail. Site-category apps share the Wiki host surface; the platform supplies its Customize rail and Publish action.
+
+The Overworld Instagram demonstration highlights interactive regions and pins, a cleaner site UI and animated cloud layers. This suggests a map-first reader hierarchy: the map is the principal navigation surface, and regions/pins lead readers into canonical world entries. Treat the cloud layer as decorative, not as map geometry or a second copy of geographic content. It should be independently controllable, reduced-motion aware and inexpensive on devices that do not need animation.
+
+The current Wiki technical reference adds a crucial live/published split: the live template reads the current world and may accept editor changes, while the published edition reads a frozen snapshot with no collaboration sockets, authentication or database access. Design the same page component to render both modes from their respective inputs; do not call live collaboration/customization hooks in the frozen published renderer.
+
+These implementation details are grounded in the current developer reference. The exact Overworld map layout and cloud animation timing remain visual-inspection tasks.

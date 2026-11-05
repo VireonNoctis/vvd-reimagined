@@ -25,3 +25,9 @@ Notable changes are recorded here. Dates use ISO 8601 calendar dates.
 - The repository is still in research/architecture stage; no frontend or backend implementation is claimed.
 - Next.js with React/TypeScript and selective WebGL are accepted; Three.js is optional and lazy-loaded.
 - Rust, PostgreSQL and S3-compatible storage remain proposals, not accepted backend decisions.
+
+
+### Added
+- Instagram research dossier for @vvdworldbuilding, including product announcements, Trade Routes, Overworld, creator link-in-bio, community tools and Fellowship context.
+- Trade Routes promoted from an in-development social announcement to a current first-party core-tool inventory entry after verifying its live tool listing.
+- Overworld map-first Wiki template and community Calendar distinction added to product research.

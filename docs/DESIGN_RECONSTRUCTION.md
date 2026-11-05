@@ -115,3 +115,14 @@ Create a synthetic test world and capture the current app at desktop and tablet 
 - Collaboration invite/role, Archive, restore and plan view.
 
 Use synthetic content only. Short screen recordings are preferred for drag, menus and transitions. Do not supply passwords, credentials or private writing.
+
+
+## Visual direction added by Instagram research
+
+The public account's product demonstrations add three visual references that deserve explicit capture:
+
+- **Overworld Wiki:** a map-led public site with interactive regions and pins, cleaner reader UI and animated cloud atmosphere. The map should be treated as navigation, with canonical entries opening from geography. Atmosphere is optional decoration and must not interfere with selection, accessibility or reduced-motion preferences.
+- **Trade Routes:** a map-oriented simulation surface in which settlements, roads/rivers and resource flow are visible together. Keep editable network geometry distinct from the base map image and from simulation results. The exact visual encoding and controls are unknown until the current tool is inspected.
+- **3D alongside worldbuilding:** a creator showcase puts 3D maps, historical timelines and Quill writing in the same workflow. Do not assume those are all parts of one renderer. The first-party 3D Model Viewer is a separate asset-viewing tool; keep 3D runtime lazy, and profile it independently from 2D Maps and Wiki reading.
+
+The profile also announces creator link-in-bio pages, but the current technical docs do not show their route or layout. If confirmed as an active product surface, design it as a compact creator identity/portfolio page rather than forcing it into the world Wiki or Quill shell.

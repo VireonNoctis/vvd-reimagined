@@ -98,3 +98,14 @@ Use a synthetic world and capture redacted screenshots or recordings of:
 - The same workflows at desktop and tablet dimensions.
 
 Screenshots confirm visual state. Short recordings are better for drag, menus and transitions. No account password, API key or private writing is needed.
+
+
+## Instagram-led product leads
+
+- [ ] Inspect Trade Routes in the signed-in app: settlement creation, resource definitions, road/river route editing, simulation controls, outputs and persistence. The public listing calls it a core vvd tool, but its page has no detailed description.
+- [ ] Capture the Overworld Wiki template in both live editing and published modes, including map regions, pins, cloud animation, the design rail and mobile behaviour.
+- [ ] Inspect the community Calendar tool: calendar schema, year/month rules, holidays, lunar cycles, event linking, date conversion and whether it remains maintained.
+- [ ] Determine whether the showcased 3D maps are made with the 3D Model Viewer, a separate Workshop creation or an external authoring workflow.
+- [ ] Verify whether creator link-in-bio pages are an active vvd surface, the URL shape, profile fields, link/shop capabilities and relation to account identity or Wiki.
+- [ ] Profile long Wiki pages and animated map/3D surfaces. A public comment alleges CPU/GPU pressure and memory growth on longer Wiki content; this is unverified anecdotal feedback, not a confirmed defect.
+- [ ] Confirm current AI-assisted processing and privacy language. A user comment asking whether the product is AI-free is not an official statement; current Terms mention automated semantic categorisation/tagging of media but do not establish generative writing or training on world content.
