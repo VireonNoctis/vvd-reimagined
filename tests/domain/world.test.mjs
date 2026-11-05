@@ -72,3 +72,34 @@ test("world integrity reports broken references and duplicate ids", () => {
     "character-1.mentor points to missing document missing-card."
   ]);
 });
+
+test("world integrity reports missing names and duplicate property or block ids", () => {
+  const world = makeWorld();
+  const character = world.documents[0];
+  character.name = "";
+  character.properties.push({ ...character.properties[0] });
+  character.blocks.push({ ...character.blocks[0] });
+
+  assert.deepEqual(getWorldIntegrityIssues(world), [
+    "Document character-1 has no name.",
+    "Document character-1 has duplicate property id: home.",
+    "Document character-1 has duplicate body block id: intro."
+  ]);
+});
+
+test("world integrity reports blank document, property and block ids", () => {
+  const world = makeWorld();
+  const character = world.documents[0];
+  character.id = "";
+  character.name = "";
+  character.properties.push({ id: " ", label: "", kind: "text", value: "note" });
+  character.blocks.push({ id: " ", type: "text", text: "note" });
+
+  assert.deepEqual(getWorldIntegrityIssues(world), [
+    "A document is missing its stable id.",
+    "Document (missing id) has no name.",
+    "Document (missing id) has a property without a stable id.",
+    "Document (missing id) has an unnamed property.",
+    "Document (missing id) has a body block without a stable id."
+  ]);
+});

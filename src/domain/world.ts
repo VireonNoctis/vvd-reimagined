@@ -38,16 +38,45 @@ export function getWorldIntegrityIssues(world: World): string[] {
   const documentIds = new Set<string>();
 
   for (const document of world.documents) {
+    const label = document.id || "(missing id)";
+
     if (!document.id.trim()) {
       issues.push("A document is missing its stable id.");
-      continue;
-    }
-
-    if (documentIds.has(document.id)) {
+    } else if (documentIds.has(document.id)) {
       issues.push("Duplicate document id: " + document.id);
+    } else {
+      documentIds.add(document.id);
     }
 
-    documentIds.add(document.id);
+    if (!document.name.trim()) {
+      issues.push("Document " + label + " has no name.");
+    }
+
+    const propertyIds = new Set<string>();
+    for (const property of document.properties) {
+      if (!property.id.trim()) {
+        issues.push("Document " + label + " has a property without a stable id.");
+      } else if (propertyIds.has(property.id)) {
+        issues.push("Document " + label + " has duplicate property id: " + property.id + ".");
+      } else {
+        propertyIds.add(property.id);
+      }
+
+      if (!property.label.trim()) {
+        issues.push("Document " + label + " has an unnamed property.");
+      }
+    }
+
+    const blockIds = new Set<string>();
+    for (const block of document.blocks) {
+      if (!block.id.trim()) {
+        issues.push("Document " + label + " has a body block without a stable id.");
+      } else if (blockIds.has(block.id)) {
+        issues.push("Document " + label + " has duplicate body block id: " + block.id + ".");
+      } else {
+        blockIds.add(block.id);
+      }
+    }
   }
 
   for (const document of world.documents) {
