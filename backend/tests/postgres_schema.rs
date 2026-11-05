@@ -1,3 +1,4 @@
+use chrono::{Duration, Utc};
 use sha2::{Digest, Sha256};
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
@@ -309,6 +310,73 @@ async fn migrations_enforce_membership_and_same_world_references() {
         .is_err(),
         "a folder containing a record cannot be deleted"
     );
+    let media_id = Uuid::new_v4();
+    let object_key = format!("assets/{}", media_id.simple());
+    store::create_media_asset(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        media_id,
+        &object_key,
+        "cover.png",
+        "image/png",
+        1_024,
+        Some(source_document_id),
+        Utc::now() + Duration::minutes(10),
+    )
+    .await
+    .expect("create pending private media record");
+
+    let pending = store::pending_media_upload(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        media_id,
+    )
+    .await
+    .expect("read the pending media upload");
+    assert_eq!(pending, (object_key.clone(), "image/png".to_owned(), 1_024));
+
+    let media = store::complete_media_upload(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        media_id,
+    )
+    .await
+    .expect("complete verified private media record");
+    assert_eq!(media.id, media_id);
+    assert_eq!(media.document_id, Some(source_document_id));
+    assert_eq!(media.size_bytes, 1_024);
+
+    let gallery = store::list_media_assets(&pool, account_id, &format!("first-{unique}"))
+        .await
+        .expect("list ready private media");
+    assert_eq!(gallery.len(), 1);
+    assert_eq!(gallery[0].id, media_id);
+    assert_eq!(
+        store::media_object_key(
+            &pool,
+            account_id,
+            &format!("first-{unique}"),
+            media_id,
+            false,
+        )
+        .await
+        .expect("read private media object key"),
+        object_key
+    );
+
+    store::delete_media_asset(&pool, account_id, &format!("first-{unique}"), media_id)
+        .await
+        .expect("remove media asset metadata");
+    assert!(
+        store::list_media_assets(&pool, account_id, &format!("first-{unique}"))
+            .await
+            .expect("list gallery after deletion")
+            .is_empty()
+    );
+
     let empty_folder = store::create_folder(
         &pool,
         account_id,

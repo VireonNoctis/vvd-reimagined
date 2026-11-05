@@ -253,6 +253,36 @@ pub struct SessionSummary {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct MediaAssetSummary {
+    pub id: Uuid,
+    pub document_id: Option<Uuid>,
+    pub file_name: String,
+    pub content_type: String,
+    pub size_bytes: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaUploadTicket {
+    pub id: Uuid,
+    pub upload_url: String,
+    pub expires_at: DateTime<Utc>,
+    pub content_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaUploadInput {
+    pub file_name: String,
+    pub content_type: String,
+    pub size_bytes: i64,
+    #[serde(default)]
+    pub document_id: Option<Uuid>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DocumentRevisionSummary {
     pub id: Uuid,
     pub version: i64,

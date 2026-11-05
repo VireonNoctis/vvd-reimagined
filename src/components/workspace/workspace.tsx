@@ -94,7 +94,12 @@ export function Workspace({ world, document, interactive }: Props) {
             </Link>)}
             {visibleDocuments.length === 0 && <p className="empty-search">No records match “{search}”.</p>}
           </nav>
-          {interactive && <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/archive"}><Icon name="archive" size={14} />Archived records</Link>}
+          {interactive && (
+            <>
+              <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/media"}><Icon name="files" size={14} />Private Gallery</Link>
+              <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/archive"}><Icon name="archive" size={14} />Archived records</Link>
+            </>
+          )}
           <div className="sidebar-footnote"><span className="status-dot" />{interactive ? "Connected · server-backed" : "Sample world · Read only"}</div>
         </aside>}
 

@@ -37,7 +37,8 @@ Without VVD_API_URL the app remains a read-only preview. With it configured, acc
 - [x] Add membership-checked list/read/create/update API operations.
 - [x] Make card writes transactional and version-checked; enforce same-world references with composite foreign keys.
 - [x] Connect the Next.js world library and card editor to API-backed reads and version-checked writes.
-- [ ] Implement nested folders and registered document types beyond cards.
+- [x] Implement nested folders and move cards between folders.
+- [ ] Add registered document types beyond cards.
 - [ ] Define card type templates and per-type property definitions.
 - [x] Add revision history, archive and restore.
 - Implement era inheritance/resolution.
@@ -47,9 +48,9 @@ Exit condition: a world can hold typed canonical records and resolve references 
 
 ## Phase 3 — Editor and media
 
-- Build card create/view/edit against validated server operations.
+- [x] Build card create/view/edit against validated server operations (body blocks beyond the current first-block editing surface remain partial).
 - Add properties, images and ordered body blocks.
-- Add private media upload and Gallery.
+- [x] Add private media upload and Gallery (provider setup remains deployment-owned).
 - Add mention resolution, manual linking and verified Entity Detection behaviour.
 - Add offline status and failure/recovery UX.
 

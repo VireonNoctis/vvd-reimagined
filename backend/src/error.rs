@@ -59,6 +59,13 @@ impl ApiError {
         }
     }
 
+    pub const fn service_unavailable() -> Self {
+        Self {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            message: "Private media storage is not configured.",
+        }
+    }
+
     pub const fn internal() -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,

@@ -22,6 +22,7 @@ This folder is the product and implementation reference for vvd Reimagined. It r
 12. [Roadmap](ROADMAP.md) — dependency-aware development sequence.
 13. [Open questions](OPEN_QUESTIONS.md) — behaviour requiring direct verification.
 14. [Project setup](PROJECT_SETUP.md) — current repository readiness.
+15. [Private media storage](MEDIA_STORAGE.md) — S3-compatible Gallery setup, permissions and upload lifecycle.
 
 ## Decisions
 

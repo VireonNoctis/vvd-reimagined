@@ -12,7 +12,7 @@ The repository has a Next.js workspace and a Rust API with PostgreSQL-backed acc
 - 3D rendering: Three.js remains optional and lazy-loaded for a real 3D surface.
 - Backend: Rust 1.99.1, Axum 0.8.9 and SQLx 0.9.0.
 - Database: PostgreSQL 18.6 for local development and CI.
-- Media storage: S3-compatible object storage deferred until the media slice.
+- Media storage: private S3-compatible bucket through the AWS SDK for Rust; configure a bucket, region and credential provider to enable Gallery uploads.
 - Collaboration: Yjs-compatible behaviour remains the target; provider and durable update design are deferred.
 
 ## Local development
@@ -33,6 +33,8 @@ cargo run -p vvd-api
 ~~~
 
 The API applies pending migrations on startup. It listens on `http://127.0.0.1:4100` by default.
+
+Private Gallery uploads stay disabled unless both `VVD_S3_BUCKET` and `VVD_S3_REGION` are set. The AWS SDK uses its normal credential chain, such as environment credentials or an attached workload role. For an S3-compatible development endpoint, set `VVD_S3_ENDPOINT` and `VVD_S3_FORCE_PATH_STYLE=true` when the provider requires path-style requests. Production custom endpoints must use HTTPS.
 
 Run the frontend in a second terminal:
 
@@ -75,10 +77,15 @@ The Rust integration test applies the migrations and checks membership enforceme
 - `POST /v1/worlds/{slug}/documents/{id}/archive`, `GET /v1/worlds/{slug}/archive` and `POST /v1/worlds/{slug}/documents/{id}/restore`: archive cards and restore them later. Archive is reversible; there is no permanent-delete endpoint in this slice.
 - `GET/POST /v1/worlds/{slug}/folders`, `PATCH/DELETE /v1/worlds/{slug}/folders/{id}`: list, create, rename, nest, reparent and delete empty folders.
 - `POST /v1/worlds/{slug}/documents/{id}/move`: move a card between folders or back to the world root with an expected-version check.
+- `GET /v1/worlds/{slug}/media` and `POST /v1/worlds/{slug}/media/uploads`: list private Gallery assets or request a short-lived signed upload.
+- `POST /v1/worlds/{slug}/media/{id}/complete`: verify stored object size and declared content type before listing it.
+- `GET /v1/worlds/{slug}/media/{id}/download` and `DELETE /v1/worlds/{slug}/media/{id}`: access a short-lived private download or delete an asset.
 - `GET /health`: checks API/database connectivity.
 
 Authentication uses an HttpOnly, SameSite=Strict cookie. Production must set APP_ORIGIN and use HTTPS so the cookie is Secure. Never put the session token in a URL or log it.
 
 ## Outstanding before public deployment
 
-Nested world folders, card moves, revision history, reversible archive, request rate limits and best-effort session device labels are implemented. Email verification and recovery still need a real mail-delivery provider and verified sender configuration. Production secret management, audit events, backup/restore drills and a security review remain open. S3 and collaboration infrastructure are also not part of this slice.
+Nested world folders, card moves, revision history, reversible archive, request rate limits, best-effort session device labels and the private-media API/UI are implemented. Gallery uploads require a configured private S3-compatible bucket and working credentials. The API verifies the stored object's size and declared content type; it does not scan file bytes for malware or MIME spoofing. Configure bucket CORS for the exact app origin and PUT with the Content-Type header, keep public access blocked, and grant only required object-level permissions. Expired pending uploads need a storage lifecycle/cleanup policy.
+
+Email verification and recovery still need a real mail-delivery provider and verified sender configuration. Production secret management, audit events, backup/restore drills and a security review remain open. Collaboration infrastructure is not part of this slice.

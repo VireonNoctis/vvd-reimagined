@@ -3,7 +3,7 @@ use std::error::Error;
 use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
-use vvd_api::{AppState, config::Config, router};
+use vvd_api::{AppState, config::Config, media::MediaStore, router};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -21,8 +21,13 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .await?;
 
     sqlx::migrate!("./migrations").run(&pool).await?;
+    let media = MediaStore::from_config(config.storage.as_ref()).await?;
     let address = config.bind_address;
-    let app = router(AppState { db: pool, config });
+    let app = router(AppState {
+        db: pool,
+        config,
+        media,
+    });
     let listener = TcpListener::bind(address).await?;
 
     tracing::info!(%address, "vvd API listening");

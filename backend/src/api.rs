@@ -7,9 +7,9 @@ use axum::{
     extract::{ConnectInfo, Path, State},
     http::{
         HeaderMap, HeaderValue, StatusCode,
-        header::{COOKIE, ORIGIN, SET_COOKIE, USER_AGENT},
+        header::{CACHE_CONTROL, COOKIE, ORIGIN, SET_COOKIE, USER_AGENT},
     },
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
     routing::{delete, get, patch, post},
 };
 use chrono::{Duration as ChronoDuration, Utc};
@@ -25,8 +25,8 @@ use crate::{
     models::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
         DocumentRevisionSummary, DocumentVersionInput, Folder, FolderCreateInput,
-        FolderUpdateInput, LoginInput, MoveDocumentInput, RegisterInput, SessionSummary,
-        WorldCreateInput,
+        FolderUpdateInput, LoginInput, MediaAssetSummary, MediaUploadInput,
+        MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
     store,
 };
@@ -263,6 +263,20 @@ pub fn router(state: AppState) -> Router {
             "/v1/worlds/{slug}/documents/{document_id}/move",
             post(move_document),
         )
+        .route("/v1/worlds/{slug}/media", get(list_media_assets))
+        .route("/v1/worlds/{slug}/media/uploads", post(create_media_upload))
+        .route(
+            "/v1/worlds/{slug}/media/{media_id}/complete",
+            post(complete_media_upload),
+        )
+        .route(
+            "/v1/worlds/{slug}/media/{media_id}/download",
+            get(download_media_asset),
+        )
+        .route(
+            "/v1/worlds/{slug}/media/{media_id}",
+            delete(delete_media_asset),
+        )
         .route("/v1/worlds/{slug}/archive", get(list_archived_documents))
         .route(
             "/v1/worlds/{slug}/documents/{document_id}/archive",
@@ -462,6 +476,156 @@ async fn get_world(
     Ok(Json(store::get_world(&state.db, account.id, &slug).await?))
 }
 
+
+const MAX_IMAGE_BYTES: i64 = 50 * 1024 * 1024;
+const MAX_AUDIO_BYTES: i64 = 60 * 1024 * 1024;
+const MAX_VIDEO_BYTES: i64 = 250 * 1024 * 1024;
+
+fn validate_media_upload(input: &MediaUploadInput) -> Result<(String, String), ApiError> {
+    let content_type = input.content_type.trim().to_ascii_lowercase();
+    let max_size = match content_type.as_str() {
+        "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "image/avif" => MAX_IMAGE_BYTES,
+        "audio/mpeg" | "audio/mp4" | "audio/ogg" | "audio/wav" => MAX_AUDIO_BYTES,
+        "video/mp4" | "video/webm" => MAX_VIDEO_BYTES,
+        _ => {
+            return Err(ApiError::bad_request(
+                "This file type is not supported by the private Gallery.",
+            ));
+        }
+    };
+    if input.size_bytes <= 0 || input.size_bytes > max_size {
+        return Err(ApiError::bad_request(
+            "This file is empty or exceeds the upload limit for its type.",
+        ));
+    }
+
+    let file_name = input
+        .file_name
+        .rsplit(|character| character == '/' || character == '\\')
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(180)
+        .collect::<String>()
+        .trim()
+        .to_owned();
+    if file_name.is_empty() || file_name == "." || file_name == ".." {
+        return Err(ApiError::bad_request("Enter a valid file name."));
+    }
+
+    Ok((file_name, content_type))
+}
+
+async fn create_media_upload(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+    Json(input): Json<MediaUploadInput>,
+) -> Result<impl IntoResponse, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
+    let (file_name, content_type) = validate_media_upload(&input)?;
+    let asset_id = Uuid::new_v4();
+    let object_key = format!("assets/{}", asset_id.simple());
+    let upload_url = storage.presign_upload(&object_key, &content_type).await?;
+    let expires_at = Utc::now() + ChronoDuration::minutes(15);
+
+    store::create_media_asset(
+        &state.db,
+        account.id,
+        &slug,
+        asset_id,
+        &object_key,
+        &file_name,
+        &content_type,
+        input.size_bytes,
+        input.document_id,
+        expires_at,
+    )
+    .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(MediaUploadTicket {
+            id: asset_id,
+            upload_url,
+            expires_at,
+            content_type,
+        }),
+    ))
+}
+
+async fn complete_media_upload(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, media_id)): Path<(String, Uuid)>,
+) -> Result<Json<MediaAssetSummary>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
+    let (object_key, content_type, size_bytes) =
+        store::pending_media_upload(&state.db, account.id, &slug, media_id).await?;
+    let stored = storage.inspect(&object_key).await?;
+
+    if stored.size_bytes != size_bytes || stored.content_type.as_deref() != Some(&content_type) {
+        let _ = storage.delete(&object_key).await;
+        store::reject_media_upload(&state.db, account.id, &slug, media_id).await?;
+        return Err(ApiError::bad_request(
+            "The uploaded file does not match the requested type or size.",
+        ));
+    }
+
+    Ok(Json(
+        store::complete_media_upload(&state.db, account.id, &slug, media_id).await?,
+    ))
+}
+
+async fn list_media_assets(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+) -> Result<Json<Vec<MediaAssetSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::list_media_assets(&state.db, account.id, &slug).await?,
+    ))
+}
+
+async fn download_media_asset(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, media_id)): Path<(String, Uuid)>,
+) -> Result<Response, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
+    let object_key =
+        store::media_object_key(&state.db, account.id, &slug, media_id, false).await?;
+    let url = storage.presign_download(&object_key).await?;
+    let mut response = Redirect::temporary(&url).into_response();
+    response.headers_mut().insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    Ok(response)
+}
+
+async fn delete_media_asset(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, media_id)): Path<(String, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let storage = state.media.as_ref().ok_or_else(ApiError::service_unavailable)?;
+    let object_key =
+        store::media_object_key(&state.db, account.id, &slug, media_id, true).await?;
+    storage.delete(&object_key).await?;
+    store::delete_media_asset(&state.db, account.id, &slug, media_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 async fn list_folders(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -653,6 +817,34 @@ async fn update_card(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn private_gallery_uploads_strip_paths_and_enforce_type_and_size() {
+        let input = MediaUploadInput {
+            file_name: "folder\\portrait.png".to_owned(),
+            content_type: " IMAGE/PNG ".to_owned(),
+            size_bytes: 1_024,
+            document_id: None,
+        };
+        let (name, content_type) =
+            validate_media_upload(&input).expect("valid image upload");
+        assert_eq!(name, "portrait.png");
+        assert_eq!(content_type, "image/png");
+
+        let unsupported = MediaUploadInput {
+            content_type: "image/svg+xml".to_owned(),
+            ..input
+        };
+        assert!(validate_media_upload(&unsupported).is_err());
+
+        let oversized = MediaUploadInput {
+            file_name: "large.mp4".to_owned(),
+            content_type: "video/mp4".to_owned(),
+            size_bytes: MAX_VIDEO_BYTES + 1,
+            document_id: None,
+        };
+        assert!(validate_media_upload(&oversized).is_err());
+    }
 
     #[test]
     fn email_normalization_is_case_insensitive() {

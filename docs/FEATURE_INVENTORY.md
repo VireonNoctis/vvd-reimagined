@@ -20,6 +20,7 @@ The current application includes:
 - Membership-checked world and card reads, world/card creation, atomic version-checked card updates, nested world folders and conflict-checked card moves. Composite foreign keys keep card references inside their world.
 - Document snapshots on edits and moves, revision listing/restoration, plus reversible archive operations that retain canonical IDs and inbound database references.
 - Per-document snapshots on mutation, revision listing and conflict-checked restore; archive and restore keep canonical records and inbound references intact.
+- Private Gallery uses S3-compatible presigned uploads/downloads; server-generated object keys and membership-checked metadata prevent client-selected storage paths.
 
 The graph is a derived view, not an editor or a second source of truth. Its temporary node positions are not saved; mention-derived edges, filters and era-aware projections remain future work.
 
@@ -34,7 +35,7 @@ When VVD_API_URL is set, the app uses the Rust API for account sessions, world m
 | Canonical documents | PostgreSQL card identities with aliases, scalar/reference properties, ordered text blocks and optional nested-folder membership | Cards are the only registered type in this slice |
 | Reference integrity | Composite foreign keys prevent cross-world references | Era-aware references remain future work |
 | Card mutations | Transactional create/update, automatic snapshots, revision listing and conflict-checked revision restore; archive/restore and folder moves use version checks | Permanent deletion and revision retention policy remain open |
-| Media | No upload adapter yet | S3-compatible storage deferred until media work |
+| Media | Optional S3-compatible provider, five-minute signed PUT/GET URLs, metadata verification and membership-checked private Gallery API/UI | Requires bucket credentials and CORS; no byte-level MIME sniffing, malware scanning or automated pending-object cleanup yet |
 
 ## Workspace and navigation
 

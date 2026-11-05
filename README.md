@@ -18,15 +18,16 @@ Research baseline: 5 November 2026. Public documentation cannot replace direct i
 - Responsive desktop, tablet and phone layouts.
 - Domain tests for canonical reference resolution and duplicate/missing-reference detection.
 - Login/register/logout, a same-origin API proxy, persistent world creation and a version-checked card editor.
-- Account security page with active-session listing and account-scoped remote session revocation.
-- API tests for input validation plus PostgreSQL integration coverage for membership and same-world reference constraints.
+- Account security page with active-session listing, best-effort browser/platform context and account-scoped remote session revocation.
+- PostgreSQL-backed authentication throttles, nested folders, reversible archive, revision history and same-world card moves.
+- Private Gallery with short-lived presigned S3-compatible uploads and downloads, object metadata verification before publication, and membership-checked asset access.
 - CI configured for repository validation, lint, type-check, tests and production build.
 
 The sample world is deliberately synthetic and read-only when no API is configured. In connected mode, account and world data come from PostgreSQL; card saves are confirmed by the API before the UI refreshes.
 
 ## Not implemented yet
 
-Email verification/recovery, rate limits, session-device management, file uploads, eras, revisions, archive/restore, multi-user collaboration, Quill, additional visual tools, Workshop, Wiki publishing, billing and account operations.
+Email verification/recovery, eras, multi-user collaboration, Quill, additional visual tools, Workshop, Wiki publishing, billing and account operations, production security review and operational hardening.
 
 ## Technology direction
 
@@ -38,7 +39,7 @@ Email verification/recovery, rate limits, session-device management, file upload
 | 3D rendering | Three.js, optional and lazy-loaded | Accepted |
 | Backend | Rust + Axum + SQLx | Implemented API slice |
 | Primary database | PostgreSQL 18 | Implemented schema and migrations |
-| Media storage | S3-compatible object storage | Deferred until media slice |
+| Media storage | Private S3-compatible object storage through the AWS Rust SDK | Adapter and Gallery upload flow implemented; a bucket and credentials must be configured |
 | Collaboration | Yjs-compatible CRDT model and ephemeral presence | Research-backed target; provider decision pending |
 
 Next.js is the framework, React is the component model and TypeScript is the language. Ordinary product UI stays in the DOM. Use SVG or Canvas for suitable 2D work and WebGL only for surfaces that benefit from it. Three.js is optional and should load only for real 3D features.

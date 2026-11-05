@@ -11,7 +11,7 @@ use crate::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardUpdateInput, DocumentRevisionSummary,
         DocumentRow, EntityType, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
-        MoveDocumentInput, PropertyRow, World, WorldRow,
+        MediaAssetSummary, MoveDocumentInput, PropertyRow, World, WorldRow,
     },
 };
 
@@ -786,6 +786,199 @@ pub async fn move_document(
     transaction.commit().await?;
 
     get_document(pool, account_id, slug, document_id).await
+}
+
+
+pub async fn create_media_asset(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    asset_id: Uuid,
+    object_key: &str,
+    file_name: &str,
+    content_type: &str,
+    size_bytes: i64,
+    document_id: Option<Uuid>,
+    expires_at: DateTime<Utc>,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    if let Some(document_id) = document_id {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (
+                SELECT 1 FROM documents
+                WHERE world_id = $1 AND id = $2 AND archived_at IS NULL
+             )",
+        )
+        .bind(world_id)
+        .bind(document_id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(ApiError::bad_request(
+                "Attach media to an active card in this world.",
+            ));
+        }
+    }
+
+    sqlx::query(
+        "INSERT INTO media_assets
+         (id, world_id, document_id, owner_account_id, object_key, file_name,
+          content_type, size_bytes, status, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)",
+    )
+    .bind(asset_id)
+    .bind(world_id)
+    .bind(document_id)
+    .bind(account_id)
+    .bind(object_key)
+    .bind(file_name)
+    .bind(content_type)
+    .bind(size_bytes)
+    .bind(expires_at)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn pending_media_upload(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    asset_id: Uuid,
+) -> Result<(String, String, i64), ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    sqlx::query_as::<_, (String, String, i64)>(
+        "SELECT object_key, content_type, size_bytes
+         FROM media_assets
+         WHERE world_id = $1 AND id = $2 AND owner_account_id = $3
+           AND status = 'pending' AND expires_at > NOW()",
+    )
+    .bind(world_id)
+    .bind(asset_id)
+    .bind(account_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(ApiError::not_found)
+}
+
+pub async fn complete_media_upload(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    asset_id: Uuid,
+) -> Result<MediaAssetSummary, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let row = sqlx::query_as::<_, (Uuid, Option<Uuid>, String, String, i64, DateTime<Utc>)>(
+        "UPDATE media_assets
+         SET status = 'ready', updated_at = NOW(), expires_at = NULL
+         WHERE world_id = $1 AND id = $2 AND owner_account_id = $3
+           AND status = 'pending' AND expires_at > NOW()
+         RETURNING id, document_id, file_name, content_type, size_bytes, created_at",
+    )
+    .bind(world_id)
+    .bind(asset_id)
+    .bind(account_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| ApiError::conflict("This upload has expired or was already completed."))?;
+
+    Ok(MediaAssetSummary {
+        id: row.0,
+        document_id: row.1,
+        file_name: row.2,
+        content_type: row.3,
+        size_bytes: row.4,
+        created_at: row.5,
+    })
+}
+
+pub async fn reject_media_upload(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    asset_id: Uuid,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    sqlx::query(
+        "UPDATE media_assets SET status = 'rejected', updated_at = NOW()
+         WHERE world_id = $1 AND id = $2 AND owner_account_id = $3 AND status = 'pending'",
+    )
+    .bind(world_id)
+    .bind(asset_id)
+    .bind(account_id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn list_media_assets(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+) -> Result<Vec<MediaAssetSummary>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let rows = sqlx::query_as::<_, (Uuid, Option<Uuid>, String, String, i64, DateTime<Utc>)>(
+        "SELECT id, document_id, file_name, content_type, size_bytes, created_at
+         FROM media_assets
+         WHERE world_id = $1 AND status = 'ready'
+         ORDER BY created_at DESC, id DESC",
+    )
+    .bind(world_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| MediaAssetSummary {
+            id: row.0,
+            document_id: row.1,
+            file_name: row.2,
+            content_type: row.3,
+            size_bytes: row.4,
+            created_at: row.5,
+        })
+        .collect())
+}
+
+pub async fn media_object_key(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    asset_id: Uuid,
+    for_write: bool,
+) -> Result<String, ApiError> {
+    let world_id = require_world(pool, account_id, slug, for_write).await?;
+    sqlx::query_scalar::<_, String>(
+        "SELECT object_key FROM media_assets
+         WHERE world_id = $1 AND id = $2 AND status = 'ready'",
+    )
+    .bind(world_id)
+    .bind(asset_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(ApiError::not_found)
+}
+
+pub async fn delete_media_asset(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    asset_id: Uuid,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let result = sqlx::query(
+        "UPDATE media_assets SET status = 'deleted', updated_at = NOW()
+         WHERE world_id = $1 AND id = $2 AND status IN ('pending', 'ready')",
+    )
+    .bind(world_id)
+    .bind(asset_id)
+    .execute(pool)
+    .await?;
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found());
+    }
+    Ok(())
 }
 
 pub async fn list_documents(

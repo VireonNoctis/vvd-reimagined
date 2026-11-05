@@ -5,7 +5,7 @@ type RouteContext = {
 };
 
 const FORWARDED_REQUEST_HEADERS = ["accept", "content-type", "cookie", "origin"];
-const FORWARDED_RESPONSE_HEADERS = ["cache-control", "content-type", "set-cookie", "vary"];
+const FORWARDED_RESPONSE_HEADERS = ["cache-control", "content-type", "location", "set-cookie", "vary"];
 
 async function proxy(request: NextRequest, context: RouteContext): Promise<Response> {
   const origin = process.env.VVD_API_URL?.trim();
