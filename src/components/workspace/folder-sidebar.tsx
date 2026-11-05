@@ -37,7 +37,7 @@ export function FolderSidebar({ worldSlug, document, selectedFolderId, onSelectF
   const [editingId, setEditingId] = useState("");
   const [editingName, setEditingName] = useState("");
   const [editingParentId, setEditingParentId] = useState("");
-  const [moveFolderId, setMoveFolderId] = useState("");
+  const [moveFolderId, setMoveFolderId] = useState(document?.folderId ?? "");
 
   useEffect(() => {
     let active = true;
@@ -57,7 +57,7 @@ export function FolderSidebar({ worldSlug, document, selectedFolderId, onSelectF
     return () => { active = false; };
   }, [worldSlug]);
 
-folder move state effect  const options = useMemo(() => {
+const options = useMemo(() => {
     const result: { id: string; label: string }[] = [];
     const append = (parent: string | null, depth: number) => {
       folders
