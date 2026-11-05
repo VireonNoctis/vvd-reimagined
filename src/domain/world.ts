@@ -11,6 +11,7 @@ export type CardDocument = {
   name: string;
   aliases: string[];
   updatedAt: string;
+  version: number;
   properties: CardProperty[];
   blocks: { id: string; type: "text"; text: string }[];
 };
@@ -48,9 +49,7 @@ export function getWorldIntegrityIssues(world: World): string[] {
       documentIds.add(document.id);
     }
 
-    if (!document.name.trim()) {
-      issues.push("Document " + label + " has no name.");
-    }
+    if (!document.name.trim()) issues.push("Document " + label + " has no name.");
 
     const propertyIds = new Set<string>();
     for (const property of document.properties) {
@@ -62,9 +61,7 @@ export function getWorldIntegrityIssues(world: World): string[] {
         propertyIds.add(property.id);
       }
 
-      if (!property.label.trim()) {
-        issues.push("Document " + label + " has an unnamed property.");
-      }
+      if (!property.label.trim()) issues.push("Document " + label + " has an unnamed property.");
     }
 
     const blockIds = new Set<string>();

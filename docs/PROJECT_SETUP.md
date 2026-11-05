@@ -2,7 +2,7 @@
 
 ## Current state
 
-The repository now has a Next.js read-only preview and a separate Rust API with PostgreSQL-backed accounts, sessions, worlds, memberships and card documents. The API is real; the current Next.js repository adapter still uses the synthetic fixture until the same-origin proxy and sign-in UI are connected.
+The repository has a Next.js workspace and a Rust API with PostgreSQL-backed accounts, sessions, worlds, memberships and card documents. When VVD_API_URL is configured, the frontend uses a same-origin proxy for auth and mutations, and server-rendered world reads use the HttpOnly session cookie. Without it, the app deliberately stays in its synthetic read-only preview mode.
 
 ## Accepted direction
 
@@ -42,7 +42,7 @@ npm install
 npm run dev
 ~~~
 
-The frontend is not yet connected to the API. Keep the preview label visible until the same-origin proxy, session-aware repository and sign-in flow are integrated.
+Set VVD_API_URL=http://127.0.0.1:4100 in the frontend environment. The same-origin /api route forwards the current browser session to the API; server-rendered world reads use the HttpOnly cookie without exposing it to client code. When VVD_API_URL is absent, the read-only fixture is used.
 
 ## Checks
 

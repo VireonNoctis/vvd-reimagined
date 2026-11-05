@@ -15,6 +15,7 @@ export const demoWorld: World = {
       name: "Elowen Sable",
       aliases: ["The Tidebound", "Warden of the East Shoal"],
       updatedAt: "2026-11-02",
+      version: 1,
       properties: [
         { id: "origin", label: "Origin", kind: "reference", documentId: "card-fallowreach" },
         { id: "allegiance", label: "Allegiance", kind: "reference", documentId: "card-glass-court" },
@@ -32,6 +33,7 @@ export const demoWorld: World = {
       name: "Fallowreach",
       aliases: ["The Reed Coast"],
       updatedAt: "2026-10-28",
+      version: 1,
       properties: [{ id: "region", label: "Region", kind: "text", value: "Eastern Shoals" }],
       blocks: [{ id: "description", type: "text", text: "A low, tidal coast of reed beds, chalk roads and half-submerged watchtowers. Its settlements move with the shoreline, but their oldest boundaries remain stubbornly fixed." }]
     },
@@ -42,6 +44,7 @@ export const demoWorld: World = {
       name: "The Glass Court",
       aliases: ["The Court"],
       updatedAt: "2026-10-21",
+      version: 1,
       properties: [{ id: "seat", label: "Seat", kind: "text", value: "Veyr" }],
       blocks: [{ id: "description", type: "text", text: "A compact of navigators, lenders and coastal magistrates. The Court maintains that the Meridian's old routes are still binding, even where the sea has reclaimed the land." }]
     }

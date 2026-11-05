@@ -4,7 +4,7 @@ An independent reconstruction of a connected worldbuilding, writing, collaborati
 
 ## Status
 
-The first Next.js application slice and a separate Rust API are in place. The frontend still shows a read-only synthetic preview, while the API has PostgreSQL-backed accounts, sessions, world membership and canonical card create/read/update operations. The Next.js sign-in and session-aware repository are not connected yet.
+The Next.js workspace and Rust API are connected when VVD_API_URL is configured: account sessions, world membership, world creation, canonical card reads and version-checked card updates use PostgreSQL. Without that setting, the app remains an explicitly read-only synthetic preview.
 
 Research baseline: 5 November 2026. Public documentation cannot replace direct inspection of the authenticated workspace. Exact current geometry, hidden menus, transition timings and some beta behaviour remain unverified.
 
@@ -17,14 +17,15 @@ Research baseline: 5 November 2026. Public documentation cannot replace direct i
 - Search across document names, aliases and entity types.
 - Responsive desktop, tablet and phone layouts.
 - Domain tests for canonical reference resolution and duplicate/missing-reference detection.
+- Login/register/logout, a same-origin API proxy, persistent world creation and a version-checked card editor.
 - API tests for input validation plus PostgreSQL integration coverage for membership and same-world reference constraints.
 - CI configured for repository validation, lint, type-check, tests and production build.
 
-The sample world is deliberately synthetic. Create and edit controls are disabled rather than pretending to save. No authenticated user data is loaded.
+The sample world is deliberately synthetic and read-only when no API is configured. In connected mode, account and world data come from PostgreSQL; card saves are confirmed by the API before the UI refreshes.
 
 ## Not implemented yet
 
-Next.js sign-in and API connection, email verification/recovery, rate limits, session-device management, file uploads, eras, revisions, archive/restore, multi-user collaboration, Quill, additional visual tools, Workshop, Wiki publishing, billing and account operations.
+Email verification/recovery, rate limits, session-device management, file uploads, eras, revisions, archive/restore, multi-user collaboration, Quill, additional visual tools, Workshop, Wiki publishing, billing and account operations.
 
 ## Technology direction
 

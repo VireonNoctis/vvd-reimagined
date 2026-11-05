@@ -2,29 +2,39 @@ import "server-only";
 
 import { demoWorld } from "@/data/demo-world";
 import { getWorldIntegrityIssues, type World } from "@/domain/world";
+import { apiConfigured, apiRequest, ApiError } from "@/server/api";
 
 export interface WorldRepository {
   list(): Promise<readonly World[]>;
   findBySlug(slug: string): Promise<World | null>;
 }
 
-class PreviewWorldRepository implements WorldRepository {
-  private readonly worlds = [demoWorld];
+class WorldRepositoryImpl implements WorldRepository {
+  private readonly previewWorlds = [demoWorld];
 
   constructor() {
-    const issues = this.worlds.flatMap(getWorldIntegrityIssues);
-    if (issues.length > 0) {
-      throw new Error("Invalid preview world data:\n" + issues.join("\n"));
+    if (!apiConfigured) {
+      const issues = this.previewWorlds.flatMap(getWorldIntegrityIssues);
+      if (issues.length) throw new Error("Invalid preview world data:\n" + issues.join("\n"));
     }
   }
 
   async list(): Promise<readonly World[]> {
-    return this.worlds;
+    if (apiConfigured) return apiRequest<World[]>("/v1/worlds");
+    return this.previewWorlds;
   }
 
   async findBySlug(slug: string): Promise<World | null> {
-    return this.worlds.find((world) => world.slug === slug) ?? null;
+    if (apiConfigured) {
+      try {
+        return await apiRequest<World>("/v1/worlds/" + encodeURIComponent(slug));
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    }
+    return this.previewWorlds.find((world) => world.slug === slug) ?? null;
   }
 }
 
-export const worldRepository: WorldRepository = new PreviewWorldRepository();
+export const worldRepository: WorldRepository = new WorldRepositoryImpl();

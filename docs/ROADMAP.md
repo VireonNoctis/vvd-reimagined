@@ -22,12 +22,12 @@ The shared world/document model must work before graph, Quill and publishing sur
 - [x] Add domain integrity tests and configure application CI.
 - [ ] Generate and commit a package lockfile.
 - [x] Run frontend install, lint, type-check, tests and production build successfully.
-- [ ] Finish Rust formatting, Clippy, PostgreSQL migration/integration tests and release build in CI.
+- [x] Finish Rust formatting, Clippy, PostgreSQL migration/integration tests and release build in CI.
 - [x] Establish the Rust API session boundary and server-side world membership checks.
-- [ ] Connect the Next.js app to the API through a same-origin proxy and sign-in flow.
+- [x] Connect Next.js to the API through a same-origin proxy, sign-in/register/logout and session-aware server reads.
 - [ ] Add distinct public, authenticated and published-reader route boundaries.
 
-The application currently has a read-only preview, not real authentication or persistence. CI configuration is in place, but its first complete run remains the verification gate.
+Without VVD_API_URL the app remains a read-only preview. With it configured, account sessions, world reads/creation and version-checked card edits use the Rust API.
 
 ## Phase 2 — World and document engine
 
@@ -36,7 +36,7 @@ The application currently has a read-only preview, not real authentication or pe
 - [x] Store canonical card identities, aliases, typed properties and ordered text blocks.
 - [x] Add membership-checked list/read/create/update API operations.
 - [x] Make card writes transactional and version-checked; enforce same-world references with composite foreign keys.
-- [ ] Connect the Next.js repository and editor to the API.
+- [x] Connect the Next.js world library and card editor to API-backed reads and version-checked writes.
 - [ ] Implement nested folders and registered document types beyond cards.
 - [ ] Define card type templates and per-type property definitions.
 - [ ] Add revision history, archive and restore.

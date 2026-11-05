@@ -205,3 +205,50 @@ a.rail-link:hover, .rail-link.active { background: rgba(255,255,255,.11); color:
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* Account, world creation and live editor surfaces */
+.worlds-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,440px),1fr)); gap: 18px; }
+.worlds-empty { display: flex; min-height: 260px; align-items: center; flex-direction: column; justify-content: center; padding: 38px 20px; border: 1px dashed #dfe1d7; border-radius: 13px; background: rgba(251,250,247,.58); text-align: center; }
+.worlds-empty-mark { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid #e5e6dc; border-radius: 13px; background: #f4f5ef; color: #77846e; }
+.worlds-empty h2 { margin: 17px 0 7px; color: #343b31; font: 400 23px Georgia,serif; }
+.worlds-empty p { max-width: 350px; margin: 0 0 18px; color: #8b9086; font-size: 11px; line-height: 1.7; }
+.auth-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); }
+.auth-topbar { height: 66px; display: flex; align-items: center; justify-content: space-between; padding: 0 clamp(22px,5vw,76px); border-bottom: 1px solid var(--line); background: rgba(251,250,247,.82); }
+.auth-back-link { margin: 0; }
+.auth-panel { width: min(480px,calc(100% - 38px)); margin: auto; padding: 68px 0 76px; }
+.auth-panel h1 { margin: 13px 0 10px; color: #292f27; font: 400 clamp(34px,5vw,49px)/1.06 Georgia,serif; letter-spacing: -.045em; }
+.auth-intro { max-width: 390px; margin: 0 0 30px; color: #82877d; font-size: 13px; line-height: 1.75; }
+.auth-notice { margin: 0 0 20px; padding: 11px 13px; border: 1px solid #e1e4da; border-radius: 8px; background: #f1f3ed; color: #727d68; font-size: 11px; line-height: 1.55; }
+.auth-form,.world-create-form,.card-edit-form { display: flex; flex-direction: column; gap: 17px; }
+.auth-form label,.world-create-form label,.card-edit-form label { display: flex; flex-direction: column; gap: 8px; color: #646c5e; font-size: 10px; font-weight: 650; }
+.auth-form input,.world-create-form input,.world-create-form textarea,.card-edit-form input,.card-edit-form textarea { width: 100%; min-width: 0; padding: 12px 13px; border: 1px solid #e2e1d8; border-radius: 8px; outline: 0; background: #fffefa; color: #343b31; font: 12px/1.5 Inter,ui-sans-serif,system-ui,sans-serif; }
+.auth-form input:focus,.world-create-form input:focus,.world-create-form textarea:focus,.card-edit-form input:focus,.card-edit-form textarea:focus { border-color: #aeb9a4; box-shadow: 0 0 0 3px rgba(120,131,111,.09); }
+.auth-form label small,.card-edit-form label small { color: #9b9f96; font-size: 9px; font-weight: 450; }
+.auth-submit { display: inline-flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 22px; padding: 0 15px; border: 1px solid #52634b; border-radius: 8px; background: #56664e; color: #fffef8; font-size: 11px; font-weight: 650; cursor: pointer; transition: background .16s ease,transform .16s ease; }
+.auth-submit:hover { background: #46563f; }
+.auth-submit:active { transform: scale(.985); }
+.auth-submit:disabled { cursor: not-allowed; opacity: .55; }
+.auth-submit:focus-visible,.auth-switch button:focus-visible,.sign-out-button:focus-visible { outline: 2px solid #829477; outline-offset: 3px; }
+.auth-error { margin: 0; color: #a15f4d; font-size: 11px; line-height: 1.5; }
+.auth-switch { margin: 22px 0 0; color: #8e9388; font-size: 10px; }
+.auth-switch button { margin-left: 6px; padding: 0; border: 0; background: none; color: #5c6e53; font-size: inherit; font-weight: 700; cursor: pointer; }
+.auth-footer { display: flex; justify-content: space-between; padding: 20px clamp(22px,5vw,76px); border-top: 1px solid var(--line); color: #a0a298; font-size: 8px; font-weight: 700; letter-spacing: .13em; }
+.sign-out-button { margin-left: 7px; padding: 6px 9px; border: 1px solid #e2e3da; border-radius: 7px; background: #fbfaf7; color: #717969; font-size: 9px; cursor: pointer; }
+.world-create-panel { width: min(540px,calc(100% - 38px)); }
+.world-create-form { margin-top: 28px; }
+.world-create-form label textarea,.card-edit-form textarea { resize: vertical; }
+.world-create-actions,.card-edit-actions { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 4px; }
+.world-create-actions .text-link,.card-edit-actions .text-link { margin: 0; padding: 9px 3px; border: 0; background: transparent; cursor: pointer; }
+.card-edit-form { width: min(760px,calc(100% - 72px)); margin: clamp(34px,6vh,62px) auto 65px; padding: 26px; border: 1px solid #e5e3da; border-radius: 12px; background: #fffefa; }
+.card-edit-heading h2 { margin: 7px 0 0; color: #2e352c; font: 400 27px Georgia,serif; }
+.card-edit-version { margin: 0; color: #969b90; font-size: 9px; }
+@media (max-width: 560px) {
+  .auth-panel { padding: 52px 0 58px; }
+  .auth-footer span:last-child { max-width: 130px; text-align: right; line-height: 1.6; }
+  .card-edit-form { width: calc(100% - 28px); margin: 22px auto 36px; padding: 17px; }
+}
+
+.sign-out-wrap { display: inline-flex; align-items: center; gap: 7px; }
+.sign-out-error { max-width: 150px; color: #a15f4d; font-size: 9px; }
+.card-edit-form select { width: 100%; padding: 12px 13px; border: 1px solid #e2e1d8; border-radius: 8px; background: #fffefa; color: #343b31; font: 12px Inter,ui-sans-serif,system-ui,sans-serif; }
+.card-edit-form select:focus { outline: 0; border-color: #aeb9a4; box-shadow: 0 0 0 3px rgba(120,131,111,.09); }
