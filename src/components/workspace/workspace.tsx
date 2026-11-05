@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { WorldGraph } from "@/components/visual/world-graph";
 import { resolveCardReference, type CardDocument, type World } from "@/domain/world";
 
 type Props = { world: World; document: CardDocument };
@@ -19,6 +20,8 @@ export function Workspace({ world, document }: Props) {
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [showGraph, setShowGraph] = useState(false);
+  const [graphSelectedId, setGraphSelectedId] = useState(document.id);
 
   const visibleDocuments = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase();
@@ -44,12 +47,13 @@ export function Workspace({ world, document }: Props) {
         <div className="topbar-breadcrumbs">
           <Link href="/">Worlds</Link><Icon name="chevron-right" size={13} />
           <span>{world.name}</span><Icon name="chevron-right" size={13} />
-          <span className="breadcrumb-current">Editor</span>
+          <span className="breadcrumb-current">{showGraph ? "World graph" : "Editor"}</span>
         </div>
         <div className="topbar-actions">
           <span className="preview-pill"><span /> Preview environment</span>
           <button className="icon-button" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? "Collapse document sidebar" : "Open document sidebar"}><Icon name="panel-left" /></button>
-          <button className="icon-button inspector-toggle" type="button" onClick={() => setInspectorOpen((open) => !open)} aria-label={inspectorOpen ? "Hide details panel" : "Show details panel"}><Icon name="layers" /></button>
+          <button className={"toolbar-button graph-view-button" + (showGraph ? " is-active" : "")} type="button" onClick={() => { if (!showGraph) setGraphSelectedId(document.id); setShowGraph((active) => !active); }}><Icon name={showGraph ? "files" : "share-2"} size={15} />{showGraph ? "Editor" : "World graph"}</button>
+          {!showGraph && <button className="icon-button inspector-toggle" type="button" onClick={() => setInspectorOpen((open) => !open)} aria-label={inspectorOpen ? "Hide details panel" : "Show details panel"}><Icon name="layers" /></button>}
         </div>
       </header>
 
@@ -74,7 +78,8 @@ export function Workspace({ world, document }: Props) {
           <div className="sidebar-footnote"><span className="status-dot" />Sample world · Read only</div>
         </aside>}
 
-        <main className="document-stage">
+        <main className={"document-stage" + (showGraph ? " graph-document-stage" : "")}>
+          {showGraph ? <WorldGraph world={world} selectedDocumentId={graphSelectedId} onSelectDocument={setGraphSelectedId} /> : <>
           <div className="document-toolbar">
             <div className="document-toolbar-left"><span className="toolbar-kind">CARD</span><span className="toolbar-separator">/</span><span className="toolbar-muted">{document.entityType}</span><span className="toolbar-separator">·</span><span className="toolbar-muted">Updated {updated}</span></div>
             <div className="document-toolbar-right"><button className="toolbar-button" type="button" disabled title="Editing will be wired to the document service">Edit</button><button className="icon-button" type="button" disabled aria-label="More document actions"><Icon name="dots" /></button></div>
@@ -91,9 +96,10 @@ export function Workspace({ world, document }: Props) {
             <div className="document-endmark"><span /><small>END OF RECORD</small><span /></div>
           </article>
           <div className="stage-footer"><span>One world. Shared records. Connected views.</span><span>VVD REIMAGINED · WORKSPACE PREVIEW</span></div>
+          </>}
         </main>
 
-        {inspectorOpen && <aside className="details-panel">
+        {inspectorOpen && !showGraph && <aside className="details-panel">
           <div className="details-panel-header"><div><span className="eyebrow">Document details</span><h2>Properties</h2></div><button className="quiet-icon-button" type="button" onClick={() => setInspectorOpen(false)} aria-label="Close details panel"><Icon name="close" size={16} /></button></div>
           <div className="property-list">{document.properties.map((property) => {
             const referenced = resolveCardReference(world, property);

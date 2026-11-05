@@ -13,6 +13,9 @@ The first application slice currently includes:
 - Typed card records with names, aliases, text blocks and scalar properties.
 - Canonical card references that navigate to the referenced document rather than copying its content.
 - Domain tests for stable lookup, reference resolution and duplicate/missing reference detection.
+- A read-only World Graph rendered with WebGL 2 from valid typed card references. Nodes can be selected, dragged and panned; the DOM inspector and record list provide accessible navigation and links back to canonical records.
+
+The graph is a derived view, not an editor or a second source of truth. Its temporary node positions are not saved; mention-derived edges, filters and era-aware projections remain future work.
 
 This is a read-only preview. It has no authentication, membership enforcement, persistent storage, editing operations, upload flow or collaboration runtime. These screens are a starting implementation, not a claim of authenticated UI parity.
 

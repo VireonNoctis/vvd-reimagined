@@ -19,7 +19,7 @@ function makeWorld() {
         aliases: [],
         updatedAt: "2026-11-05",
         properties: [{ id: "home", label: "Home", kind: "reference", documentId: "place-1" }],
-        blocks: []
+        blocks: [{ id: "intro", type: "text", text: "A short profile." }]
       },
       {
         id: "place-1",

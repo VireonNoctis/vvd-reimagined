@@ -1,4 +1,4 @@
-type IconName = "chevron-down" | "chevron-right" | "close" | "dots" | "files" | "globe" | "layers" | "panel-left" | "plus" | "search" | "spark";
+type IconName = "chevron-down" | "chevron-right" | "close" | "dots" | "files" | "globe" | "layers" | "panel-left" | "plus" | "search" | "share-2" | "spark";
 
 const paths: Record<IconName, string[]> = {
   "chevron-down": ["m6 9 6 6 6-6"],
@@ -11,6 +11,7 @@ const paths: Record<IconName, string[]> = {
   "panel-left": ["M3 4h18v16H3z", "M9 4v16"],
   plus: ["M12 5v14", "M5 12h14"],
   search: ["M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z", "m21 21-4.35-4.35"],
+  "share-2": ["M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z", "M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z", "M18 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z", "m8.6 13.5 6.8-4", "m8.6 16.5 6.8 4"],
   spark: ["m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"]
 };
 

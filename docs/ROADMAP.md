@@ -50,7 +50,8 @@ Exit condition: a world can hold typed canonical records and resolve references 
 
 ## Phase 4 — Visual worldbuilding
 
-- World Graph from mention/property relationships.
+- [x] Initial read-only WebGL 2 World Graph for typed property references, with draggable nodes, panning and canonical record navigation.
+- [ ] Expand World Graph with mention-derived edges, filters, saved layouts and era-aware projections.
 - Maps with image backgrounds, layers, zones, labels and pins.
 - Relation Trees with independent nodes, typed edges and variants.
 - Canvas with cards, images, text, groups and drawing.
