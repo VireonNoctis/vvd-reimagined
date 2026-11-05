@@ -14,9 +14,9 @@ use axum::{
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Serialize;
-use std::net::SocketAddr;
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, PgPool};
+use std::net::SocketAddr;
 use uuid::Uuid;
 
 use crate::{
@@ -168,10 +168,7 @@ async fn check_auth_rate_limit(
         .execute(pool)
         .await?;
 
-    for (scope, value, limit) in [
-        ("ip", source_ip, ip_limit),
-        ("email", email, email_limit),
-    ] {
+    for (scope, value, limit) in [("ip", source_ip, ip_limit), ("email", email, email_limit)] {
         let digest = Sha256::digest(format!("{action}:{scope}:{value}").as_bytes()).to_vec();
         let attempts = sqlx::query_scalar::<_, i32>(
             "INSERT INTO auth_rate_limits
@@ -270,7 +267,15 @@ async fn register(
 ) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
     let email = email_value(&input.email)?;
-    check_auth_rate_limit(&state.db, "register", &email, &source_ip(connect_info), 20, 4).await?;
+    check_auth_rate_limit(
+        &state.db,
+        "register",
+        &email,
+        &source_ip(connect_info),
+        20,
+        4,
+    )
+    .await?;
     let display_name = input.display_name.trim();
     if display_name.is_empty() || display_name.chars().count() > 60 {
         return Err(ApiError::bad_request(

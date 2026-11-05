@@ -697,11 +697,15 @@ mod tests {
     #[test]
     fn session_device_labels_use_browser_and_platform_without_storing_raw_ip() {
         assert_eq!(
-            device_label(Some("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/130.0")),
+            device_label(Some(
+                "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/130.0"
+            )),
             "Chrome on Windows"
         );
         assert_eq!(
-            device_label(Some("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) Version/17 Safari/605.1")),
+            device_label(Some(
+                "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) Version/17 Safari/605.1"
+            )),
             "Safari on iPad"
         );
         assert_eq!(device_label(None), "Unknown browser");
