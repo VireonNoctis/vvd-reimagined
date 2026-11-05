@@ -42,7 +42,6 @@ Without VVD_API_URL the app remains a read-only preview. With it configured, acc
 - [ ] Add revision history, archive and restore.
 - Implement era inheritance/resolution.
 - Add aliases, references and search.
-- Add revision history, archive and restore.
 
 Exit condition: a world can hold typed canonical records and resolve references correctly across eras, with membership enforced server-side.
 
@@ -106,4 +105,4 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - Optional lazy Three.js Model Viewer.
 - Reduced-motion, keyboard and visual regression coverage.
 
-The next implementation milestone is to harden account lifecycle operations: add email verification and recovery plus request rate limits; then implement revision history plus archive/restore and add folders to the document library. Active-session listing and account-scoped remote revocation are now implemented; device identification remains open. Media uploads should follow as a separate private-object-storage slice. The connected sign-in/world/card path and the first WebGL graph are already implemented; do not mark the reconstruction production-ready while the hardening and recovery paths remain open.
+Authentication now has PostgreSQL-backed 15-minute throttles keyed by hashed direct-peer IP and normalized email, and session rows retain a bounded user-agent string for a best-effort device label. Email verification and account recovery remain blocked on choosing and configuring a mail-delivery provider; the API does not claim to send mail. Next: revision history, archive/restore and document folders, followed by private media storage. The connected sign-in/world/card path and the first WebGL graph are already implemented; do not mark the reconstruction production-ready while the hardening and recovery paths remain open.

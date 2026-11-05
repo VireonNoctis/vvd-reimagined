@@ -6,6 +6,7 @@ type Session = {
   id: string;
   createdAt: string;
   expiresAt: string;
+  deviceLabel: string;
   current: boolean;
 };
 
@@ -86,7 +87,7 @@ export function SessionManager() {
               </span>
               <div className="session-copy">
                 <div className="session-title">
-                  <strong>{session.current ? "This browser" : "Signed-in browser"}</strong>
+                  <strong>{session.deviceLabel}</strong>
                   {session.current && <span className="session-current-pill">Current</span>}
                 </div>
                 <span>Started {date(session.createdAt)}</span>

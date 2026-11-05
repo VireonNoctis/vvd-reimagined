@@ -4,16 +4,17 @@ use argon2::{
 };
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{ConnectInfo, Path, State},
     http::{
         HeaderMap, HeaderValue, StatusCode,
-        header::{COOKIE, ORIGIN, SET_COOKIE},
+        header::{COOKIE, ORIGIN, SET_COOKIE, USER_AGENT},
     },
     response::{IntoResponse, Response},
     routing::{delete, get, post},
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::Serialize;
+use std::net::SocketAddr;
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
@@ -138,19 +139,76 @@ async fn insert_session(
     connection: &mut PgConnection,
     account_id: Uuid,
     token: &str,
+    user_agent: Option<&str>,
 ) -> Result<(), ApiError> {
     sqlx::query(
-        "INSERT INTO sessions (id, account_id, token_hash, expires_at)
-         VALUES ($1, $2, $3, $4)",
+        "INSERT INTO sessions (id, account_id, token_hash, expires_at, user_agent)
+         VALUES ($1, $2, $3, $4, $5)",
     )
     .bind(Uuid::new_v4())
     .bind(account_id)
     .bind(token_hash(token))
     .bind(Utc::now() + ChronoDuration::seconds(SESSION_SECONDS))
+    .bind(user_agent.map(|value| value.chars().take(300).collect::<String>()))
     .execute(connection)
     .await?;
 
     Ok(())
+}
+
+async fn check_auth_rate_limit(
+    pool: &PgPool,
+    action: &str,
+    email: &str,
+    source_ip: &str,
+    ip_limit: i32,
+    email_limit: i32,
+) -> Result<(), ApiError> {
+    sqlx::query("DELETE FROM auth_rate_limits WHERE expires_at <= NOW()")
+        .execute(pool)
+        .await?;
+
+    for (scope, value, limit) in [
+        ("ip", source_ip, ip_limit),
+        ("email", email, email_limit),
+    ] {
+        let digest = Sha256::digest(format!("{action}:{scope}:{value}").as_bytes()).to_vec();
+        let attempts = sqlx::query_scalar::<_, i32>(
+            "INSERT INTO auth_rate_limits
+             (identifier_hash, attempts, window_started_at, expires_at)
+             VALUES ($1, 1, NOW(), NOW() + INTERVAL '1 day')
+             ON CONFLICT (identifier_hash) DO UPDATE
+             SET attempts = CASE
+                    WHEN auth_rate_limits.window_started_at <= NOW() - INTERVAL '15 minutes'
+                    THEN 1 ELSE auth_rate_limits.attempts + 1
+                 END,
+                 window_started_at = CASE
+                    WHEN auth_rate_limits.window_started_at <= NOW() - INTERVAL '15 minutes'
+                    THEN NOW() ELSE auth_rate_limits.window_started_at
+                 END,
+                 expires_at = NOW() + INTERVAL '1 day'
+             RETURNING attempts",
+        )
+        .bind(digest)
+        .fetch_one(pool)
+        .await?;
+
+        if attempts > limit {
+            return Err(ApiError::rate_limited());
+        }
+    }
+
+    Ok(())
+}
+
+fn source_ip(connect_info: Option<ConnectInfo<SocketAddr>>) -> String {
+    connect_info
+        .map(|ConnectInfo(address)| address.ip().to_string())
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn user_agent(headers: &HeaderMap) -> Option<&str> {
+    headers.get(USER_AGENT)?.to_str().ok()
 }
 
 async fn signed_in_account(pool: &PgPool, headers: &HeaderMap) -> Result<Account, ApiError> {
@@ -207,10 +265,12 @@ async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse>, A
 async fn register(
     State(state): State<AppState>,
     headers: HeaderMap,
+    connect_info: Option<ConnectInfo<SocketAddr>>,
     Json(input): Json<RegisterInput>,
 ) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
     let email = email_value(&input.email)?;
+    check_auth_rate_limit(&state.db, "register", &email, &source_ip(connect_info), 20, 4).await?;
     let display_name = input.display_name.trim();
     if display_name.is_empty() || display_name.chars().count() > 60 {
         return Err(ApiError::bad_request(
@@ -239,7 +299,7 @@ async fn register(
     .execute(&mut *transaction)
     .await?;
 
-    insert_session(&mut transaction, account_id, &token).await?;
+    insert_session(&mut transaction, account_id, &token, user_agent(&headers)).await?;
     transaction.commit().await?;
 
     let account = Account {
@@ -256,10 +316,12 @@ async fn register(
 async fn login(
     State(state): State<AppState>,
     headers: HeaderMap,
+    connect_info: Option<ConnectInfo<SocketAddr>>,
     Json(input): Json<LoginInput>,
 ) -> Result<Response, ApiError> {
     check_origin(&headers, &state)?;
     let email = email_value(&input.email)?;
+    check_auth_rate_limit(&state.db, "login", &email, &source_ip(connect_info), 40, 10).await?;
     if input.password.is_empty() || input.password.chars().count() > 128 {
         return Err(ApiError::unauthorized());
     }
@@ -280,7 +342,7 @@ async fn login(
 
     let token = Uuid::new_v4().to_string();
     let mut connection = state.db.acquire().await?;
-    insert_session(&mut connection, row.0, &token).await?;
+    insert_session(&mut connection, row.0, &token, user_agent(&headers)).await?;
 
     let account = Account {
         id: row.0,

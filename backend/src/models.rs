@@ -202,5 +202,6 @@ pub struct SessionSummary {
     pub id: Uuid,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
+    pub device_label: String,
     pub current: bool,
 }

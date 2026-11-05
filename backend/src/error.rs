@@ -52,6 +52,13 @@ impl ApiError {
         }
     }
 
+    pub const fn rate_limited() -> Self {
+        Self {
+            status: StatusCode::TOO_MANY_REQUESTS,
+            message: "Too many attempts. Try again in 15 minutes.",
+        }
+    }
+
     pub const fn internal() -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
