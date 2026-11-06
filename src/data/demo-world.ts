@@ -7,6 +7,16 @@ export const demoWorld: World = {
   description: "A coast divided by a vanished sun, where old treaties still decide who gets to trade, travel and remember.",
   genre: "Low fantasy · maritime",
   updatedAt: "2026-11-02",
+  eras: [{
+    id: "era-prime-preview",
+    name: "Prime",
+    description: "The shared starting state of this world.",
+    parentId: null,
+    isDefault: true,
+    createdAt: "2026-11-02T00:00:00Z",
+    updatedAt: "2026-11-02T00:00:00Z"
+  }],
+  activeEraId: "era-prime-preview",
   documents: [
     {
       id: "card-elowen-sable",
