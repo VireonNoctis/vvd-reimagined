@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -11,7 +11,8 @@ use crate::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardUpdateInput, DocumentRevisionSummary,
         DocumentRow, EntityType, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
-        MediaAssetCreate, MediaAssetSummary, MoveDocumentInput, PropertyRow, World, WorldRow,
+        EraCreateInput, EraRow, EraSummary, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput,
+        PropertyRow, World, WorldRow,
     },
 };
 
@@ -273,7 +274,7 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
             .or_default()
             .push(CardBlock {
                 id: row.id,
-                block_type: "text",
+                block_type: "text".to_owned(),
                 text: row.text,
             });
     }
@@ -297,7 +298,115 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
         .collect()
 }
 
-async fn load_world(pool: &PgPool, world_id: Uuid) -> Result<World, ApiError> {
+async fn load_eras(pool: &PgPool, world_id: Uuid) -> Result<Vec<EraSummary>, ApiError> {
+    let rows = sqlx::query_as::<_, EraRow>(
+        "SELECT id, name, description, parent_era_id, is_default, created_at, updated_at
+         FROM eras WHERE world_id = $1
+         ORDER BY is_default DESC, created_at ASC, name ASC",
+    )
+    .bind(world_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| EraSummary {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            parent_id: row.parent_era_id,
+            is_default: row.is_default,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
+        .collect())
+}
+
+async fn load_documents_in_era(
+    pool: &PgPool,
+    world_id: Uuid,
+    era_id: Uuid,
+) -> Result<Vec<CardDocument>, ApiError> {
+    let mut documents = load_documents(pool, world_id).await?;
+    let overrides = sqlx::query_as::<_, (Uuid, serde_json::Value, i64, DateTime<Utc>)>(
+        "WITH RECURSIVE era_path(id, parent_era_id, depth) AS (
+            SELECT id, parent_era_id, 0
+            FROM eras
+            WHERE world_id = $1 AND id = $2
+            UNION ALL
+            SELECT parent.id, parent.parent_era_id, child.depth + 1
+            FROM eras parent
+            INNER JOIN era_path child ON parent.id = child.parent_era_id
+            WHERE parent.world_id = $1
+         )
+         SELECT override.document_id, override.patch, override.version, override.updated_at
+         FROM document_era_overrides override
+         INNER JOIN era_path path ON path.id = override.era_id
+         WHERE override.world_id = $1
+         ORDER BY path.depth DESC",
+    )
+    .bind(world_id)
+    .bind(era_id)
+    .fetch_all(pool)
+    .await?;
+
+    for (document_id, patch, version, updated_at) in overrides {
+        let Some(document) = documents.iter_mut().find(|item| item.id == document_id) else {
+            continue;
+        };
+
+        if let Some(value) = patch.get("name") {
+            document.name = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+        }
+        if let Some(value) = patch.get("aliases") {
+            document.aliases = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+        }
+        if let Some(value) = patch.get("properties") {
+            document.properties = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+        }
+        if let Some(value) = patch.get("blocks") {
+            document.blocks = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+        }
+
+        document.version = version;
+        document.updated_at = date_label(updated_at);
+    }
+
+    Ok(documents)
+}
+
+async fn resolve_era(
+    pool: &PgPool,
+    world_id: Uuid,
+    requested_era_id: Option<Uuid>,
+) -> Result<EraRow, ApiError> {
+    let row = if let Some(era_id) = requested_era_id {
+        sqlx::query_as::<_, EraRow>(
+            "SELECT id, name, description, parent_era_id, is_default, created_at, updated_at
+             FROM eras WHERE world_id = $1 AND id = $2",
+        )
+        .bind(world_id)
+        .bind(era_id)
+        .fetch_optional(pool)
+        .await?
+    } else {
+        sqlx::query_as::<_, EraRow>(
+            "SELECT id, name, description, parent_era_id, is_default, created_at, updated_at
+             FROM eras WHERE world_id = $1 AND is_default",
+        )
+        .bind(world_id)
+        .fetch_optional(pool)
+        .await?
+    };
+
+    row.ok_or_else(ApiError::not_found)
+}
+
+async fn load_world(
+    pool: &PgPool,
+    world_id: Uuid,
+    requested_era_id: Option<Uuid>,
+) -> Result<World, ApiError> {
     let row = sqlx::query_as::<_, WorldRow>(
         "SELECT id, slug, name, description, genre, updated_at
          FROM worlds WHERE id = $1",
