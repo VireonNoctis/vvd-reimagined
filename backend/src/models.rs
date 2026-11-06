@@ -83,6 +83,7 @@ pub(crate) struct DocumentTypeRow {
 pub struct CardTemplateSummary {
     pub id: Uuid,
     pub entity_type: EntityType,
+    pub version: i64,
     pub name: String,
     pub description: String,
     pub property_definitions: Vec<CardTemplatePropertyDefinition>,
@@ -133,10 +134,26 @@ pub struct CardTemplateCreateInput {
     pub is_default: bool,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CardTemplateUpdateInput {
+    pub expected_version: i64,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub property_definitions: Vec<CardTemplatePropertyDefinition>,
+    #[serde(default)]
+    pub starter_blocks: Vec<CardTemplateBlock>,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 pub(crate) struct CardTemplateRow {
     pub id: Uuid,
     pub entity_type: String,
+    pub version: i64,
     pub name: String,
     pub description: String,
     pub property_definitions: serde_json::Value,
