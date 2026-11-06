@@ -8,6 +8,7 @@ import { CardEditForm } from "@/components/workspace/card-edit-form";
 import { CardCreateForm } from "@/components/workspace/card-create-form";
 import { DocumentLifecycleActions } from "@/components/workspace/document-lifecycle-actions";
 import { FolderSidebar } from "@/components/workspace/folder-sidebar";
+import { EraSwitcher } from "@/components/workspace/era-switcher";
 import { WorldGraph } from "@/components/visual/world-graph";
 import { resolveCardReference, type CardDocument, type World } from "@/domain/world";
 
@@ -18,7 +19,8 @@ function initials(name: string): string {
 }
 
 function href(world: World, id: string): string {
-  return "/worlds/" + world.slug + "?doc=" + encodeURIComponent(id);
+  return "/worlds/" + world.slug + "?doc=" + encodeURIComponent(id)
+    + "&era=" + encodeURIComponent(world.activeEraId);
 }
 
 export function Workspace({ world, document, interactive }: Props) {
@@ -41,6 +43,8 @@ export function Workspace({ world, document, interactive }: Props) {
     });
   }, [search, selectedFolderId, world.documents]);
 
+  const activeEra = world.eras.find((era) => era.id === world.activeEraId);
+  const isPrimeEra = activeEra?.isDefault ?? true;
   const updated = document
     ? new Date(document.updatedAt + "T12:00:00").toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric" })
     : "";
@@ -67,6 +71,7 @@ export function Workspace({ world, document, interactive }: Props) {
           {interactive
             ? <span className="preview-pill"><span /> Connected workspace</span>
             : <span className="preview-pill"><span /> Preview environment</span>}
+          <EraSwitcher world={world} interactive={interactive} documentId={document?.id} />
           <button className="icon-button" type="button" onClick={() => setSidebarOpen((open) => !open)} aria-label={sidebarOpen ? "Collapse document sidebar" : "Open document sidebar"}><Icon name="panel-left" /></button>
           <button className={"toolbar-button graph-view-button" + (showGraph ? " is-active" : "")} type="button" onClick={() => { if (!showGraph) setGraphSelectedId(document?.id ?? ""); setShowGraph((active) => !active); }}><Icon name={showGraph ? "files" : "share-2"} size={15} />{showGraph ? "Editor" : "World graph"}</button>
           {!showGraph && <button className="icon-button inspector-toggle" type="button" onClick={() => setInspectorOpen((open) => !open)} aria-label={inspectorOpen ? "Hide details panel" : "Show details panel"}><Icon name="layers" /></button>}
@@ -82,9 +87,9 @@ export function Workspace({ world, document, interactive }: Props) {
             <div className="world-summary-copy"><span className="eyebrow">Current world</span><strong>{world.name}</strong></div>
             <button className="quiet-icon-button" type="button" aria-label="World options" title="Options are not enabled in preview"><Icon name="dots" /></button>
           </div>
-          <div className="sidebar-section-heading"><span>Library</span><button className="quiet-icon-button" type="button" disabled={!interactive} onClick={() => { setEditing(false); setCreatingCard(true); }} aria-label="Create card" title={interactive ? "Create a world record" : "Connect the API to create records"}><Icon name="plus" size={15} /></button></div>
+          <div className="sidebar-section-heading"><span>Library</span><button className="quiet-icon-button" type="button" disabled={!interactive || !isPrimeEra} onClick={() => { setEditing(false); setCreatingCard(true); }} aria-label="Create card" title={!interactive ? "Connect the API to create records" : isPrimeEra ? "Create a world record" : "New canonical records are created in Prime"}><Icon name="plus" size={15} /></button></div>
           <label className="search-field"><Icon name="search" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a document" aria-label="Find a document" /></label>
-          {interactive && <FolderSidebar key={document ? document.id + "-" + document.version : "no-document"} worldSlug={world.slug} document={document} selectedFolderId={selectedFolderId} onSelectFolder={setSelectedFolderId} />}
+          {interactive && isPrimeEra && <FolderSidebar key={document ? document.id + "-" + document.version : "no-document"} worldSlug={world.slug} document={document} selectedFolderId={selectedFolderId} onSelectFolder={setSelectedFolderId} />}
           <div className="folder-label"><Icon name="chevron-down" size={13} /><span>WORLD RECORDS</span><span className="folder-count">{world.documents.length}</span></div>
           <nav className="document-list" aria-label="World documents">
             {visibleDocuments.map((item) => <Link className={"document-row" + (item.id === (document?.id ?? "") ? " selected" : "")} href={href(world, item.id)} key={item.id} aria-current={item.id === (document?.id ?? "") ? "page" : undefined}>
@@ -97,19 +102,19 @@ export function Workspace({ world, document, interactive }: Props) {
           {interactive && (
             <>
               <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/media"}><Icon name="files" size={14} />Private Gallery</Link>
-              <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/archive"}><Icon name="archive" size={14} />Archived records</Link>
+              {isPrimeEra && <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/archive"}><Icon name="archive" size={14} />Archived records</Link>}
             </>
           )}
           <div className="sidebar-footnote"><span className="status-dot" />{interactive ? "Connected · server-backed" : "Sample world · Read only"}</div>
         </aside>}
 
         <main className={"document-stage" + (showGraph ? " graph-document-stage" : "")}>
-          {showGraph ? <WorldGraph key={world.id} world={world} selectedDocumentId={graphSelectedId} onSelectDocument={setGraphSelectedId} /> : creatingCard || !document ? <CardCreateForm world={world} onCancel={document ? () => setCreatingCard(false) : undefined} /> : editing ? <CardEditForm world={world} document={document} onCancel={() => setEditing(false)} /> : <>
+          {showGraph ? <WorldGraph key={world.id} world={world} selectedDocumentId={graphSelectedId} onSelectDocument={setGraphSelectedId} /> : creatingCard || (!document && isPrimeEra) ? <CardCreateForm world={world} onCancel={document ? () => setCreatingCard(false) : undefined} /> : !document ? <div className="era-empty-state"><span className="eyebrow">EMPTY ERA</span><h2>No records to show yet.</h2><p>Switch to Prime to create the world’s canonical records, then return here to branch their histories.</p></div> : editing ? <CardEditForm world={world} document={document} onCancel={() => setEditing(false)} /> : <>
           <div className="document-toolbar">
             <div className="document-toolbar-left"><span className="toolbar-kind">CARD</span><span className="toolbar-separator">/</span><span className="toolbar-muted">{document.entityType}</span><span className="toolbar-separator">·</span><span className="toolbar-muted">Updated {updated}</span></div>
             <div className="document-toolbar-right">
               <button className="toolbar-button" type="button" disabled={!interactive} onClick={() => setEditing(true)} title={interactive ? "Edit this card" : "Editing is unavailable in the read-only preview"}>Edit</button>
-              {interactive && <DocumentLifecycleActions worldSlug={world.slug} documentId={document.id} expectedVersion={document.version} />}
+              {interactive && isPrimeEra && <DocumentLifecycleActions worldSlug={world.slug} documentId={document.id} expectedVersion={document.version} />}
               <button className="icon-button" type="button" disabled aria-label="More document actions"><Icon name="dots" /></button>
             </div>
           </div>
