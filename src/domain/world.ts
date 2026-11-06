@@ -4,10 +4,39 @@ export type CardProperty =
   | { id: string; label: string; kind: "text"; value: string }
   | { id: string; label: string; kind: "reference"; documentId: string };
 
+export type CardTemplatePropertyDefinition = {
+  id: string;
+  label: string;
+  kind: "text" | "reference";
+  required: boolean;
+  defaultValue?: string | null;
+};
+
+export type CardTemplateBlock = { id: string; label: string; text: string };
+
+export type CardTemplate = {
+  id: string;
+  entityType: CardEntityType;
+  name: string;
+  description: string;
+  propertyDefinitions: CardTemplatePropertyDefinition[];
+  starterBlocks: CardTemplateBlock[];
+  isDefault: boolean;
+};
+
+export type DocumentTypeSummary = {
+  typeKey: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  implementationStatus: "ready" | "planned" | string;
+};
+
 export type CardDocument = {
   id: string;
   kind: "card";
   entityType: CardEntityType;
+  templateId?: string | null;
   name: string;
   aliases: string[];
   updatedAt: string;
@@ -36,6 +65,8 @@ export type World = {
   updatedAt: string;
   eras: Era[];
   activeEraId: string;
+  documentTypes: DocumentTypeSummary[];
+  cardTemplates: CardTemplate[];
   documents: CardDocument[];
 };
 
