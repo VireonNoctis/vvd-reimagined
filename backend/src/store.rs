@@ -329,6 +329,7 @@ fn card_template_summary(row: CardTemplateRow) -> Result<CardTemplateSummary, Ap
     Ok(CardTemplateSummary {
         id: row.id,
         entity_type: entity_type(&row.entity_type)?,
+        version: row.version,
         name: row.name,
         description: row.description,
         property_definitions: serde_json::from_value(row.property_definitions)
@@ -375,7 +376,7 @@ async fn load_card_templates(
     world_id: Uuid,
 ) -> Result<Vec<CardTemplateSummary>, ApiError> {
     let rows = sqlx::query_as::<_, CardTemplateRow>(
-        "SELECT id, entity_type, name, description, property_definitions,
+        "SELECT id, entity_type, version, name, description, property_definitions,
                 starter_blocks, is_default
          FROM card_type_templates
          WHERE world_id = $1
@@ -515,7 +516,7 @@ pub async fn create_card_template(
          (world_id, id, entity_type, name, description, property_definitions,
           starter_blocks, is_default, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         RETURNING id, entity_type, name, description, property_definitions,
+         RETURNING id, entity_type, version, name, description, property_definitions,
                    starter_blocks, is_default",
     )
     .bind(world_id)
@@ -586,7 +587,7 @@ async fn validate_document_template(
     properties: &[CardPropertyInput],
 ) -> Result<(), ApiError> {
     let template = sqlx::query_as::<_, CardTemplateRow>(
-        "SELECT template.id, template.entity_type, template.name, template.description,
+        "SELECT template.id, template.entity_type, template.version, template.name, template.description,
                 template.property_definitions, template.starter_blocks, template.is_default
          FROM documents
          INNER JOIN card_type_templates template
@@ -1567,7 +1568,7 @@ pub async fn create_card(
 
     let template_row = if let Some(template_id) = input.template_id {
         sqlx::query_as::<_, CardTemplateRow>(
-            "SELECT id, entity_type, name, description, property_definitions,
+            "SELECT id, entity_type, version, name, description, property_definitions,
                     starter_blocks, is_default
              FROM card_type_templates
              WHERE world_id = $1 AND entity_type = $2 AND id = $3",
