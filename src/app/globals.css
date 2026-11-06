@@ -422,3 +422,34 @@ a.rail-link:hover, .rail-link.active { background: rgba(255,255,255,.11); color:
   .card-editor-block { padding: 9px; }
   .card-editor-block-heading { align-items: flex-start; }
 }
+
+
+/* Era controls and branch creation */
+.era-switcher { position: relative; display: flex; align-items: center; gap: 7px; }
+.era-select-wrap { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.era-select-wrap > span { color: #979c91; font-size: 8px; letter-spacing: .13em; }
+.era-select-wrap select { max-width: 150px; min-width: 100px; padding: 7px 25px 7px 9px; border: 1px solid #e2e4dc; border-radius: 7px; background: #fffefa; color: #5c6855; font: 600 10px Inter,ui-sans-serif,system-ui,sans-serif; }
+.era-select-wrap select:focus-visible,.era-create-toggle:focus-visible { outline: 2px solid #829477; outline-offset: 2px; }
+.era-create-wrap { position: relative; }
+.era-create-toggle { min-height: 30px; padding: 0 9px; border: 1px solid #dfe3d9; border-radius: 7px; background: #f8f9f5; color: #68735f; font-size: 10px; font-weight: 700; cursor: pointer; }
+.era-create-toggle:hover { border-color: #cbd3c3; background: #f0f3ec; }
+.era-create-popover { position: absolute; z-index: 25; top: calc(100% + 10px); right: 0; display: grid; width: min(300px,calc(100vw - 34px)); gap: 10px; padding: 16px; border: 1px solid #e3e4dc; border-radius: 10px; background: #fffefa; box-shadow: 0 15px 45px rgba(42,48,38,.13); }
+.era-create-popover > strong { color: #454d40; font: 400 17px Georgia,serif; }
+.era-create-popover input,.era-create-popover textarea { width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid #e2e1d8; border-radius: 7px; outline: 0; background: #fffefa; color: #343b31; font: 11px/1.55 Inter,ui-sans-serif,system-ui,sans-serif; }
+.era-create-popover input:focus,.era-create-popover textarea:focus { border-color: #aeb9a4; box-shadow: 0 0 0 3px rgba(120,131,111,.09); }
+.era-create-popover textarea { resize: vertical; }
+.era-create-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.era-create-actions .auth-submit { min-height: 35px; }
+.era-create-actions .text-link { padding: 8px 2px; }
+.era-empty-state { display: grid; align-content: center; justify-items: start; width: min(560px,calc(100% - 48px)); min-height: min(60vh,520px); margin: 0 auto; }
+.era-empty-state h2 { margin: 10px 0 8px; color: #343b31; font: 400 clamp(26px,4vw,36px) Georgia,serif; }
+.era-empty-state p { max-width: 420px; margin: 0; color: #858b7f; font-size: 12px; line-height: 1.8; }
+@media (max-width: 900px) {
+  .era-select-wrap > span { display: none; }
+  .era-select-wrap select { max-width: 125px; }
+}
+@media (max-width: 620px) {
+  .era-switcher { gap: 5px; }
+  .era-select-wrap select { max-width: 112px; min-width: 84px; }
+  .era-create-toggle { min-height: 29px; padding: 0 7px; }
+}
