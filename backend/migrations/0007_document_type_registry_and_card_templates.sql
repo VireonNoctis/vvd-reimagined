@@ -39,6 +39,12 @@ ALTER TABLE documents
     REFERENCES document_type_registry(type_key)
     ON UPDATE RESTRICT ON DELETE RESTRICT;
 
+ALTER TABLE documents
+    ADD CONSTRAINT documents_world_document_type_fk
+    FOREIGN KEY (world_id, document_type)
+    REFERENCES world_document_types(world_id, type_key)
+    ON UPDATE RESTRICT ON DELETE RESTRICT;
+
 CREATE TABLE card_type_templates (
     world_id UUID NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
     id UUID NOT NULL,
