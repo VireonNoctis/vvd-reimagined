@@ -73,7 +73,8 @@ export function CardMediaManager({ worldSlug, documentId, initialAssets }: Props
     setError("");
     try {
       const response = await fetch(
-        endpoint(worldSlug) + "/../documents/" + encodeURIComponent(documentId) + "/media/" + encodeURIComponent(asset.id),
+        "/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/documents/" +
+          encodeURIComponent(documentId) + "/media/" + encodeURIComponent(asset.id),
         { method: "POST" }
       );
       if (!response.ok) throw new Error(await responseError(response, "This media could not be attached."));
