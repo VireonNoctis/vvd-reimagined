@@ -281,6 +281,31 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
             });
     }
 
+    let mut media_by_document: HashMap<Uuid, Vec<MediaAssetSummary>> = HashMap::new();
+    let media_rows = sqlx::query_as::<_, (Uuid, Uuid, String, String, i64, DateTime<Utc>)>(
+        "SELECT id, document_id, file_name, content_type, size_bytes, created_at
+         FROM media_assets
+         WHERE world_id = $1 AND status = 'ready' AND document_id IS NOT NULL
+         ORDER BY document_id, created_at ASC, id ASC",
+    )
+    .bind(world_id)
+    .fetch_all(pool)
+    .await?;
+
+    for row in media_rows {
+        media_by_document
+            .entry(row.1)
+            .or_default()
+            .push(MediaAssetSummary {
+                id: row.0,
+                document_id: Some(row.1),
+                file_name: row.2,
+                content_type: row.3,
+                size_bytes: row.4,
+                created_at: row.5,
+            });
+    }
+
     documents
         .into_iter()
         .map(|row| {
@@ -296,6 +321,7 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
                 folder_id: row.folder_id,
                 properties: properties_by_document.remove(&row.id).unwrap_or_default(),
                 blocks: blocks_by_document.remove(&row.id).unwrap_or_default(),
+                media: media_by_document.remove(&row.id).unwrap_or_default(),
             })
         })
         .collect()
