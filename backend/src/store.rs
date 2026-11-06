@@ -11,7 +11,7 @@ use crate::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardUpdateInput, DocumentRevisionSummary,
         DocumentRow, EntityType, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
-        MediaAssetSummary, MoveDocumentInput, PropertyRow, World, WorldRow,
+        MediaAssetCreate, MediaAssetSummary, MoveDocumentInput, PropertyRow, World, WorldRow,
     },
 };
 
@@ -792,16 +792,10 @@ pub async fn create_media_asset(
     pool: &PgPool,
     account_id: Uuid,
     slug: &str,
-    asset_id: Uuid,
-    object_key: &str,
-    file_name: &str,
-    content_type: &str,
-    size_bytes: i64,
-    document_id: Option<Uuid>,
-    expires_at: DateTime<Utc>,
+    input: MediaAssetCreate,
 ) -> Result<(), ApiError> {
     let world_id = require_world(pool, account_id, slug, true).await?;
-    if let Some(document_id) = document_id {
+    if let Some(document_id) = input.document_id {
         let exists = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS (
                 SELECT 1 FROM documents
@@ -825,15 +819,15 @@ pub async fn create_media_asset(
           content_type, size_bytes, status, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)",
     )
-    .bind(asset_id)
+    .bind(input.id)
     .bind(world_id)
-    .bind(document_id)
+    .bind(input.document_id)
     .bind(account_id)
-    .bind(object_key)
-    .bind(file_name)
-    .bind(content_type)
-    .bind(size_bytes)
-    .bind(expires_at)
+    .bind(input.object_key)
+    .bind(input.file_name)
+    .bind(input.content_type)
+    .bind(input.size_bytes)
+    .bind(input.expires_at)
     .execute(pool)
     .await?;
 
