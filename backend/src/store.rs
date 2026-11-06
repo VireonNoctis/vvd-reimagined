@@ -10,8 +10,8 @@ use crate::{
     models::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardUpdateInput, DocumentRevisionSummary,
-        DocumentRow, EntityType, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
-        EraCreateInput, EraRow, EraSummary, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput,
+        DocumentRow, EntityType, EraCreateInput, EraRow, EraSummary, Folder, FolderCreateInput,
+        FolderRow, FolderUpdateInput, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput,
         PropertyRow, World, WorldRow,
     },
 };
@@ -356,16 +356,20 @@ async fn load_documents_in_era(
         };
 
         if let Some(value) = patch.get("name") {
-            document.name = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+            document.name =
+                serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
         }
         if let Some(value) = patch.get("aliases") {
-            document.aliases = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+            document.aliases =
+                serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
         }
         if let Some(value) = patch.get("properties") {
-            document.properties = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+            document.properties =
+                serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
         }
         if let Some(value) = patch.get("blocks") {
-            document.blocks = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
+            document.blocks =
+                serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
         }
 
         document.version = document.version.saturating_add(version);
@@ -488,17 +492,18 @@ pub async fn create_era(
         ));
     }
     if description.chars().count() > 2_000 {
-        return Err(ApiError::bad_request("Era descriptions are limited to 2,000 characters."));
+        return Err(ApiError::bad_request(
+            "Era descriptions are limited to 2,000 characters.",
+        ));
     }
 
     let world_id = require_world(pool, account_id, slug, true).await?;
-    let default_era_id = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM eras WHERE world_id = $1 AND is_default",
-    )
-    .bind(world_id)
-    .fetch_optional(pool)
-    .await?
-    .ok_or_else(ApiError::internal)?;
+    let default_era_id =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM eras WHERE world_id = $1 AND is_default")
+            .bind(world_id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(ApiError::internal)?;
     let parent_id = input.parent_id.unwrap_or(default_era_id);
 
     let parent_exists = sqlx::query_scalar::<_, bool>(
@@ -520,7 +525,9 @@ pub async fn create_era(
     .fetch_one(pool)
     .await?;
     if name_exists {
-        return Err(ApiError::conflict("An era with that name already exists in this world."));
+        return Err(ApiError::conflict(
+            "An era with that name already exists in this world.",
+        ));
     }
 
     let row = sqlx::query_as::<_, EraRow>(
@@ -1799,13 +1806,11 @@ async fn update_card_in_era(
     .await?;
 
     for ancestor_id in ancestors {
-        sqlx::query(
-            "SELECT id FROM eras WHERE world_id = $1 AND id = $2 FOR SHARE",
-        )
-        .bind(world_id)
-        .bind(ancestor_id)
-        .fetch_optional(&mut *transaction)
-        .await?;
+        sqlx::query("SELECT id FROM eras WHERE world_id = $1 AND id = $2 FOR SHARE")
+            .bind(world_id)
+            .bind(ancestor_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
     }
 
     let current = load_documents_in_era(pool, world_id, era_id)
