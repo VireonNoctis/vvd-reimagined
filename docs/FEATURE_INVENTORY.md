@@ -15,6 +15,7 @@ The current application includes:
 - Domain tests for stable lookup, reference resolution and duplicate/missing reference detection.
 - A same-origin Next.js API proxy, login/register/logout UI, session-aware server-rendered world library and persistent world creation.
 - A connected card editor for names, aliases, text/reference properties and every ordered text block; properties and blocks can be added, removed and reordered with stable ids and version-checked saves.
+- Named eras inherit canonical documents through parent chains; edits are sparse, versioned field overrides, so unmodified values continue following their parent without copying the world.
 - A read-only World Graph rendered with WebGL 2 from valid typed card references. Nodes can be selected, dragged and panned; the DOM inspector and record list provide accessible navigation and links back to canonical records.
 - A Rust/Axum API with PostgreSQL migrations for accounts, Argon2id password hashes, hashed opaque sessions, database-backed authentication throttles and best-effort browser/platform session labels, worlds, world memberships, canonical card documents, properties and ordered text blocks.
 - Membership-checked world and card reads, world/card creation, atomic version-checked card updates, nested world folders and conflict-checked card moves. Composite foreign keys keep card references inside their world.
