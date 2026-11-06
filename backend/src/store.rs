@@ -11,9 +11,9 @@ use crate::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardPropertyKind, CardTemplateBlock,
         CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateRow,
-        CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary, DocumentRow,
-        DocumentTypeRow, DocumentTypeSummary, EntityType, EraCreateInput, EraRow, EraSummary,
-        Folder, FolderCreateInput, FolderRow, FolderUpdateInput, MediaAssetCreate,
+        CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary,
+        DocumentRow, DocumentTypeRow, DocumentTypeSummary, EntityType, EraCreateInput, EraRow,
+        EraSummary, Folder, FolderCreateInput, FolderRow, FolderUpdateInput, MediaAssetCreate,
         MediaAssetSummary, MoveDocumentInput, PropertyRow, World, WorldRow,
     },
 };
@@ -524,8 +524,8 @@ pub async fn create_card_template(
     }
 
     let id = Uuid::new_v4();
-    let property_definitions = serde_json::to_value(&input.property_definitions)
-        .map_err(|_| ApiError::internal())?;
+    let property_definitions =
+        serde_json::to_value(&input.property_definitions).map_err(|_| ApiError::internal())?;
     let starter_blocks =
         serde_json::to_value(&input.starter_blocks).map_err(|_| ApiError::internal())?;
     let row = sqlx::query_as::<_, CardTemplateRow>(
@@ -765,7 +765,6 @@ pub async fn delete_card_template(
     transaction.commit().await?;
     Ok(())
 }
-
 
 fn validate_template_properties(
     template: &CardTemplateSummary,
