@@ -99,7 +99,7 @@ export function CardTemplateManager({ world, interactive }: Props) {
 
     try {
       const response = await fetch(
-        editing ? basePath + "/" + encodeURIComponent(editingTemplateId) : basePath,
+        editing ? basePath + "/" + encodeURIComponent(editingTemplateId ?? "") : basePath,
         {
           method: editing ? "PATCH" : "POST",
           headers: { "content-type": "application/json" },
