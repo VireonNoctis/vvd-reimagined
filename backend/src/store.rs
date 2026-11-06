@@ -1750,13 +1750,40 @@ pub async fn media_object_key(
     .ok_or_else(ApiError::not_found)
 }
 
-pub async fn delete_media_asset(
-    pool: &PgPool,
-    account_id: Uuid,
-    slug: &str,
+pub async fn lock_media_asset_for_deletion(
+    connection: &mut PgConnection,
+    world_id: Uuid,
+    asset_id: Uuid,
+) -> Result<String, ApiError> {
+    let row = sqlx::query_as::<_, (String, Option<Uuid>, String)>(
+        "SELECT object_key, document_id, status
+         FROM media_assets
+         WHERE world_id = $1 AND id = $2
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(asset_id)
+    .fetch_optional(&mut *connection)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    if !matches!(row.2.as_str(), "pending" | "ready") {
+        return Err(ApiError::not_found());
+    }
+    if row.2 == "ready" && row.1.is_some() {
+        return Err(ApiError::conflict(
+            "Detach this media from its card before deleting it from the Gallery.",
+        ));
+    }
+
+    Ok(row.0)
+}
+
+pub async fn mark_media_asset_deleted(
+    connection: &mut PgConnection,
+    world_id: Uuid,
     asset_id: Uuid,
 ) -> Result<(), ApiError> {
-    let world_id = require_world(pool, account_id, slug, true).await?;
     let result = sqlx::query(
         "UPDATE media_assets SET status = 'deleted', updated_at = NOW()
          WHERE world_id = $1 AND id = $2 AND status IN ('pending', 'ready')
@@ -1764,27 +1791,26 @@ pub async fn delete_media_asset(
     )
     .bind(world_id)
     .bind(asset_id)
-    .execute(pool)
+    .execute(&mut *connection)
     .await?;
+
     if result.rows_affected() == 0 {
-        let attached = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS (
-                SELECT 1 FROM media_assets
-                WHERE world_id = $1 AND id = $2 AND document_id IS NOT NULL
-                  AND status = 'ready'
-             )",
-        )
-        .bind(world_id)
-        .bind(asset_id)
-        .fetch_one(pool)
-        .await?;
-        if attached {
-            return Err(ApiError::conflict(
-                "Detach this media from its card before deleting it from the Gallery.",
-            ));
-        }
         return Err(ApiError::not_found());
     }
+    Ok(())
+}
+
+pub async fn delete_media_asset(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    asset_id: Uuid,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    lock_media_asset_for_deletion(&mut transaction, world_id, asset_id).await?;
+    mark_media_asset_deleted(&mut transaction, world_id, asset_id).await?;
+    transaction.commit().await?;
     Ok(())
 }
 
