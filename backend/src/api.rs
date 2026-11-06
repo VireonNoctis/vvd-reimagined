@@ -26,8 +26,7 @@ use crate::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
         DocumentRevisionSummary, DocumentVersionInput, Folder, FolderCreateInput,
         FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
-        MediaUploadTicket,
-        MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
+        MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
     store,
 };
