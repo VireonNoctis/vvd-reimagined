@@ -7,7 +7,9 @@ use vvd_api::{
         CardBlockInput, CardCreateInput, CardPropertyInput, CardPropertyKind, CardTemplateBlock,
         CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateUpdateInput,
         CardUpdateInput, EntityType, EraCreateInput, FolderCreateInput, FolderUpdateInput,
-        MediaAssetCreate, MoveDocumentInput,
+        GraphLayoutCreateInput, GraphLayoutEntityFilters, GraphLayoutFilters,
+        GraphLayoutNodePosition, GraphLayoutUpdateInput, GraphLayoutView, MediaAssetCreate,
+        MoveDocumentInput,
     },
     store,
 };
@@ -1112,4 +1114,231 @@ async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
         removed_required.is_err(),
         "required fields remain enforced after a card has been created"
     );
+}
+
+#[tokio::test]
+async fn personal_graph_layouts_are_versioned_private_and_era_scoped() {
+    let Ok(database_url) = std::env::var("DATABASE_URL") else {
+        return;
+    };
+
+    let pool = PgPoolOptions::new()
+        .max_connections(4)
+        .connect(&database_url)
+        .await
+        .expect("connect to the PostgreSQL test service");
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("apply backend migrations");
+
+    let account_id = Uuid::new_v4();
+    let other_account_id = Uuid::new_v4();
+    let unique = Uuid::new_v4().simple().to_string();
+    for (id, email) in [
+        (account_id, format!("layout-{unique}@example.test")),
+        (other_account_id, format!("layout-viewer-{unique}@example.test")),
+    ] {
+        sqlx::query(
+            "INSERT INTO accounts (id, email, display_name, password_hash)
+             VALUES ($1, $2, 'Layout Tester', 'test-only')",
+        )
+        .bind(id)
+        .bind(email)
+        .execute(&pool)
+        .await
+        .expect("create graph layout test account");
+    }
+
+    let world = store::create_world(
+        &pool,
+        account_id,
+        "Saved Layout World".to_owned(),
+        String::new(),
+        "Fantasy".to_owned(),
+    )
+    .await
+    .expect("create a world for graph layouts");
+
+    sqlx::query(
+        "INSERT INTO world_memberships (world_id, account_id, role)
+         VALUES ($1, $2, 'viewer')",
+    )
+    .bind(world.id)
+    .bind(other_account_id)
+    .execute(&pool)
+    .await
+    .expect("add a second world member");
+
+    let card = store::create_card(
+        &pool,
+        account_id,
+        &world.slug,
+        CardCreateInput {
+            name: "Layout Node".to_owned(),
+            entity_type: EntityType::Character,
+            template_id: None,
+            aliases: Vec::new(),
+            properties: Vec::new(),
+            blocks: Vec::new(),
+        },
+    )
+    .await
+    .expect("create a node for the saved layout");
+
+    let layout = store::create_graph_layout(
+        &pool,
+        account_id,
+        &world.slug,
+        GraphLayoutCreateInput {
+            era_id: world.active_era_id,
+            name: "Character study".to_owned(),
+            positions: vec![GraphLayoutNodePosition {
+                document_id: card.id,
+                x: 0.25,
+                y: -0.35,
+            }],
+            view: GraphLayoutView {
+                x: 0.1,
+                y: -0.1,
+                zoom: 1.25,
+            },
+            filters: GraphLayoutFilters {
+                show_references: true,
+                show_mentions: false,
+                entity_types: GraphLayoutEntityFilters {
+                    character: true,
+                    place: false,
+                    faction: true,
+                },
+            },
+        },
+    )
+    .await
+    .expect("save a personal graph layout");
+
+    assert_eq!(layout.version, 1);
+    assert_eq!(layout.era_id, world.active_era_id);
+    assert_eq!(layout.positions[0].document_id, card.id);
+    assert_eq!(layout.view.zoom, 1.25);
+    assert!(!layout.filters.show_mentions);
+
+    let own_layouts = store::list_graph_layouts(
+        &pool,
+        account_id,
+        &world.slug,
+        Some(world.active_era_id),
+    )
+    .await
+    .expect("list personal graph layouts");
+    assert_eq!(own_layouts.len(), 1);
+
+    let other_layouts = store::list_graph_layouts(
+        &pool,
+        other_account_id,
+        &world.slug,
+        Some(world.active_era_id),
+    )
+    .await
+    .expect("list the other member's graph layouts");
+    assert!(other_layouts.is_empty());
+
+    let updated = store::update_graph_layout(
+        &pool,
+        account_id,
+        &world.slug,
+        layout.id,
+        GraphLayoutUpdateInput {
+            expected_version: 1,
+            name: "Character study · wide".to_owned(),
+            positions: vec![GraphLayoutNodePosition {
+                document_id: card.id,
+                x: 0.5,
+                y: 0.2,
+            }],
+            view: GraphLayoutView {
+                x: 0.0,
+                y: 0.0,
+                zoom: 1.5,
+            },
+            filters: layout.filters.clone(),
+        },
+    )
+    .await
+    .expect("update a saved layout");
+    assert_eq!(updated.version, 2);
+    assert_eq!(updated.name, "Character study · wide");
+
+    let stale = store::update_graph_layout(
+        &pool,
+        account_id,
+        &world.slug,
+        layout.id,
+        GraphLayoutUpdateInput {
+            expected_version: 1,
+            name: "Stale".to_owned(),
+            positions: updated.positions.clone(),
+            view: updated.view.clone(),
+            filters: updated.filters.clone(),
+        },
+    )
+    .await;
+    assert!(stale.is_err(), "stale layout updates must be rejected");
+
+    let foreign_delete =
+        store::delete_graph_layout(&pool, other_account_id, &world.slug, layout.id).await;
+    assert!(foreign_delete.is_err(), "members cannot delete another member's layout");
+
+    let other_era = store::create_era(
+        &pool,
+        account_id,
+        &world.slug,
+        EraCreateInput {
+            name: "A different chronology".to_owned(),
+            description: String::new(),
+            parent_id: None,
+        },
+    )
+    .await
+    .expect("create a second era");
+    let other_era_layouts = store::list_graph_layouts(
+        &pool,
+        account_id,
+        &world.slug,
+        Some(other_era.id),
+    )
+    .await
+    .expect("list layouts for the second era");
+    assert!(other_era_layouts.is_empty(), "layouts must not leak across eras");
+
+    let invalid_node = store::create_graph_layout(
+        &pool,
+        account_id,
+        &world.slug,
+        GraphLayoutCreateInput {
+            era_id: other_era.id,
+            name: "Invalid node".to_owned(),
+            positions: vec![GraphLayoutNodePosition {
+                document_id: Uuid::new_v4(),
+                x: 0.0,
+                y: 0.0,
+            }],
+            view: GraphLayoutView {
+                x: 0.0,
+                y: 0.0,
+                zoom: 1.0,
+            },
+            filters: updated.filters,
+        },
+    )
+    .await;
+    assert!(
+        invalid_node.is_err(),
+        "layouts can only reference nodes in their selected world and era"
+    );
+
+    store::delete_graph_layout(&pool, account_id, &world.slug, layout.id)
+        .await
+        .expect("delete the owner's saved layout");
 }
