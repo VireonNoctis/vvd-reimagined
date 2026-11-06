@@ -395,6 +395,83 @@ pub struct SessionSummary {
     pub current: bool,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLayoutNodePosition {
+    pub document_id: Uuid,
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLayoutView {
+    pub x: f64,
+    pub y: f64,
+    pub zoom: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLayoutEntityFilters {
+    pub character: bool,
+    pub place: bool,
+    pub faction: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLayoutFilters {
+    pub show_references: bool,
+    pub show_mentions: bool,
+    pub entity_types: GraphLayoutEntityFilters,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLayoutSummary {
+    pub id: Uuid,
+    pub era_id: Uuid,
+    pub name: String,
+    pub version: i64,
+    pub positions: Vec<GraphLayoutNodePosition>,
+    pub view: GraphLayoutView,
+    pub filters: GraphLayoutFilters,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLayoutCreateInput {
+    pub era_id: Uuid,
+    pub name: String,
+    pub positions: Vec<GraphLayoutNodePosition>,
+    pub view: GraphLayoutView,
+    pub filters: GraphLayoutFilters,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLayoutUpdateInput {
+    pub expected_version: i64,
+    pub name: String,
+    pub positions: Vec<GraphLayoutNodePosition>,
+    pub view: GraphLayoutView,
+    pub filters: GraphLayoutFilters,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct GraphLayoutRow {
+    pub id: Uuid,
+    pub era_id: Uuid,
+    pub name: String,
+    pub version: i64,
+    pub positions: serde_json::Value,
+    pub view: serde_json::Value,
+    pub filters: serde_json::Value,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaAssetSummary {
