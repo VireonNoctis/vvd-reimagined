@@ -5,7 +5,7 @@ use uuid::Uuid;
 use vvd_api::{
     models::{
         CardBlockInput, CardPropertyInput, CardUpdateInput, FolderCreateInput, FolderUpdateInput,
-        MoveDocumentInput,
+        MediaAssetCreate, MoveDocumentInput,
     },
     store,
 };
@@ -209,6 +209,7 @@ async fn migrations_enforce_membership_and_same_world_references() {
         account_id,
         &format!("first-{unique}"),
         source_document_id,
+        None,
         CardUpdateInput {
             expected_version: 2,
             name: "Updated test record".to_owned(),
@@ -316,13 +317,15 @@ async fn migrations_enforce_membership_and_same_world_references() {
         &pool,
         account_id,
         &format!("first-{unique}"),
-        media_id,
-        &object_key,
-        "cover.png",
-        "image/png",
-        1_024,
-        Some(source_document_id),
-        Utc::now() + Duration::minutes(10),
+        MediaAssetCreate {
+            id: media_id,
+            object_key: object_key.clone(),
+            file_name: "cover.png".to_owned(),
+            content_type: "image/png".to_owned(),
+            size_bytes: 1_024,
+            document_id: Some(source_document_id),
+            expires_at: Utc::now() + Duration::minutes(10),
+        },
     )
     .await
     .expect("create pending private media record");
