@@ -4,7 +4,7 @@ use argon2::{
 };
 use axum::{
     Json, Router,
-    extract::{ConnectInfo, Path, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{CACHE_CONTROL, COOKIE, ORIGIN, SET_COOKIE, USER_AGENT},
@@ -13,7 +13,7 @@ use axum::{
     routing::{delete, get, patch, post},
 };
 use chrono::{Duration as ChronoDuration, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, PgPool};
 use std::net::SocketAddr;
@@ -23,13 +23,19 @@ use crate::{
     AppState,
     error::ApiError,
     models::{
-        Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
+        Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput, EraCreateInput, EraSummary,
         DocumentRevisionSummary, DocumentVersionInput, Folder, FolderCreateInput,
         FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
         MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
     store,
 };
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EraQuery {
+    era_id: Option<Uuid>,
+}
 
 const SESSION_COOKIE: &str = "vvd_session";
 const SESSION_SECONDS: i64 = 60 * 60 * 24 * 14;
@@ -243,6 +249,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/auth/sessions/{session_id}", delete(revoke_session))
         .route("/v1/worlds", get(list_worlds).post(create_world))
         .route("/v1/worlds/{slug}", get(get_world))
+        .route("/v1/worlds/{slug}/eras", get(list_eras).post(create_era))
         .route(
             "/v1/worlds/{slug}/documents",
             get(list_documents).post(create_card),
@@ -471,9 +478,33 @@ async fn get_world(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(slug): Path<String>,
+    Query(query): Query<EraQuery>,
 ) -> Result<Json<crate::models::World>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
-    Ok(Json(store::get_world(&state.db, account.id, &slug).await?))
+    Ok(Json(
+        store::get_world(&state.db, account.id, &slug, query.era_id).await?,
+    ))
+}
+
+async fn list_eras(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+) -> Result<Json<Vec<EraSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(store::list_eras(&state.db, account.id, &slug).await?))
+}
+
+async fn create_era(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+    Json(input): Json<EraCreateInput>,
+) -> Result<impl IntoResponse, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let era = store::create_era(&state.db, account.id, &slug, input).await?;
+    Ok((StatusCode::CREATED, Json(era)))
 }
 
 const MAX_IMAGE_BYTES: i64 = 50 * 1024 * 1024;
@@ -781,10 +812,11 @@ async fn list_documents(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(slug): Path<String>,
+    Query(query): Query<EraQuery>,
 ) -> Result<Json<Vec<crate::models::CardDocument>>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
     Ok(Json(
-        store::list_documents(&state.db, account.id, &slug).await?,
+        store::list_documents(&state.db, account.id, &slug, query.era_id).await?,
     ))
 }
 
@@ -792,10 +824,11 @@ async fn get_document(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((slug, document_id)): Path<(String, Uuid)>,
+    Query(query): Query<EraQuery>,
 ) -> Result<Json<crate::models::CardDocument>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
     Ok(Json(
-        store::get_document(&state.db, account.id, &slug, document_id).await?,
+        store::get_document(&state.db, account.id, &slug, document_id, query.era_id).await?,
     ))
 }
 
@@ -815,12 +848,13 @@ async fn update_card(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((slug, document_id)): Path<(String, Uuid)>,
+    Query(query): Query<EraQuery>,
     Json(input): Json<CardUpdateInput>,
 ) -> Result<Json<crate::models::CardDocument>, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
     Ok(Json(
-        store::update_card(&state.db, account.id, &slug, document_id, input).await?,
+        store::update_card(&state.db, account.id, &slug, document_id, query.era_id, input).await?,
     ))
 }
 
