@@ -8,17 +8,16 @@ Evidence labels: **A** current developer docs; **B** current product or store li
 
 The current application includes:
 
-- A world selector backed by one synthetic world fixture.
+- A world selector backed by PostgreSQL in connected mode, with a synthetic read-only fixture only when the API is not configured.
 - A responsive workspace shell with a navigation rail, searchable document library and details inspector.
 - Typed card records with names, aliases, text blocks and scalar properties.
 - Canonical card references that navigate to the referenced document rather than copying its content.
 - Domain tests for stable lookup, reference resolution and duplicate/missing reference detection.
 - A same-origin Next.js API proxy, login/register/logout UI, session-aware server-rendered world library and persistent world creation.
-- A connected card editor for name, aliases and the first text block; remaining blocks and typed properties are preserved and card updates use the server version.
+- A connected card editor for names, aliases, text/reference properties and every ordered text block; properties and blocks can be added, removed and reordered with stable ids and version-checked saves.
 - A read-only World Graph rendered with WebGL 2 from valid typed card references. Nodes can be selected, dragged and panned; the DOM inspector and record list provide accessible navigation and links back to canonical records.
 - A Rust/Axum API with PostgreSQL migrations for accounts, Argon2id password hashes, hashed opaque sessions, database-backed authentication throttles and best-effort browser/platform session labels, worlds, world memberships, canonical card documents, properties and ordered text blocks.
 - Membership-checked world and card reads, world/card creation, atomic version-checked card updates, nested world folders and conflict-checked card moves. Composite foreign keys keep card references inside their world.
-- Document snapshots on edits and moves, revision listing/restoration, plus reversible archive operations that retain canonical IDs and inbound database references.
 - Per-document snapshots on mutation, revision listing and conflict-checked restore; archive and restore keep canonical records and inbound references intact.
 - Private Gallery uses S3-compatible presigned uploads/downloads; server-generated object keys and membership-checked metadata prevent client-selected storage paths.
 
