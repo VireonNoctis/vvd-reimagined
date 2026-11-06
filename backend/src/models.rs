@@ -175,6 +175,7 @@ pub struct CardDocument {
     pub folder_id: Option<Uuid>,
     pub properties: Vec<CardProperty>,
     pub blocks: Vec<CardBlock>,
+    pub media: Vec<MediaAssetSummary>,
 }
 
 #[derive(Clone, Debug, Serialize)]
