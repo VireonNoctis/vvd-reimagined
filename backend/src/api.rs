@@ -25,8 +25,8 @@ use crate::{
     models::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardTemplateCreateInput,
         CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary,
-        DocumentTypeSummary,
-        DocumentVersionInput, EraCreateInput, EraSummary, Folder, FolderCreateInput,
+        DocumentTypeSummary, DocumentVersionInput, EraCreateInput, EraSummary, Folder,
+        FolderCreateInput,
         FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
         MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
