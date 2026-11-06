@@ -90,7 +90,7 @@ export function CardTemplateManager({ world, interactive }: Props) {
           <Link href={"/worlds/" + world.slug}>← {world.name}</Link>
           <span className="eyebrow">WORLD CONFIGURATION</span>
           <h1>Document types &amp; templates</h1>
-          <p>Choose which document systems are available and shape the starting structure of each card type.</p>
+          <p>Review the document systems this world knows about and shape the starting structure of each card type.</p>
         </div>
         <Link className="toolbar-button" href={"/worlds/" + world.slug}>Back to workspace</Link>
       </header>
