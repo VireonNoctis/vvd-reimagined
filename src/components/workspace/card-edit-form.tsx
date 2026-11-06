@@ -54,8 +54,12 @@ export function CardEditForm({ world, document, onCancel }: Props) {
 
     setBusy(true);
     try {
+      const activeEra = world.eras.find((era) => era.id === world.activeEraId);
+      const eraQuery = activeEra && !activeEra.isDefault
+        ? "?eraId=" + encodeURIComponent(activeEra.id)
+        : "";
       const response = await fetch(
-        "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/documents/" + encodeURIComponent(document.id),
+        "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/documents/" + encodeURIComponent(document.id) + eraQuery,
         {
           method: "PATCH",
           headers: { "content-type": "application/json" },
