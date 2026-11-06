@@ -1799,28 +1799,31 @@ pub async fn create_card(
         ));
     }
 
+    let mut transaction = pool.begin().await?;
     let template_row = if let Some(template_id) = input.template_id {
         sqlx::query_as::<_, CardTemplateRow>(
             "SELECT id, entity_type, version, name, description, property_definitions,
                     starter_blocks, is_default
              FROM card_type_templates
-             WHERE world_id = $1 AND entity_type = $2 AND id = $3",
+             WHERE world_id = $1 AND entity_type = $2 AND id = $3
+             FOR SHARE",
         )
         .bind(world_id)
         .bind(input.entity_type.as_str())
         .bind(template_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *transaction)
         .await?
     } else {
         sqlx::query_as::<_, CardTemplateRow>(
-            "SELECT id, entity_type, name, description, property_definitions,
+            "SELECT id, entity_type, version, name, description, property_definitions,
                     starter_blocks, is_default
              FROM card_type_templates
-             WHERE world_id = $1 AND entity_type = $2 AND is_default",
+             WHERE world_id = $1 AND entity_type = $2 AND is_default
+             FOR SHARE",
         )
         .bind(world_id)
         .bind(input.entity_type.as_str())
-        .fetch_optional(pool)
+        .fetch_optional(&mut *transaction)
         .await?
     }
     .ok_or_else(ApiError::not_found)?;
@@ -1839,7 +1842,6 @@ pub async fn create_card(
         .map(|value| value.trim().to_owned())
         .collect::<Vec<_>>();
 
-    let mut transaction = pool.begin().await?;
     ensure_references_exist(&mut transaction, world_id, &input.properties).await?;
 
     sqlx::query(
