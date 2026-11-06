@@ -1759,10 +1759,115 @@ pub async fn delete_media_asset(
     let world_id = require_world(pool, account_id, slug, true).await?;
     let result = sqlx::query(
         "UPDATE media_assets SET status = 'deleted', updated_at = NOW()
-         WHERE world_id = $1 AND id = $2 AND status IN ('pending', 'ready')",
+         WHERE world_id = $1 AND id = $2 AND document_id IS NULL
+           AND status IN ('pending', 'ready')",
     )
     .bind(world_id)
     .bind(asset_id)
+    .execute(pool)
+    .await?;
+    if result.rows_affected() == 0 {
+        let attached = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (
+                SELECT 1 FROM media_assets
+                WHERE world_id = $1 AND id = $2 AND document_id IS NOT NULL
+                  AND status = 'ready'
+             )",
+        )
+        .bind(world_id)
+        .bind(asset_id)
+        .fetch_one(pool)
+        .await?;
+        if attached {
+            return Err(ApiError::conflict(
+                "Detach this media from its card before deleting it from the Gallery.",
+            ));
+        }
+        return Err(ApiError::not_found());
+    }
+    Ok(())
+}
+
+pub async fn attach_media_asset(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+    media_id: Uuid,
+) -> Result<MediaAssetSummary, ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let document_exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM documents
+            WHERE world_id = $1 AND id = $2 AND archived_at IS NULL
+         )",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_one(pool)
+    .await?;
+    if !document_exists {
+        return Err(ApiError::not_found());
+    }
+
+    let asset = sqlx::query_as::<_, (Uuid, Uuid, String, String, i64, DateTime<Utc>)>(
+        "UPDATE media_assets
+         SET document_id = $1, updated_at = NOW()
+         WHERE world_id = $2 AND id = $3 AND status = 'ready'
+           AND (document_id IS NULL OR document_id = $1)
+         RETURNING id, document_id, file_name, content_type, size_bytes, created_at",
+    )
+    .bind(document_id)
+    .bind(world_id)
+    .bind(media_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(asset) = asset else {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (
+                SELECT 1 FROM media_assets WHERE world_id = $1 AND id = $2
+                  AND status = 'ready' AND document_id IS NOT NULL
+             )",
+        )
+        .bind(world_id)
+        .bind(media_id)
+        .fetch_one(pool)
+        .await?;
+        if exists {
+            return Err(ApiError::conflict(
+                "This Gallery asset is already attached to another card.",
+            ));
+        }
+        return Err(ApiError::not_found());
+    };
+
+    Ok(MediaAssetSummary {
+        id: asset.0,
+        document_id: Some(asset.1),
+        file_name: asset.2,
+        content_type: asset.3,
+        size_bytes: asset.4,
+        created_at: asset.5,
+    })
+}
+
+pub async fn detach_media_asset(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+    media_id: Uuid,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let result = sqlx::query(
+        "UPDATE media_assets
+         SET document_id = NULL, updated_at = NOW()
+         WHERE world_id = $1 AND id = $2 AND document_id = $3 AND status = 'ready'",
+    )
+    .bind(world_id)
+    .bind(media_id)
+    .bind(document_id)
     .execute(pool)
     .await?;
     if result.rows_affected() == 0 {
