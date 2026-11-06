@@ -19,7 +19,42 @@ pub struct World {
     pub description: String,
     pub genre: String,
     pub updated_at: String,
+    pub eras: Vec<EraSummary>,
+    pub active_era_id: Uuid,
     pub documents: Vec<CardDocument>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EraSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub parent_id: Option<Uuid>,
+    pub is_default: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EraCreateInput {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub parent_id: Option<Uuid>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct EraRow {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub parent_id: Option<Uuid>,
+    pub is_default: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -65,7 +100,7 @@ impl EntityType {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(
     tag = "kind",
     rename_all = "snake_case",
@@ -84,12 +119,12 @@ pub enum CardProperty {
     },
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CardBlock {
     pub id: String,
     #[serde(rename = "type")]
-    pub block_type: &'static str,
+    pub block_type: String,
     pub text: String,
 }
 
