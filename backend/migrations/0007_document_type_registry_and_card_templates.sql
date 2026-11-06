@@ -56,6 +56,7 @@ CREATE TABLE card_type_templates (
     starter_blocks JSONB NOT NULL DEFAULT '[]'::jsonb
         CHECK (jsonb_typeof(starter_blocks) = 'array'),
     is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    version BIGINT NOT NULL DEFAULT 1 CHECK (version > 0),
     created_by UUID NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
