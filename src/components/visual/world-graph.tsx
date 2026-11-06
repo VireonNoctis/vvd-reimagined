@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { World } from "@/domain/world";
+import type { GraphLayout, GraphLayoutNodePosition, World } from "@/domain/world";
 import {
   buildWorldGraph,
   defaultWorldGraphFilters,
@@ -16,6 +16,7 @@ type Props = {
   world: World;
   selectedDocumentId: string;
   onSelectDocument: (id: string) => void;
+  interactive: boolean;
 };
 type Point = { x: number; y: number };
 type View = { x: number; y: number; zoom: number };
@@ -139,7 +140,7 @@ function addVertex(output: number[], point: Point, color: Color, size: number, v
   );
 }
 
-export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Props) {
+export function WorldGraph({ world, selectedDocumentId, onSelectDocument, interactive }: Props) {
   const graph = useMemo(() => buildWorldGraph(world), [world]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
@@ -150,7 +151,16 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [filters, setFilters] = useState<WorldGraphFilters>(defaultWorldGraphFilters);
+  const [layouts, setLayouts] = useState<GraphLayout[]>([]);
+  const [layoutsEraId, setLayoutsEraId] = useState("");
+  const [layoutId, setLayoutId] = useState("");
+  const [savingLayout, setSavingLayout] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [layoutName, setLayoutName] = useState("");
+  const [layoutError, setLayoutError] = useState("");
   const visibleGraph = useMemo(() => filterWorldGraph(graph, filters), [graph, filters]);
+  const currentLayouts = layoutsEraId === world.activeEraId ? layouts : [];
+  const selectedLayout = currentLayouts.find((layout) => layout.id === layoutId);
 
   const activeSelection = visibleGraph.nodes.some((node) => node.id === selectedDocumentId)
     ? selectedDocumentId
