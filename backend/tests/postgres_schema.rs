@@ -188,6 +188,30 @@ async fn migrations_enforce_membership_and_same_world_references() {
     assert_eq!(inherited.name, "Test record");
     assert_eq!(inherited.version, 1);
 
+    let cross_world_era_edit = store::update_card(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(alternate_era.id),
+        CardUpdateInput {
+            expected_version: 1,
+            name: "Invalid cross-world reference".to_owned(),
+            aliases: Vec::new(),
+            properties: vec![CardPropertyInput::Reference {
+                id: "foreign-link".to_owned(),
+                label: "Foreign link".to_owned(),
+                document_id: foreign_target_id,
+            }],
+            blocks: Vec::new(),
+        },
+    )
+    .await;
+    assert!(
+        cross_world_era_edit.is_err(),
+        "era overrides must reject references to another world"
+    );
+
     let alternate_update = store::update_card(
         &pool,
         account_id,
