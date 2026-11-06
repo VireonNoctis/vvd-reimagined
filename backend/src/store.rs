@@ -11,7 +11,7 @@ use crate::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardPropertyKind, CardTemplateBlock,
         CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateRow,
-        CardTemplateSummary, CardUpdateInput, DocumentRevisionSummary, DocumentRow,
+        CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary, DocumentRow,
         DocumentTypeRow, DocumentTypeSummary, EntityType, EraCreateInput, EraRow, EraSummary,
         Folder, FolderCreateInput, FolderRow, FolderUpdateInput, MediaAssetCreate,
         MediaAssetSummary, MoveDocumentInput, PropertyRow, World, WorldRow,
@@ -559,8 +559,7 @@ async fn ensure_template_compatible(
 ) -> Result<(), ApiError> {
     let document_ids = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM documents
-         WHERE world_id = $1 AND template_id = $2
-         FOR UPDATE",
+         WHERE world_id = $1 AND template_id = $2",
     )
     .bind(world_id)
     .bind(template_id)
@@ -594,8 +593,10 @@ async fn ensure_template_compatible(
                         "This template is used by cards with a different property type.",
                     ));
                 }
-                Some((_, "text", value))
-                    if definition.required && value.as_deref().is_none_or(str::is_empty) =>
+                Some((_, kind, value))
+                    if definition.required
+                        && kind == "text"
+                        && value.as_deref().is_none_or(|text| text.trim().is_empty()) =>
                 {
                     return Err(ApiError::conflict(
                         "This template is used by cards with an empty required property.",
