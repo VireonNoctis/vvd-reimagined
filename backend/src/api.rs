@@ -24,7 +24,8 @@ use crate::{
     error::ApiError,
     models::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardTemplateCreateInput,
-        CardTemplateSummary, CardUpdateInput, DocumentRevisionSummary, DocumentTypeSummary,
+        CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary,
+        DocumentTypeSummary,
         DocumentVersionInput, EraCreateInput, EraSummary, Folder, FolderCreateInput,
         FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
         MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
@@ -255,6 +256,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/v1/worlds/{slug}/card-templates",
             get(list_card_templates).post(create_card_template),
+        )
+        .route(
+            "/v1/worlds/{slug}/card-templates/{template_id}",
+            patch(update_card_template).delete(delete_card_template),
         )
         .route(
             "/v1/worlds/{slug}/documents",
@@ -846,6 +851,30 @@ async fn create_card_template(
     let account = signed_in_account(&state.db, &headers).await?;
     let template = store::create_card_template(&state.db, account.id, &slug, input).await?;
     Ok((StatusCode::CREATED, Json(template)))
+}
+
+async fn update_card_template(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, template_id)): Path<(String, Uuid)>,
+    Json(input): Json<CardTemplateUpdateInput>,
+) -> Result<Json<CardTemplateSummary>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::update_card_template(&state.db, account.id, &slug, template_id, input).await?,
+    ))
+}
+
+async fn delete_card_template(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, template_id)): Path<(String, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    store::delete_card_template(&state.db, account.id, &slug, template_id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn list_documents(
