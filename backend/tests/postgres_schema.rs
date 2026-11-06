@@ -62,6 +62,18 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .expect("create test worlds");
 
     sqlx::query(
+        "INSERT INTO world_document_types (world_id, type_key, enabled)
+         SELECT worlds.id, registry.type_key, registry.type_key = 'card'
+         FROM (VALUES ($1::UUID), ($2::UUID)) AS worlds(id)
+         CROSS JOIN document_type_registry registry",
+    )
+    .bind(world_id)
+    .bind(other_world_id)
+    .execute(&pool)
+    .await
+    .expect("register document types for both test worlds");
+
+    sqlx::query(
         "INSERT INTO eras (world_id, id, name, description, is_default, created_by)
          VALUES
             ($1, $2, 'Prime', '', TRUE, $3),
