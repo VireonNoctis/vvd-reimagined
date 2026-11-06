@@ -957,13 +957,19 @@ async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
         "a template cannot gain required properties that existing cards do not satisfy"
     );
 
+    let current_character_template = store::list_card_templates(&pool, account_id, &world.slug)
+        .await
+        .expect("reload templates after switching the default")
+        .into_iter()
+        .find(|template| template.id == initial_character_template.id)
+        .expect("find the original character template");
     let restore_default = store::update_card_template(
         &pool,
         account_id,
         &world.slug,
         initial_character_template.id,
         CardTemplateUpdateInput {
-            expected_version: initial_character_template.version,
+            expected_version: current_character_template.version,
             name: initial_character_template.name.clone(),
             description: initial_character_template.description.clone(),
             property_definitions: initial_character_template.property_definitions.clone(),
