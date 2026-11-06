@@ -714,7 +714,6 @@ async fn migrations_enforce_membership_and_same_world_references() {
     pool.close().await;
 }
 
-
 #[tokio::test]
 async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
     let Ok(database_url) = std::env::var("DATABASE_URL") else {
@@ -771,7 +770,12 @@ async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
     assert_eq!(map_type.implementation_status, "planned");
 
     assert_eq!(world.card_templates.len(), 3);
-    assert!(world.card_templates.iter().all(|template| template.is_default));
+    assert!(
+        world
+            .card_templates
+            .iter()
+            .all(|template| template.is_default)
+    );
 
     let templates = store::list_card_templates(&pool, account_id, &world.slug)
         .await
