@@ -17,6 +17,7 @@ export type CardTemplateBlock = { id: string; label: string; text: string };
 export type CardTemplate = {
   id: string;
   entityType: CardEntityType;
+  version: number;
   name: string;
   description: string;
   propertyDefinitions: CardTemplatePropertyDefinition[];
