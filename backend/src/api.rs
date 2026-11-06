@@ -27,9 +27,8 @@ use crate::{
         CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary,
         DocumentTypeSummary, DocumentVersionInput, EraCreateInput, EraSummary, Folder,
         FolderCreateInput, FolderUpdateInput, GraphLayoutCreateInput, GraphLayoutSummary,
-        GraphLayoutUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary,
-        MediaUploadInput, MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary,
-        WorldCreateInput,
+        GraphLayoutUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
+        MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
     store,
 };
