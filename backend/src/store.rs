@@ -314,7 +314,7 @@ async fn load_eras(pool: &PgPool, world_id: Uuid) -> Result<Vec<EraSummary>, Api
             id: row.id,
             name: row.name,
             description: row.description,
-            parent_id: row.parent_era_id,
+            parent_id: row.parent_id,
             is_default: row.is_default,
             created_at: row.created_at,
             updated_at: row.updated_at,
