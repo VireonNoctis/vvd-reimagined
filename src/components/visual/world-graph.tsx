@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { World } from "@/domain/world";
-import { buildWorldGraph } from "@/domain/world-graph";
+import {
+  buildWorldGraph,
+  defaultWorldGraphFilters,
+  filterWorldGraph,
+  type WorldGraphFilters
+} from "@/domain/world-graph";
 import "./world-graph.css";
 
 type Props = {
@@ -144,9 +149,11 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
   const [positions, setPositions] = useState(() => arrange(graph.nodes));
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<WorldGraphFilters>(defaultWorldGraphFilters);
+  const visibleGraph = useMemo(() => filterWorldGraph(graph, filters), [graph, filters]);
 
   const dataRef = useRef<DrawingState>({
-    graph,
+    graph: visibleGraph,
     positions,
     view,
     selectedDocumentId,
@@ -154,9 +161,9 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
   });
 
   useEffect(() => {
-    dataRef.current = { graph, positions, view, selectedDocumentId, hoveredId };
+    dataRef.current = { graph: visibleGraph, positions, view, selectedDocumentId, hoveredId };
     drawRef.current();
-  }, [graph, positions, view, selectedDocumentId, hoveredId]);
+  }, [visibleGraph, positions, view, selectedDocumentId, hoveredId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -199,9 +206,10 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
           const source = currentPositions.get(edge.source);
           const targetPoint = currentPositions.get(edge.target);
           if (!source || !targetPoint) continue;
-          const color: Color = edge.source === selected || edge.target === selected
-            ? [0.52, 0.65, 0.43, 0.95]
-            : [0.54, 0.59, 0.51, 0.46];
+          const activeEdge = edge.source === selected || edge.target === selected;
+          const color: Color = edge.kind === "reference"
+            ? activeEdge ? [0.48, 0.62, 0.4, 0.98] : [0.54, 0.59, 0.51, 0.48]
+            : activeEdge ? [0.7, 0.56, 0.37, 0.94] : [0.67, 0.61, 0.5, 0.5];
           addVertex(lines, source, color, 1, currentView);
           addVertex(lines, targetPoint, color, 1, currentView);
         }
@@ -346,18 +354,20 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
     }
   }
 
-  const selected = graph.nodes.find((node) => node.id === selectedDocumentId) ?? graph.nodes[0];
+  const selected = visibleGraph.nodes.find((node) => node.id === selectedDocumentId) ?? visibleGraph.nodes[0];
   const relatedEdges = selected
-    ? graph.edges.filter((edge) => edge.source === selected.id || edge.target === selected.id)
+    ? visibleGraph.edges.filter((edge) => edge.source === selected.id || edge.target === selected.id)
     : [];
+  const referenceCount = visibleGraph.edges.filter((edge) => edge.kind === "reference").length;
+  const mentionCount = visibleGraph.edges.filter((edge) => edge.kind === "mention").length;
 
   return (
-    <section className="world-graph" aria-label="World graph">
+    <section className="world-graph" aria-label={"World graph for " + world.eras.find((era) => era.id === world.activeEraId)?.name + " era"}>
       <header className="graph-header">
         <div>
           <span className="eyebrow">VISUAL TOOLS / WORLD GRAPH</span>
           <h2>Connections</h2>
-          <p>Typed references between this world&apos;s canonical records.</p>
+          <p>Explicit references and unambiguous mentions, projected from this era&apos;s canonical records.</p>
         </div>
         <div className="graph-controls" aria-label="Graph controls">
           <button type="button" onClick={() => setView((current) => ({ ...current, zoom: Math.max(0.55, current.zoom * 0.82) }))} aria-label="Zoom out">−</button>
@@ -365,6 +375,39 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
           <button type="button" onClick={() => { setPositions(arrange(graph.nodes)); setView({ x: 0, y: 0, zoom: 1 }); }}>Reset</button>
         </div>
       </header>
+
+      <div className="graph-filter-bar" aria-label="Graph filters">
+        <div className="graph-filter-group">
+          <span>EDGES</span>
+          <button
+            type="button"
+            className={filters.showReferences ? "is-active" : ""}
+            aria-pressed={filters.showReferences}
+            onClick={() => setFilters((current) => ({ ...current, showReferences: !current.showReferences }))}
+          >References</button>
+          <button
+            type="button"
+            className={filters.showMentions ? "is-active" : ""}
+            aria-pressed={filters.showMentions}
+            onClick={() => setFilters((current) => ({ ...current, showMentions: !current.showMentions }))}
+          >Mentions</button>
+        </div>
+        <div className="graph-filter-group">
+          <span>RECORDS</span>
+          {(["character", "place", "faction"] as const).map((type) => (
+            <button
+              type="button"
+              key={type}
+              className={filters.entityTypes[type] ? "is-active" : ""}
+              aria-pressed={filters.entityTypes[type]}
+              onClick={() => setFilters((current) => ({
+                ...current,
+                entityTypes: { ...current.entityTypes, [type]: !current.entityTypes[type] }
+              }))}
+            >{type}</button>
+          ))}
+        </div>
+      </div>
 
       <div className="graph-layout">
         <div className="graph-viewport">
@@ -383,7 +426,7 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
           </p>
           <div className="graph-viewport-footer">
             <span>DRAG TO REARRANGE</span>
-            <span>{graph.nodes.length} RECORDS · {graph.edges.length} REFERENCES</span>
+            <span>{visibleGraph.nodes.length} RECORDS · {referenceCount} REFERENCES · {mentionCount} MENTIONS</span>
           </div>
         </div>
 
@@ -395,7 +438,7 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
                 <span className={"graph-entity-mark " + selected.entityType}>{selected.entityType.slice(0, 1).toUpperCase()}</span>
                 <h3>{selected.name}</h3>
                 <span className="graph-entity-type">{selected.entityType}</span>
-                <Link className="graph-open-record" href={"/worlds/" + world.slug + "?doc=" + encodeURIComponent(selected.id)}>
+                <Link className="graph-open-record" href={"/worlds/" + world.slug + "?doc=" + encodeURIComponent(selected.id) + "&era=" + encodeURIComponent(world.activeEraId)}>
                   Open record <span aria-hidden="true">↗</span>
                 </Link>
               </>
@@ -408,23 +451,23 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
               <div className="graph-related-list">
                 {relatedEdges.map((edge) => {
                   const id = edge.source === selected?.id ? edge.target : edge.source;
-                  const node = graph.nodes.find((item) => item.id === id);
+                  const node = visibleGraph.nodes.find((item) => item.id === id);
                   if (!node) return null;
                   return (
                     <button type="button" key={edge.id} onClick={() => onSelectDocument(node.id)}>
                       <span className={"graph-list-dot " + node.entityType} />
-                      <span><strong>{node.name}</strong><small>{edge.label}</small></span>
+                      <span><strong>{node.name}</strong><small>{edge.kind === "mention" ? "Mention in text" + (edge.occurrences > 1 ? " · " + edge.occurrences + " times" : "") : edge.label}</small></span>
                     </button>
                   );
                 })}
               </div>
-            ) : <p className="graph-empty-copy">No typed references connect this record yet.</p>}
+            ) : <p className="graph-empty-copy">No visible links connect this record yet. Try enabling both edge types.</p>}
           </section>
 
           <section className="graph-inspector-section graph-records-section">
             <span className="eyebrow">ALL WORLD RECORDS</span>
             <div className="graph-related-list">
-              {graph.nodes.map((node) => (
+              {visibleGraph.nodes.map((node) => (
                 <button
                   type="button"
                   key={node.id}
