@@ -978,7 +978,7 @@ pub async fn move_document(
         .await?;
     transaction.commit().await?;
 
-    get_document(pool, account_id, slug, document_id).await
+    get_document(pool, account_id, slug, document_id, None).await
 }
 
 pub async fn create_media_asset(
@@ -1245,7 +1245,7 @@ pub async fn create_card(
         .await?;
 
     transaction.commit().await?;
-    get_document(pool, account_id, slug, id).await
+    get_document(pool, account_id, slug, id, None).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -1576,7 +1576,7 @@ pub async fn restore_document_revision(
         .await?;
 
     transaction.commit().await?;
-    get_document(pool, account_id, slug, document_id).await
+    get_document(pool, account_id, slug, document_id, None).await
 }
 
 pub async fn update_card(
@@ -1665,7 +1665,7 @@ pub async fn update_card(
         .await?;
 
     transaction.commit().await?;
-    get_document(pool, account_id, slug, document_id).await
+    get_document(pool, account_id, slug, document_id, None).await
 }
 
 pub async fn list_sessions(
