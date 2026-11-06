@@ -25,6 +25,7 @@ test("world graph keeps explicit typed references distinct from text mentions", 
 
 test("world graph derives case-insensitive name and alias mentions from body blocks", () => {
   const world = structuredClone(demoWorld);
+  for (const document of world.documents) document.blocks = [];
   world.documents[2].blocks.push({
     id: "treaty-note",
     type: "text",
@@ -43,6 +44,7 @@ test("world graph derives case-insensitive name and alias mentions from body blo
 
 test("world graph uses whole phrase boundaries and ignores self mentions", () => {
   const world = structuredClone(demoWorld);
+  for (const document of world.documents) document.blocks = [];
   world.documents[0].blocks.push({
     id: "own-name",
     type: "text",
@@ -59,6 +61,7 @@ test("world graph uses whole phrase boundaries and ignores self mentions", () =>
 
 test("ambiguous aliases do not create mention edges", () => {
   const world = structuredClone(demoWorld);
+  for (const document of world.documents) document.blocks = [];
   world.documents[1].aliases.push("The Court");
   world.documents[2].blocks.push({
     id: "ambiguous-note",
