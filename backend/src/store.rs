@@ -325,6 +325,244 @@ async fn load_eras(pool: &PgPool, world_id: Uuid) -> Result<Vec<EraSummary>, Api
         .collect())
 }
 
+fn card_template_summary(row: CardTemplateRow) -> Result<CardTemplateSummary, ApiError> {
+    Ok(CardTemplateSummary {
+        id: row.id,
+        entity_type: entity_type(&row.entity_type)?,
+        name: row.name,
+        description: row.description,
+        property_definitions: serde_json::from_value(row.property_definitions)
+            .map_err(|_| ApiError::internal())?,
+        starter_blocks: serde_json::from_value(row.starter_blocks)
+            .map_err(|_| ApiError::internal())?,
+        is_default: row.is_default,
+    })
+}
+
+async fn load_document_types(
+    pool: &PgPool,
+    world_id: Uuid,
+) -> Result<Vec<DocumentTypeSummary>, ApiError> {
+    let rows = sqlx::query_as::<_, DocumentTypeRow>(
+        "SELECT registry.type_key, registry.name, registry.description,
+                registry.implementation_status, COALESCE(world_type.enabled, FALSE) AS enabled
+         FROM document_type_registry registry
+         LEFT JOIN world_document_types world_type
+           ON world_type.type_key = registry.type_key AND world_type.world_id = $1
+         ORDER BY CASE registry.type_key
+                    WHEN 'card' THEN 0 WHEN 'map' THEN 1 WHEN 'timeline' THEN 2
+                    ELSE 3
+                  END, registry.name ASC",
+    )
+    .bind(world_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| DocumentTypeSummary {
+            type_key: row.type_key,
+            name: row.name,
+            description: row.description,
+            enabled: row.enabled,
+            implementation_status: row.implementation_status,
+        })
+        .collect())
+}
+
+async fn load_card_templates(
+    pool: &PgPool,
+    world_id: Uuid,
+) -> Result<Vec<CardTemplateSummary>, ApiError> {
+    let rows = sqlx::query_as::<_, CardTemplateRow>(
+        "SELECT id, entity_type, name, description, property_definitions,
+                starter_blocks, is_default
+         FROM card_type_templates
+         WHERE world_id = $1
+         ORDER BY entity_type ASC, is_default DESC, name ASC",
+    )
+    .bind(world_id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter().map(card_template_summary).collect()
+}
+
+pub async fn list_document_types(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+) -> Result<Vec<DocumentTypeSummary>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    load_document_types(pool, world_id).await
+}
+
+pub async fn list_card_templates(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+) -> Result<Vec<CardTemplateSummary>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    load_card_templates(pool, world_id).await
+}
+
+pub async fn create_card_template(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    input: CardTemplateCreateInput,
+) -> Result<CardTemplateSummary, ApiError> {
+    let name = input.name.trim();
+    let description = input.description.trim();
+    if name.is_empty() || name.chars().count() > 80 {
+        return Err(ApiError::bad_request(
+            "Template names must contain between 1 and 80 characters.",
+        ));
+    }
+    if description.chars().count() > 500 {
+        return Err(ApiError::bad_request(
+            "Template descriptions are limited to 500 characters.",
+        ));
+    }
+    if input.property_definitions.len() > 100 || input.starter_blocks.len() > 200 {
+        return Err(ApiError::bad_request(
+            "A template can contain at most 100 property definitions and 200 starter blocks.",
+        ));
+    }
+
+    let mut property_ids = std::collections::HashSet::new();
+    for definition in &input.property_definitions {
+        if !validate_key(&definition.id) || !property_ids.insert(&definition.id) {
+            return Err(ApiError::bad_request(
+                "Template property ids must be unique lowercase keys.",
+            ));
+        }
+        if definition.label.trim().is_empty() || definition.label.chars().count() > 100 {
+            return Err(ApiError::bad_request(
+                "Template property labels must contain between 1 and 100 characters.",
+            ));
+        }
+        if definition.default_value.as_ref().is_some_and(|value| value.chars().count() > 10_000) {
+            return Err(ApiError::bad_request(
+                "Template property defaults are limited to 10,000 characters.",
+            ));
+        }
+        if definition.kind == CardPropertyKind::Reference && definition.default_value.is_some() {
+            return Err(ApiError::bad_request(
+                "Reference properties cannot have a text default value.",
+            ));
+        }
+    }
+
+    let mut block_ids = std::collections::HashSet::new();
+    for block in &input.starter_blocks {
+        if !validate_key(&block.id) || !block_ids.insert(&block.id) {
+            return Err(ApiError::bad_request(
+                "Template block ids must be unique lowercase keys.",
+            ));
+        }
+        if block.label.trim().is_empty() || block.label.chars().count() > 100 {
+            return Err(ApiError::bad_request(
+                "Template block labels must contain between 1 and 100 characters.",
+            ));
+        }
+        if block.text.chars().count() > 50_000 {
+            return Err(ApiError::bad_request(
+                "Template starter text is limited to 50,000 characters.",
+            ));
+        }
+    }
+
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let card_enabled = sqlx::query_scalar::<_, bool>(
+        "SELECT enabled FROM world_document_types
+         WHERE world_id = $1 AND type_key = 'card'
+         FOR SHARE",
+    )
+    .bind(world_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .unwrap_or(false);
+    if !card_enabled {
+        return Err(ApiError::bad_request("Card documents are disabled for this world."));
+    }
+
+    if input.is_default {
+        sqlx::query(
+            "UPDATE card_type_templates SET is_default = FALSE, updated_at = NOW()
+             WHERE world_id = $1 AND entity_type = $2 AND is_default",
+        )
+        .bind(world_id)
+        .bind(input.entity_type.as_str())
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    let id = Uuid::new_v4();
+    let property_definitions = serde_json::to_value(&input.property_definitions)
+        .map_err(|_| ApiError::internal())?;
+    let starter_blocks =
+        serde_json::to_value(&input.starter_blocks).map_err(|_| ApiError::internal())?;
+    let row = sqlx::query_as::<_, CardTemplateRow>(
+        "INSERT INTO card_type_templates
+         (world_id, id, entity_type, name, description, property_definitions,
+          starter_blocks, is_default, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id, entity_type, name, description, property_definitions,
+                   starter_blocks, is_default",
+    )
+    .bind(world_id)
+    .bind(id)
+    .bind(input.entity_type.as_str())
+    .bind(name)
+    .bind(description)
+    .bind(property_definitions)
+    .bind(starter_blocks)
+    .bind(input.is_default)
+    .bind(account_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    card_template_summary(row)
+}
+
+fn validate_template_properties(
+    template: &CardTemplateSummary,
+    properties: &[CardPropertyInput],
+) -> Result<(), ApiError> {
+    for definition in &template.property_definitions {
+        let supplied = properties.iter().find(|property| match property {
+            CardPropertyInput::Text { id, .. } | CardPropertyInput::Reference { id, .. } => {
+                id == &definition.id
+            }
+        });
+
+        let Some(supplied) = supplied else {
+            if definition.required {
+                return Err(ApiError::bad_request(
+                    "A required property from the selected template is missing.",
+                ));
+            }
+            continue;
+        };
+
+        let matches_kind = matches!(
+            (definition.kind, supplied),
+            (CardPropertyKind::Text, CardPropertyInput::Text { .. })
+                | (CardPropertyKind::Reference, CardPropertyInput::Reference { .. })
+        );
+        if !matches_kind {
+            return Err(ApiError::bad_request(
+                "A property does not match the selected template definition.",
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 async fn load_documents_in_era(
     pool: &PgPool,
     world_id: Uuid,
