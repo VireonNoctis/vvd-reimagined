@@ -2668,6 +2668,245 @@ async fn update_card_in_era(
     get_document(pool, account_id, slug, document_id, Some(era_id)).await
 }
 
+fn graph_layout_summary(row: GraphLayoutRow) -> Result<GraphLayoutSummary, ApiError> {
+    Ok(GraphLayoutSummary {
+        id: row.id,
+        era_id: row.era_id,
+        name: row.name,
+        version: row.version,
+        positions: serde_json::from_value(row.positions).map_err(|_| ApiError::internal())?,
+        view: serde_json::from_value(row.view).map_err(|_| ApiError::internal())?,
+        filters: serde_json::from_value(row.filters).map_err(|_| ApiError::internal())?,
+        updated_at: row.updated_at,
+    })
+}
+
+fn validate_graph_layout(
+    name: &str,
+    positions: &[crate::models::GraphLayoutNodePosition],
+    view: &GraphLayoutView,
+) -> Result<(), ApiError> {
+    if name.trim().is_empty() || name.chars().count() > 80 {
+        return Err(ApiError::bad_request(
+            "Layout names must contain between 1 and 80 characters.",
+        ));
+    }
+    if positions.len() > 5_000 {
+        return Err(ApiError::bad_request(
+            "A saved layout can contain at most 5,000 node positions.",
+        ));
+    }
+
+    let mut seen = std::collections::HashSet::new();
+    for position in positions {
+        if !seen.insert(position.document_id) {
+            return Err(ApiError::bad_request(
+                "A saved layout cannot contain duplicate node positions.",
+            ));
+        }
+        if !position.x.is_finite()
+            || !position.y.is_finite()
+            || position.x.abs() > 10.0
+            || position.y.abs() > 10.0
+        {
+            return Err(ApiError::bad_request(
+                "Saved node positions must be finite and within the supported canvas range.",
+            ));
+        }
+    }
+
+    if !view.x.is_finite()
+        || !view.y.is_finite()
+        || view.x.abs() > 100.0
+        || view.y.abs() > 100.0
+        || !view.zoom.is_finite()
+        || !(0.55..=2.5).contains(&view.zoom)
+    {
+        return Err(ApiError::bad_request(
+            "The saved graph viewport is outside the supported range.",
+        ));
+    }
+
+    Ok(())
+}
+
+async fn validate_graph_layout_nodes(
+    pool: &PgPool,
+    world_id: Uuid,
+    era_id: Uuid,
+    positions: &[crate::models::GraphLayoutNodePosition],
+) -> Result<(), ApiError> {
+    let documents = load_documents_in_era(pool, world_id, era_id).await?;
+    let known_ids = documents
+        .into_iter()
+        .map(|document| document.id)
+        .collect::<std::collections::HashSet<_>>();
+
+    if positions.iter().any(|position| !known_ids.contains(&position.document_id)) {
+        return Err(ApiError::bad_request(
+            "A saved layout can only position records in the selected world and era.",
+        ));
+    }
+
+    Ok(())
+}
+
+pub async fn list_graph_layouts(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    era_id: Option<Uuid>,
+) -> Result<Vec<GraphLayoutSummary>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let era = resolve_era(pool, world_id, era_id).await?;
+    let rows = sqlx::query_as::<_, GraphLayoutRow>(
+        "SELECT id, era_id, name, version, positions, view, filters, updated_at
+         FROM world_graph_layouts
+         WHERE world_id = $1 AND account_id = $2 AND era_id = $3
+         ORDER BY updated_at DESC, name ASC",
+    )
+    .bind(world_id)
+    .bind(account_id)
+    .bind(era.id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter().map(graph_layout_summary).collect()
+}
+
+pub async fn create_graph_layout(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    input: GraphLayoutCreateInput,
+) -> Result<GraphLayoutSummary, ApiError> {
+    let name = input.name.trim();
+    validate_graph_layout(name, &input.positions, &input.view)?;
+
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let era = resolve_era(pool, world_id, Some(input.era_id)).await?;
+    validate_graph_layout_nodes(pool, world_id, era.id, &input.positions).await?;
+
+    let name_exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM world_graph_layouts
+            WHERE world_id = $1 AND account_id = $2 AND era_id = $3
+              AND LOWER(name) = LOWER($4)
+         )",
+    )
+    .bind(world_id)
+    .bind(account_id)
+    .bind(era.id)
+    .bind(name)
+    .fetch_one(pool)
+    .await?;
+    if name_exists {
+        return Err(ApiError::conflict(
+            "A saved layout with that name already exists in this era.",
+        ));
+    }
+
+    let row = sqlx::query_as::<_, GraphLayoutRow>(
+        "INSERT INTO world_graph_layouts
+         (id, world_id, account_id, era_id, name, positions, view, filters)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, era_id, name, version, positions, view, filters, updated_at",
+    )
+    .bind(Uuid::new_v4())
+    .bind(world_id)
+    .bind(account_id)
+    .bind(era.id)
+    .bind(name)
+    .bind(serde_json::to_value(&input.positions).map_err(|_| ApiError::internal())?)
+    .bind(serde_json::to_value(&input.view).map_err(|_| ApiError::internal())?)
+    .bind(serde_json::to_value(&input.filters).map_err(|_| ApiError::internal())?)
+    .fetch_one(pool)
+    .await?;
+
+    graph_layout_summary(row)
+}
+
+pub async fn update_graph_layout(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    layout_id: Uuid,
+    input: crate::models::GraphLayoutUpdateInput,
+) -> Result<GraphLayoutSummary, ApiError> {
+    if input.expected_version < 1 {
+        return Err(ApiError::bad_request(
+            "expectedVersion must be a positive integer.",
+        ));
+    }
+    let name = input.name.trim();
+    validate_graph_layout(name, &input.positions, &input.view)?;
+
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let mut transaction = pool.begin().await?;
+    let current = sqlx::query_as::<_, GraphLayoutRow>(
+        "SELECT id, era_id, name, version, positions, view, filters, updated_at
+         FROM world_graph_layouts
+         WHERE world_id = $1 AND account_id = $2 AND id = $3
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(account_id)
+    .bind(layout_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    if current.version != input.expected_version {
+        return Err(ApiError::conflict(
+            "This saved layout changed since it was loaded. Reload it before updating.",
+        ));
+    }
+    validate_graph_layout_nodes(pool, world_id, current.era_id, &input.positions).await?;
+
+    let row = sqlx::query_as::<_, GraphLayoutRow>(
+        "UPDATE world_graph_layouts
+         SET name = $1, positions = $2, view = $3, filters = $4,
+             version = version + 1, updated_at = NOW()
+         WHERE world_id = $5 AND account_id = $6 AND id = $7 AND version = $8
+         RETURNING id, era_id, name, version, positions, view, filters, updated_at",
+    )
+    .bind(name)
+    .bind(serde_json::to_value(&input.positions).map_err(|_| ApiError::internal())?)
+    .bind(serde_json::to_value(&input.view).map_err(|_| ApiError::internal())?)
+    .bind(serde_json::to_value(&input.filters).map_err(|_| ApiError::internal())?)
+    .bind(world_id)
+    .bind(account_id)
+    .bind(layout_id)
+    .bind(input.expected_version)
+    .fetch_one(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    graph_layout_summary(row)
+}
+
+pub async fn delete_graph_layout(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    layout_id: Uuid,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let result = sqlx::query(
+        "DELETE FROM world_graph_layouts
+         WHERE world_id = $1 AND account_id = $2 AND id = $3",
+    )
+    .bind(world_id)
+    .bind(account_id)
+    .bind(layout_id)
+    .execute(pool)
+    .await?;
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found());
+    }
+    Ok(())
+}
+
 pub async fn list_sessions(
     pool: &PgPool,
     account_id: Uuid,
