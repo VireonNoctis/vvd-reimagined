@@ -33,6 +33,27 @@ export type DocumentTypeSummary = {
   implementationStatus: "ready" | "planned" | string;
 };
 
+export type GraphLayoutNodePosition = { documentId: string; x: number; y: number };
+
+export type GraphLayoutView = { x: number; y: number; zoom: number };
+
+export type GraphLayoutFilters = {
+  showReferences: boolean;
+  showMentions: boolean;
+  entityTypes: Record<CardEntityType, boolean>;
+};
+
+export type GraphLayout = {
+  id: string;
+  eraId: string;
+  name: string;
+  version: number;
+  positions: GraphLayoutNodePosition[];
+  view: GraphLayoutView;
+  filters: GraphLayoutFilters;
+  updatedAt: string;
+};
+
 export type CardMediaAsset = {
   id: string;
   documentId: string | null;
