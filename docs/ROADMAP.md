@@ -50,7 +50,8 @@ Exit condition: a world can hold typed canonical records and resolve references 
 
 - [x] Build card create/view/edit against validated, version-checked server operations.
 - [x] Edit text and linked-record properties and all ordered text blocks, including add/remove/reorder.
-- [ ] Add image fields and attach Gallery assets directly to card records.
+- [x] Attach ready private Gallery assets to canonical cards; render image attachments in the reader and provide inspector attach/detach controls.
+- [ ] Add typed media properties and embedded audio/video blocks, including era-specific media overrides.
 - [x] Add private media upload and Gallery (provider setup remains deployment-owned).
 - Add mention resolution, manual linking and verified Entity Detection behaviour.
 - Add offline status and failure/recovery UX.
