@@ -33,6 +33,15 @@ export type DocumentTypeSummary = {
   implementationStatus: "ready" | "planned" | string;
 };
 
+export type CardMediaAsset = {
+  id: string;
+  documentId: string | null;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
 export type CardDocument = {
   id: string;
   kind: "card";
@@ -45,6 +54,7 @@ export type CardDocument = {
   folderId?: string | null;
   properties: CardProperty[];
   blocks: { id: string; type: "text"; text: string }[];
+  media?: CardMediaAsset[];
 };
 
 export type Era = {
