@@ -28,6 +28,7 @@ export const demoWorld: World = {
     {
       id: "template-character-preview",
       entityType: "character",
+      version: 1,
       name: "Character",
       description: "A person or being with a place in the world.",
       propertyDefinitions: [
@@ -43,6 +44,7 @@ export const demoWorld: World = {
     {
       id: "template-place-preview",
       entityType: "place",
+      version: 1,
       name: "Place",
       description: "A location, settlement or region.",
       propertyDefinitions: [
@@ -58,6 +60,7 @@ export const demoWorld: World = {
     {
       id: "template-faction-preview",
       entityType: "faction",
+      version: 1,
       name: "Faction",
       description: "An organisation, culture or political group.",
       propertyDefinitions: [
