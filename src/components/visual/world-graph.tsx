@@ -152,18 +152,22 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument }: Prop
   const [filters, setFilters] = useState<WorldGraphFilters>(defaultWorldGraphFilters);
   const visibleGraph = useMemo(() => filterWorldGraph(graph, filters), [graph, filters]);
 
+  const activeSelection = visibleGraph.nodes.some((node) => node.id === selectedDocumentId)
+    ? selectedDocumentId
+    : visibleGraph.nodes[0]?.id ?? "";
+
   const dataRef = useRef<DrawingState>({
     graph: visibleGraph,
     positions,
     view,
-    selectedDocumentId,
+    selectedDocumentId: activeSelection,
     hoveredId
   });
 
   useEffect(() => {
-    dataRef.current = { graph: visibleGraph, positions, view, selectedDocumentId, hoveredId };
+    dataRef.current = { graph: visibleGraph, positions, view, selectedDocumentId: activeSelection, hoveredId };
     drawRef.current();
-  }, [visibleGraph, positions, view, selectedDocumentId, hoveredId]);
+  }, [visibleGraph, positions, view, activeSelection, hoveredId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
