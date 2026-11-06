@@ -295,6 +295,10 @@ pub fn router(state: AppState) -> Router {
             "/v1/worlds/{slug}/media/{media_id}",
             delete(delete_media_asset),
         )
+        .route(
+            "/v1/worlds/{slug}/documents/{document_id}/media/{media_id}",
+            post(attach_media_asset).delete(detach_media_asset),
+        )
         .route("/v1/worlds/{slug}/archive", get(list_archived_documents))
         .route(
             "/v1/worlds/{slug}/documents/{document_id}/archive",
@@ -629,6 +633,29 @@ async fn complete_media_upload(
     Ok(Json(
         store::complete_media_upload(&state.db, account.id, &slug, media_id).await?,
     ))
+}
+
+async fn attach_media_asset(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, document_id, media_id)): Path<(String, Uuid, Uuid)>,
+) -> Result<Json<crate::models::MediaAssetSummary>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::attach_media_asset(&state.db, account.id, &slug, document_id, media_id).await?,
+    ))
+}
+
+async fn detach_media_asset(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, document_id, media_id)): Path<(String, Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    store::detach_media_asset(&state.db, account.id, &slug, document_id, media_id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn list_media_assets(
