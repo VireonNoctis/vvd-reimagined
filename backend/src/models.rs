@@ -21,6 +21,8 @@ pub struct World {
     pub updated_at: String,
     pub eras: Vec<EraSummary>,
     pub active_era_id: Uuid,
+    pub document_types: Vec<DocumentTypeSummary>,
+    pub card_templates: Vec<CardTemplateSummary>,
     pub documents: Vec<CardDocument>,
 }
 
@@ -59,10 +61,96 @@ pub(crate) struct EraRow {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DocumentTypeSummary {
+    pub type_key: String,
+    pub name: String,
+    pub description: String,
+    pub enabled: bool,
+    pub implementation_status: String,
+}
+
+#[derive(Clone, Debug, sqlx::FromRow)]
+pub(crate) struct DocumentTypeRow {
+    pub type_key: String,
+    pub name: String,
+    pub description: String,
+    pub implementation_status: String,
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CardTemplateSummary {
+    pub id: Uuid,
+    pub entity_type: EntityType,
+    pub name: String,
+    pub description: String,
+    pub property_definitions: Vec<CardTemplatePropertyDefinition>,
+    pub starter_blocks: Vec<CardTemplateBlock>,
+    pub is_default: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CardPropertyKind {
+    Text,
+    Reference,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CardTemplatePropertyDefinition {
+    pub id: String,
+    pub label: String,
+    pub kind: CardPropertyKind,
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
+    pub default_value: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CardTemplateBlock {
+    pub id: String,
+    pub label: String,
+    #[serde(default)]
+    pub text: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CardTemplateCreateInput {
+    pub entity_type: EntityType,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub property_definitions: Vec<CardTemplatePropertyDefinition>,
+    #[serde(default)]
+    pub starter_blocks: Vec<CardTemplateBlock>,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct CardTemplateRow {
+    pub id: Uuid,
+    pub entity_type: String,
+    pub name: String,
+    pub description: String,
+    pub property_definitions: serde_json::Value,
+    pub starter_blocks: serde_json::Value,
+    pub is_default: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CardDocument {
     pub id: Uuid,
     pub kind: &'static str,
     pub entity_type: EntityType,
+    pub template_id: Option<Uuid>,
     pub name: String,
     pub aliases: Vec<String>,
     pub updated_at: String,
@@ -185,6 +273,8 @@ pub struct CardCreateInput {
     pub name: String,
     pub entity_type: EntityType,
     #[serde(default)]
+    pub template_id: Option<Uuid>,
+    #[serde(default)]
     pub aliases: Vec<String>,
     #[serde(default)]
     pub properties: Vec<CardPropertyInput>,
@@ -243,6 +333,7 @@ pub(crate) struct WorldRow {
 pub(crate) struct DocumentRow {
     pub id: Uuid,
     pub entity_type: String,
+    pub template_id: Option<Uuid>,
     pub name: String,
     pub aliases: Vec<String>,
     pub updated_at: DateTime<Utc>,
