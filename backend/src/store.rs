@@ -462,6 +462,15 @@ pub async fn get_world(
     load_world(pool, world_id, era_id).await
 }
 
+pub async fn list_eras(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+) -> Result<Vec<EraSummary>, ApiError> {
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    load_eras(pool, world_id).await
+}
+
 pub async fn create_era(
     pool: &PgPool,
     account_id: Uuid,
