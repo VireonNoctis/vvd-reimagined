@@ -17,6 +17,16 @@ export type CardDocument = {
   blocks: { id: string; type: "text"; text: string }[];
 };
 
+export type Era = {
+  id: string;
+  name: string;
+  description: string;
+  parentId: string | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type World = {
   id: string;
   slug: string;
@@ -24,6 +34,8 @@ export type World = {
   description: string;
   genre: string;
   updatedAt: string;
+  eras: Era[];
+  activeEraId: string;
   documents: CardDocument[];
 };
 
