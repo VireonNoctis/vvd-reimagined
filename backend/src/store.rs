@@ -1584,6 +1584,7 @@ pub async fn update_card(
     account_id: Uuid,
     slug: &str,
     document_id: Uuid,
+    era_id: Option<Uuid>,
     input: CardUpdateInput,
 ) -> Result<CardDocument, ApiError> {
     validate_card_content(
@@ -1596,6 +1597,10 @@ pub async fn update_card(
         return Err(ApiError::bad_request(
             "expectedVersion must be a positive integer.",
         ));
+    }
+
+    if let Some(era_id) = era_id {
+        return update_card_in_era(pool, account_id, slug, document_id, era_id, input).await;
     }
 
     let world_id = require_world(pool, account_id, slug, true).await?;
@@ -1666,6 +1671,221 @@ pub async fn update_card(
 
     transaction.commit().await?;
     get_document(pool, account_id, slug, document_id, None).await
+}
+
+fn card_properties_from_input(properties: &[CardPropertyInput]) -> Vec<CardProperty> {
+    properties
+        .iter()
+        .map(|property| match property {
+            CardPropertyInput::Text { id, label, value } => CardProperty::Text {
+                id: id.clone(),
+                label: label.clone(),
+                value: value.clone(),
+            },
+            CardPropertyInput::Reference {
+                id,
+                label,
+                document_id,
+            } => CardProperty::Reference {
+                id: id.clone(),
+                label: label.clone(),
+                document_id: *document_id,
+            },
+        })
+        .collect()
+}
+
+fn card_blocks_from_input(blocks: &[CardBlockInput]) -> Vec<CardBlock> {
+    blocks
+        .iter()
+        .map(|block| CardBlock {
+            id: block.id.clone(),
+            block_type: "text".to_owned(),
+            text: block.text.clone(),
+        })
+        .collect()
+}
+
+fn set_or_inherit<T: Serialize>(
+    patch: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: &T,
+    inherited: &T,
+) -> Result<(), ApiError> {
+    let value = serde_json::to_value(value).map_err(|_| ApiError::internal())?;
+    let inherited = serde_json::to_value(inherited).map_err(|_| ApiError::internal())?;
+    if value == inherited {
+        patch.remove(key);
+    } else {
+        patch.insert(key.to_owned(), value);
+    }
+    Ok(())
+}
+
+async fn update_card_in_era(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    document_id: Uuid,
+    era_id: Uuid,
+    input: CardUpdateInput,
+) -> Result<CardDocument, ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+
+    let parent_id = sqlx::query_scalar::<_, Option<Uuid>>(
+        "SELECT parent_era_id FROM eras
+         WHERE world_id = $1 AND id = $2
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(era_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    let document_exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM documents
+            WHERE world_id = $1 AND id = $2 AND archived_at IS NULL
+         )",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !document_exists {
+        return Err(ApiError::not_found());
+    }
+
+    sqlx::query(
+        "SELECT id FROM documents
+         WHERE world_id = $1 AND id = $2
+         FOR SHARE",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    let ancestors = sqlx::query_scalar::<_, Uuid>(
+        "WITH RECURSIVE era_path(id, parent_era_id) AS (
+            SELECT id, parent_era_id FROM eras
+            WHERE world_id = $1 AND id = $2
+            UNION ALL
+            SELECT parent.id, parent.parent_era_id
+            FROM eras parent
+            INNER JOIN era_path child ON parent.id = child.parent_era_id
+            WHERE parent.world_id = $1
+         )
+         SELECT id FROM era_path WHERE id <> $2 ORDER BY id",
+    )
+    .bind(world_id)
+    .bind(era_id)
+    .fetch_all(&mut *transaction)
+    .await?;
+
+    for ancestor_id in ancestors {
+        sqlx::query(
+            "SELECT id FROM eras WHERE world_id = $1 AND id = $2 FOR SHARE",
+        )
+        .bind(world_id)
+        .bind(ancestor_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+    }
+
+    let current = load_documents_in_era(pool, world_id, era_id)
+        .await?
+        .into_iter()
+        .find(|document| document.id == document_id)
+        .ok_or_else(ApiError::not_found)?;
+    if current.version != input.expected_version {
+        return Err(ApiError::conflict(
+            "This card changed in the selected era. Reload it before saving again.",
+        ));
+    }
+
+    let inherited = if let Some(parent_id) = parent_id {
+        load_documents_in_era(pool, world_id, parent_id)
+            .await?
+            .into_iter()
+            .find(|document| document.id == document_id)
+            .ok_or_else(ApiError::not_found)?
+    } else {
+        load_documents(pool, world_id)
+            .await?
+            .into_iter()
+            .find(|document| document.id == document_id)
+            .ok_or_else(ApiError::not_found)?
+    };
+
+    let aliases = input
+        .aliases
+        .iter()
+        .map(|value| value.trim().to_owned())
+        .collect::<Vec<_>>();
+    let properties = card_properties_from_input(&input.properties);
+    let blocks = card_blocks_from_input(&input.blocks);
+
+    let existing_patch = sqlx::query_scalar::<_, serde_json::Value>(
+        "SELECT patch FROM document_era_overrides
+         WHERE world_id = $1 AND era_id = $2 AND document_id = $3
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(era_id)
+    .bind(document_id)
+    .fetch_optional(&mut *transaction)
+    .await?;
+    let mut patch = existing_patch
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+
+    set_or_inherit(&mut patch, "name", &input.name.trim(), &inherited.name)?;
+    set_or_inherit(&mut patch, "aliases", &aliases, &inherited.aliases)?;
+    set_or_inherit(&mut patch, "properties", &properties, &inherited.properties)?;
+    set_or_inherit(&mut patch, "blocks", &blocks, &inherited.blocks)?;
+
+    if patch.is_empty() {
+        sqlx::query(
+            "DELETE FROM document_era_overrides
+             WHERE world_id = $1 AND era_id = $2 AND document_id = $3",
+        )
+        .bind(world_id)
+        .bind(era_id)
+        .bind(document_id)
+        .execute(&mut *transaction)
+        .await?;
+    } else {
+        sqlx::query(
+            "INSERT INTO document_era_overrides
+             (world_id, era_id, document_id, patch, version, updated_by)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (world_id, era_id, document_id)
+             DO UPDATE SET patch = EXCLUDED.patch,
+                           version = EXCLUDED.version,
+                           updated_by = EXCLUDED.updated_by,
+                           updated_at = NOW()",
+        )
+        .bind(world_id)
+        .bind(era_id)
+        .bind(document_id)
+        .bind(serde_json::Value::Object(patch))
+        .bind(input.expected_version + 1)
+        .bind(account_id)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
+        .bind(world_id)
+        .execute(&mut *transaction)
+        .await?;
+
+    transaction.commit().await?;
+    get_document(pool, account_id, slug, document_id, Some(era_id)).await
 }
 
 pub async fn list_sessions(
