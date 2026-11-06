@@ -407,15 +407,13 @@ pub async fn list_card_templates(
     load_card_templates(pool, world_id).await
 }
 
-pub async fn create_card_template(
-    pool: &PgPool,
-    account_id: Uuid,
-    slug: &str,
-    input: CardTemplateCreateInput,
-) -> Result<CardTemplateSummary, ApiError> {
-    let name = input.name.trim();
-    let description = input.description.trim();
-    if name.is_empty() || name.chars().count() > 80 {
+fn validate_card_template_fields(
+    name: &str,
+    description: &str,
+    property_definitions: &[CardTemplatePropertyDefinition],
+    starter_blocks: &[CardTemplateBlock],
+) -> Result<(), ApiError> {
+    if name.trim().is_empty() || name.chars().count() > 80 {
         return Err(ApiError::bad_request(
             "Template names must contain between 1 and 80 characters.",
         ));
@@ -425,14 +423,14 @@ pub async fn create_card_template(
             "Template descriptions are limited to 500 characters.",
         ));
     }
-    if input.property_definitions.len() > 100 || input.starter_blocks.len() > 200 {
+    if property_definitions.len() > 100 || starter_blocks.len() > 200 {
         return Err(ApiError::bad_request(
             "A template can contain at most 100 property definitions and 200 starter blocks.",
         ));
     }
 
     let mut property_ids = std::collections::HashSet::new();
-    for definition in &input.property_definitions {
+    for definition in property_definitions {
         if !validate_key(&definition.id) || !property_ids.insert(&definition.id) {
             return Err(ApiError::bad_request(
                 "Template property ids must be unique lowercase keys.",
@@ -460,7 +458,7 @@ pub async fn create_card_template(
     }
 
     let mut block_ids = std::collections::HashSet::new();
-    for block in &input.starter_blocks {
+    for block in starter_blocks {
         if !validate_key(&block.id) || !block_ids.insert(&block.id) {
             return Err(ApiError::bad_request(
                 "Template block ids must be unique lowercase keys.",
@@ -477,6 +475,24 @@ pub async fn create_card_template(
             ));
         }
     }
+
+    Ok(())
+}
+
+pub async fn create_card_template(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    input: CardTemplateCreateInput,
+) -> Result<CardTemplateSummary, ApiError> {
+    let name = input.name.trim();
+    let description = input.description.trim();
+    validate_card_template_fields(
+        name,
+        description,
+        &input.property_definitions,
+        &input.starter_blocks,
+    )?;
 
     let world_id = require_world(pool, account_id, slug, true).await?;
     let mut transaction = pool.begin().await?;
@@ -507,8 +523,8 @@ pub async fn create_card_template(
     }
 
     let id = Uuid::new_v4();
-    let property_definitions =
-        serde_json::to_value(&input.property_definitions).map_err(|_| ApiError::internal())?;
+    let property_definitions = serde_json::to_value(&input.property_definitions)
+        .map_err(|_| ApiError::internal())?;
     let starter_blocks =
         serde_json::to_value(&input.starter_blocks).map_err(|_| ApiError::internal())?;
     let row = sqlx::query_as::<_, CardTemplateRow>(
@@ -534,6 +550,220 @@ pub async fn create_card_template(
     transaction.commit().await?;
     card_template_summary(row)
 }
+
+async fn ensure_template_compatible(
+    connection: &mut PgConnection,
+    world_id: Uuid,
+    template_id: Uuid,
+    definitions: &[CardTemplatePropertyDefinition],
+) -> Result<(), ApiError> {
+    let document_ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM documents
+         WHERE world_id = $1 AND template_id = $2
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(template_id)
+    .fetch_all(&mut *connection)
+    .await?;
+
+    for document_id in document_ids {
+        let properties = sqlx::query_as::<_, (String, String, Option<String>)>(
+            "SELECT id, kind, text_value FROM card_properties
+             WHERE world_id = $1 AND document_id = $2",
+        )
+        .bind(world_id)
+        .bind(document_id)
+        .fetch_all(&mut *connection)
+        .await?;
+
+        for definition in definitions {
+            let supplied = properties.iter().find(|(id, _, _)| id == &definition.id);
+            let expected_kind = match definition.kind {
+                CardPropertyKind::Text => "text",
+                CardPropertyKind::Reference => "reference",
+            };
+            match supplied {
+                None if definition.required => {
+                    return Err(ApiError::conflict(
+                        "This template is used by cards that do not satisfy the new required fields.",
+                    ));
+                }
+                Some((_, kind, value)) if kind != expected_kind => {
+                    return Err(ApiError::conflict(
+                        "This template is used by cards with a different property type.",
+                    ));
+                }
+                Some((_, "text", value))
+                    if definition.required && value.as_deref().is_none_or(str::is_empty) =>
+                {
+                    return Err(ApiError::conflict(
+                        "This template is used by cards with an empty required property.",
+                    ));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn update_card_template(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    template_id: Uuid,
+    input: CardTemplateUpdateInput,
+) -> Result<CardTemplateSummary, ApiError> {
+    if input.expected_version < 1 {
+        return Err(ApiError::bad_request(
+            "expectedVersion must be a positive integer.",
+        ));
+    }
+    let name = input.name.trim();
+    let description = input.description.trim();
+    validate_card_template_fields(
+        name,
+        description,
+        &input.property_definitions,
+        &input.starter_blocks,
+    )?;
+
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let current = sqlx::query_as::<_, CardTemplateRow>(
+        "SELECT id, entity_type, version, name, description, property_definitions,
+                starter_blocks, is_default
+         FROM card_type_templates
+         WHERE world_id = $1 AND id = $2
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(template_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    if current.version != input.expected_version {
+        return Err(ApiError::conflict(
+            "This template changed since it was opened. Reload it before saving again.",
+        ));
+    }
+
+    if current.is_default && !input.is_default {
+        let has_replacement = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (
+                SELECT 1 FROM card_type_templates
+                WHERE world_id = $1 AND entity_type = $2
+                  AND id <> $3 AND is_default
+             )",
+        )
+        .bind(world_id)
+        .bind(&current.entity_type)
+        .bind(template_id)
+        .fetch_one(&mut *transaction)
+        .await?;
+        if !has_replacement {
+            return Err(ApiError::bad_request(
+                "Choose another default template before removing this default.",
+            ));
+        }
+    }
+
+    ensure_template_compatible(
+        &mut transaction,
+        world_id,
+        template_id,
+        &input.property_definitions,
+    )
+    .await?;
+
+    if input.is_default && !current.is_default {
+        sqlx::query(
+            "UPDATE card_type_templates SET is_default = FALSE, updated_at = NOW(),
+                    version = version + 1
+             WHERE world_id = $1 AND entity_type = $2 AND is_default",
+        )
+        .bind(world_id)
+        .bind(&current.entity_type)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    let row = sqlx::query_as::<_, CardTemplateRow>(
+        "UPDATE card_type_templates
+         SET name = $1, description = $2, property_definitions = $3,
+             starter_blocks = $4, is_default = $5, version = version + 1,
+             updated_at = NOW()
+         WHERE world_id = $6 AND id = $7 AND version = $8
+         RETURNING id, entity_type, version, name, description, property_definitions,
+                   starter_blocks, is_default",
+    )
+    .bind(name)
+    .bind(description)
+    .bind(serde_json::to_value(&input.property_definitions).map_err(|_| ApiError::internal())?)
+    .bind(serde_json::to_value(&input.starter_blocks).map_err(|_| ApiError::internal())?)
+    .bind(input.is_default)
+    .bind(world_id)
+    .bind(template_id)
+    .bind(input.expected_version)
+    .fetch_one(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    card_template_summary(row)
+}
+
+pub async fn delete_card_template(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    template_id: Uuid,
+) -> Result<(), ApiError> {
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let mut transaction = pool.begin().await?;
+    let row = sqlx::query_as::<_, (bool, i64)>(
+        "SELECT is_default, version FROM card_type_templates
+         WHERE world_id = $1 AND id = $2
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(template_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+
+    if row.0 {
+        return Err(ApiError::conflict(
+            "Choose another default template before deleting this one.",
+        ));
+    }
+
+    let in_use = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+            SELECT 1 FROM documents WHERE world_id = $1 AND template_id = $2
+         )",
+    )
+    .bind(world_id)
+    .bind(template_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if in_use {
+        return Err(ApiError::conflict(
+            "This template is still assigned to cards and cannot be deleted.",
+        ));
+    }
+
+    sqlx::query("DELETE FROM card_type_templates WHERE world_id = $1 AND id = $2")
+        .bind(world_id)
+        .bind(template_id)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(())
+}
+
 
 fn validate_template_properties(
     template: &CardTemplateSummary,
