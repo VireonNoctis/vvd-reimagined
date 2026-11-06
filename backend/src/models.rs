@@ -271,6 +271,17 @@ pub struct MediaUploadTicket {
     pub content_type: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct MediaAssetCreate {
+    pub id: Uuid,
+    pub object_key: String,
+    pub file_name: String,
+    pub content_type: String,
+    pub size_bytes: i64,
+    pub document_id: Option<Uuid>,
+    pub expires_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaUploadInput {
