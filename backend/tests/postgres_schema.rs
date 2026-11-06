@@ -4,8 +4,9 @@ use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
 use vvd_api::{
     models::{
-        CardBlockInput, CardPropertyInput, CardUpdateInput, EraCreateInput, FolderCreateInput,
-        FolderUpdateInput, MediaAssetCreate, MoveDocumentInput,
+        CardBlockInput, CardCreateInput, CardPropertyInput, CardPropertyKind, CardTemplateBlock,
+        CardTemplateCreateInput, CardTemplatePropertyDefinition, CardUpdateInput, EntityType,
+        EraCreateInput, FolderCreateInput, FolderUpdateInput, MediaAssetCreate, MoveDocumentInput,
     },
     store,
 };
@@ -711,4 +712,170 @@ async fn migrations_enforce_membership_and_same_world_references() {
         .expect("remove test account");
 
     pool.close().await;
+}
+
+
+#[tokio::test]
+async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
+    let Ok(database_url) = std::env::var("DATABASE_URL") else {
+        return;
+    };
+
+    let pool = PgPoolOptions::new()
+        .max_connections(3)
+        .connect(&database_url)
+        .await
+        .expect("connect to the PostgreSQL test service");
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("apply backend migrations");
+
+    let account_id = Uuid::new_v4();
+    let unique = Uuid::new_v4().simple().to_string();
+    sqlx::query(
+        "INSERT INTO accounts (id, email, display_name, password_hash)
+         VALUES ($1, $2, 'Template Author', 'test-only')",
+    )
+    .bind(account_id)
+    .bind(format!("templates-{unique}@example.test"))
+    .execute(&pool)
+    .await
+    .expect("create template author");
+
+    let world = store::create_world(
+        &pool,
+        account_id,
+        "Template Workshop".to_owned(),
+        "A world for testing reusable card structures.".to_owned(),
+        "Fantasy".to_owned(),
+    )
+    .await
+    .expect("create a world with default document types and templates");
+
+    let card_type = world
+        .document_types
+        .iter()
+        .find(|item| item.type_key == "card")
+        .expect("card type is registered");
+    assert!(card_type.enabled);
+    assert_eq!(card_type.implementation_status, "ready");
+
+    let map_type = world
+        .document_types
+        .iter()
+        .find(|item| item.type_key == "map")
+        .expect("map type is in the registry");
+    assert!(!map_type.enabled);
+    assert_eq!(map_type.implementation_status, "planned");
+
+    assert_eq!(world.card_templates.len(), 3);
+    assert!(world.card_templates.iter().all(|template| template.is_default));
+
+    let templates = store::list_card_templates(&pool, account_id, &world.slug)
+        .await
+        .expect("list default card templates");
+    assert_eq!(templates.len(), 3);
+
+    let custom = store::create_card_template(
+        &pool,
+        account_id,
+        &world.slug,
+        CardTemplateCreateInput {
+            entity_type: EntityType::Character,
+            name: "Royal Heir".to_owned(),
+            description: "A character template for a named successor.".to_owned(),
+            property_definitions: vec![CardTemplatePropertyDefinition {
+                id: "rank".to_owned(),
+                label: "Rank".to_owned(),
+                kind: CardPropertyKind::Text,
+                required: true,
+                default_value: None,
+            }],
+            starter_blocks: vec![CardTemplateBlock {
+                id: "claim".to_owned(),
+                label: "Claim".to_owned(),
+                text: String::new(),
+            }],
+            is_default: false,
+        },
+    )
+    .await
+    .expect("create a custom per-type template");
+
+    assert_eq!(custom.entity_type, EntityType::Character);
+    assert_eq!(custom.property_definitions.len(), 1);
+    assert_eq!(custom.starter_blocks[0].id, "claim");
+
+    let missing_required = store::create_card(
+        &pool,
+        account_id,
+        &world.slug,
+        CardCreateInput {
+            name: "Ari".to_owned(),
+            entity_type: EntityType::Character,
+            template_id: Some(custom.id),
+            aliases: Vec::new(),
+            properties: Vec::new(),
+            blocks: vec![CardBlockInput {
+                id: "claim".to_owned(),
+                text: "A contested inheritance.".to_owned(),
+            }],
+        },
+    )
+    .await;
+    assert!(
+        missing_required.is_err(),
+        "required fields from a selected template must be supplied"
+    );
+
+    let card = store::create_card(
+        &pool,
+        account_id,
+        &world.slug,
+        CardCreateInput {
+            name: "Ari".to_owned(),
+            entity_type: EntityType::Character,
+            template_id: Some(custom.id),
+            aliases: vec!["The Heir".to_owned()],
+            properties: vec![CardPropertyInput::Text {
+                id: "rank".to_owned(),
+                label: "Rank".to_owned(),
+                value: "First in line".to_owned(),
+            }],
+            blocks: vec![CardBlockInput {
+                id: "claim".to_owned(),
+                text: "A contested inheritance.".to_owned(),
+            }],
+        },
+    )
+    .await
+    .expect("create a card from the selected template");
+
+    assert_eq!(card.template_id, Some(custom.id));
+    assert_eq!(card.properties.len(), 1);
+
+    let removed_required = store::update_card(
+        &pool,
+        account_id,
+        &world.slug,
+        card.id,
+        None,
+        CardUpdateInput {
+            expected_version: card.version,
+            name: "Ari, revised".to_owned(),
+            aliases: vec!["The Heir".to_owned()],
+            properties: Vec::new(),
+            blocks: vec![CardBlockInput {
+                id: "claim".to_owned(),
+                text: "Still contested.".to_owned(),
+            }],
+        },
+    )
+    .await;
+    assert!(
+        removed_required.is_err(),
+        "required fields remain enforced after a card has been created"
+    );
 }
