@@ -5,8 +5,9 @@ use uuid::Uuid;
 use vvd_api::{
     models::{
         CardBlockInput, CardCreateInput, CardPropertyInput, CardPropertyKind, CardTemplateBlock,
-        CardTemplateCreateInput, CardTemplatePropertyDefinition, CardUpdateInput, EntityType,
-        EraCreateInput, FolderCreateInput, FolderUpdateInput, MediaAssetCreate, MoveDocumentInput,
+        CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateUpdateInput,
+        CardUpdateInput, EntityType, EraCreateInput, FolderCreateInput, FolderUpdateInput,
+        MediaAssetCreate, MoveDocumentInput,
     },
     store,
 };
@@ -794,6 +795,13 @@ async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
         .expect("list default card templates");
     assert_eq!(templates.len(), 3);
 
+    let initial_character_template = world
+        .card_templates
+        .iter()
+        .find(|template| template.entity_type == EntityType::Character)
+        .expect("find the default character template")
+        .clone();
+
     let custom = store::create_card_template(
         &pool,
         account_id,
@@ -821,8 +829,56 @@ async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
     .expect("create a custom per-type template");
 
     assert_eq!(custom.entity_type, EntityType::Character);
+    assert_eq!(custom.version, 1);
     assert_eq!(custom.property_definitions.len(), 1);
     assert_eq!(custom.starter_blocks[0].id, "claim");
+
+    let custom = store::update_card_template(
+        &pool,
+        account_id,
+        &world.slug,
+        custom.id,
+        CardTemplateUpdateInput {
+            expected_version: 1,
+            name: "Royal Successor".to_owned(),
+            description: "The designated heir to a disputed crown.".to_owned(),
+            property_definitions: custom.property_definitions.clone(),
+            starter_blocks: custom.starter_blocks.clone(),
+            is_default: true,
+        },
+    )
+    .await
+    .expect("edit a template and make it the default");
+    assert_eq!(custom.name, "Royal Successor");
+    assert_eq!(custom.version, 2);
+    assert!(custom.is_default);
+
+    let stale_template_update = store::update_card_template(
+        &pool,
+        account_id,
+        &world.slug,
+        custom.id,
+        CardTemplateUpdateInput {
+            expected_version: 1,
+            name: "Stale update".to_owned(),
+            description: String::new(),
+            property_definitions: custom.property_definitions.clone(),
+            starter_blocks: custom.starter_blocks.clone(),
+            is_default: true,
+        },
+    )
+    .await;
+    assert!(
+        stale_template_update.is_err(),
+        "template changes must reject stale version tokens"
+    );
+
+    let default_cannot_be_deleted =
+        store::delete_card_template(&pool, account_id, &world.slug, custom.id).await;
+    assert!(
+        default_cannot_be_deleted.is_err(),
+        "a subtype must keep a default template"
+    );
 
     let missing_required = store::create_card(
         &pool,
@@ -871,6 +927,79 @@ async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
 
     assert_eq!(card.template_id, Some(custom.id));
     assert_eq!(card.properties.len(), 1);
+
+    let incompatible_template_update = store::update_card_template(
+        &pool,
+        account_id,
+        &world.slug,
+        custom.id,
+        CardTemplateUpdateInput {
+            expected_version: 2,
+            name: custom.name.clone(),
+            description: custom.description.clone(),
+            property_definitions: vec![
+                custom.property_definitions[0].clone(),
+                CardTemplatePropertyDefinition {
+                    id: "house".to_owned(),
+                    label: "House".to_owned(),
+                    kind: CardPropertyKind::Text,
+                    required: true,
+                    default_value: None,
+                },
+            ],
+            starter_blocks: custom.starter_blocks.clone(),
+            is_default: true,
+        },
+    )
+    .await;
+    assert!(
+        incompatible_template_update.is_err(),
+        "a template cannot gain required properties that existing cards do not satisfy"
+    );
+
+    let restore_default = store::update_card_template(
+        &pool,
+        account_id,
+        &world.slug,
+        initial_character_template.id,
+        CardTemplateUpdateInput {
+            expected_version: initial_character_template.version,
+            name: initial_character_template.name.clone(),
+            description: initial_character_template.description.clone(),
+            property_definitions: initial_character_template.property_definitions.clone(),
+            starter_blocks: initial_character_template.starter_blocks.clone(),
+            is_default: true,
+        },
+    )
+    .await
+    .expect("switch the default back to the built-in template");
+    assert!(restore_default.is_default);
+
+    let assigned_template_delete =
+        store::delete_card_template(&pool, account_id, &world.slug, custom.id).await;
+    assert!(
+        assigned_template_delete.is_err(),
+        "a template assigned to an existing card cannot be deleted"
+    );
+
+    let unused_template = store::create_card_template(
+        &pool,
+        account_id,
+        &world.slug,
+        CardTemplateCreateInput {
+            entity_type: EntityType::Character,
+            name: "Unused draft".to_owned(),
+            description: String::new(),
+            property_definitions: Vec::new(),
+            starter_blocks: Vec::new(),
+            is_default: false,
+        },
+    )
+    .await
+    .expect("create an unused non-default template");
+    store::delete_card_template(&pool, account_id, &world.slug, unused_template.id)
+        .await
+        .expect("delete an unused non-default template");
 
     let removed_required = store::update_card(
         &pool,
