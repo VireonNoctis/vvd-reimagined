@@ -41,7 +41,7 @@ Without VVD_API_URL the app remains a read-only preview. With it configured, acc
 - [ ] Add registered document types beyond cards.
 - [ ] Define card type templates and per-type property definitions.
 - [x] Add revision history, archive and restore.
-- [x] Add named eras that inherit from a parent by reference, with sparse field-level overrides, recursive resolution and version checks across ancestor changes.
+- [x] Add named eras that inherit from a parent by reference, with sparse field-level overrides, recursive resolution and version checks across ancestor changes. Current slice is limited to edits of canonical cards; branch-local additions, per-era tombstones and era-specific revision history remain open.
 - [x] Add aliases, typed references and searchable document names, aliases and entity types.
 
 Exit condition: a world can hold typed canonical records and resolve references correctly across eras, with membership enforced server-side.
