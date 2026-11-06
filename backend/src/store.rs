@@ -416,7 +416,9 @@ async fn load_world(
     .await?
     .ok_or_else(ApiError::not_found)?;
 
-    let documents = load_documents(pool, world_id).await?;
+    let eras = load_eras(pool, world_id).await?;
+    let active_era = resolve_era(pool, world_id, requested_era_id).await?;
+    let documents = load_documents_in_era(pool, world_id, active_era.id).await?;
     Ok(World {
         id: row.id,
         slug: row.slug,
@@ -424,6 +426,8 @@ async fn load_world(
         description: row.description,
         genre: row.genre,
         updated_at: date_label(row.updated_at),
+        eras,
+        active_era_id: active_era.id,
         documents,
     })
 }
@@ -442,24 +446,20 @@ pub async fn list_worlds(pool: &PgPool, account_id: Uuid) -> Result<Vec<World>, 
 
     let mut worlds = Vec::with_capacity(rows.len());
     for row in rows {
-        let documents = load_documents(pool, row.id).await?;
-        worlds.push(World {
-            id: row.id,
-            slug: row.slug,
-            name: row.name,
-            description: row.description,
-            genre: row.genre,
-            updated_at: date_label(row.updated_at),
-            documents,
-        });
+        worlds.push(load_world(pool, row.id, None).await?);
     }
 
     Ok(worlds)
 }
 
-pub async fn get_world(pool: &PgPool, account_id: Uuid, slug: &str) -> Result<World, ApiError> {
+pub async fn get_world(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    era_id: Option<Uuid>,
+) -> Result<World, ApiError> {
     let world_id = require_world(pool, account_id, slug, false).await?;
-    load_world(pool, world_id).await
+    load_world(pool, world_id, era_id).await
 }
 
 pub async fn create_world(
@@ -506,8 +506,18 @@ pub async fn create_world(
     .execute(&mut *transaction)
     .await?;
 
+    sqlx::query(
+        "INSERT INTO eras (world_id, id, name, description, is_default, created_by)
+         VALUES ($1, $2, 'Prime', 'The shared starting state of this world.', TRUE, $3)",
+    )
+    .bind(id)
+    .bind(Uuid::new_v4())
+    .bind(account_id)
+    .execute(&mut *transaction)
+    .await?;
+
     transaction.commit().await?;
-    load_world(pool, id).await
+    load_world(pool, id, None).await
 }
 
 async fn ensure_references_exist(
