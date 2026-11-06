@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { FormEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { GraphLayout, GraphLayoutNodePosition, World } from "@/domain/world";
 import {
   buildWorldGraph,
@@ -178,6 +178,35 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument, intera
     dataRef.current = { graph: visibleGraph, positions, view, selectedDocumentId: activeSelection, hoveredId };
     drawRef.current();
   }, [visibleGraph, positions, view, activeSelection, hoveredId]);
+
+  useEffect(() => {
+    if (!interactive) return;
+    const controller = new AbortController();
+    const url = "/api/v1/worlds/" + encodeURIComponent(world.slug) +
+      "/graph-layouts?eraId=" + encodeURIComponent(world.activeEraId);
+
+    fetch(url, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({})) as { error?: string };
+          throw new Error(result.error || "Saved layouts could not be loaded.");
+        }
+        return await response.json() as GraphLayout[];
+      })
+      .then((result) => {
+        setLayouts(result);
+        setLayoutsEraId(world.activeEraId);
+        setLayoutId("");
+        setLayoutError("");
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) {
+          setLayoutError(reason instanceof Error ? reason.message : "Saved layouts could not be loaded.");
+        }
+      });
+
+    return () => controller.abort();
+  }, [interactive, world.slug, world.activeEraId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -365,6 +394,129 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument, intera
     gestureRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function layoutPayload(name: string) {
+    const savedPositions: GraphLayoutNodePosition[] = graph.nodes.flatMap((node) => {
+      const point = positions.get(node.id);
+      return point ? [{ documentId: node.id, x: point.x, y: point.y }] : [];
+    });
+    return {
+      name: name.trim(),
+      positions: savedPositions,
+      view,
+      filters
+    };
+  }
+
+  function applyLayout(layoutId: string) {
+    setLayoutId(layoutId);
+    const layout = currentLayouts.find((item) => item.id === layoutId);
+    if (!layout) {
+      setPositions(arrange(graph.nodes));
+      setView({ x: 0, y: 0, zoom: 1 });
+      setFilters(defaultWorldGraphFilters);
+      return;
+    }
+
+    const nextPositions = arrange(graph.nodes);
+    for (const position of layout.positions) {
+      if (graph.nodes.some((node) => node.id === position.documentId)) {
+        nextPositions.set(position.documentId, { x: position.x, y: position.y });
+      }
+    }
+    setPositions(nextPositions);
+    setView(layout.view);
+    setFilters(layout.filters);
+    setLayoutError("");
+  }
+
+  async function saveLayout(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = layoutName.trim();
+    if (!name) {
+      setLayoutError("Give this layout a name.");
+      return;
+    }
+
+    setSavingLayout(true);
+    setLayoutError("");
+    try {
+      const response = await fetch(
+        "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/graph-layouts",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            eraId: world.activeEraId,
+            ...layoutPayload(name)
+          })
+        }
+      );
+      const result = await response.json().catch(() => ({})) as GraphLayout & { error?: string };
+      if (!response.ok || !result.id) {
+        throw new Error(result.error || "This graph layout could not be saved.");
+      }
+      setLayouts((current) => [result, ...current.filter((item) => item.id !== result.id)]);
+      setLayoutsEraId(world.activeEraId);
+      setLayoutId(result.id);
+      setSaveOpen(false);
+      setLayoutName("");
+    } catch (reason) {
+      setLayoutError(reason instanceof Error ? reason.message : "This graph layout could not be saved.");
+    } finally {
+      setSavingLayout(false);
+    }
+  }
+
+  async function updateLayout() {
+    if (!selectedLayout) return;
+    setSavingLayout(true);
+    setLayoutError("");
+    try {
+      const response = await fetch(
+        "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/graph-layouts/" + encodeURIComponent(selectedLayout.id),
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            expectedVersion: selectedLayout.version,
+            ...layoutPayload(selectedLayout.name)
+          })
+        }
+      );
+      const result = await response.json().catch(() => ({})) as GraphLayout & { error?: string };
+      if (!response.ok || !result.id) {
+        throw new Error(result.error || "This graph layout could not be updated.");
+      }
+      setLayouts((current) => current.map((item) => item.id === result.id ? result : item));
+    } catch (reason) {
+      setLayoutError(reason instanceof Error ? reason.message : "This graph layout could not be updated.");
+    } finally {
+      setSavingLayout(false);
+    }
+  }
+
+  async function deleteLayout() {
+    if (!selectedLayout || !window.confirm("Delete the saved layout “" + selectedLayout.name + "”?")) return;
+    setSavingLayout(true);
+    setLayoutError("");
+    try {
+      const response = await fetch(
+        "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/graph-layouts/" + encodeURIComponent(selectedLayout.id),
+        { method: "DELETE" }
+      );
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(result.error || "This graph layout could not be deleted.");
+      }
+      setLayouts((current) => current.filter((item) => item.id !== selectedLayout.id));
+      setLayoutId("");
+    } catch (reason) {
+      setLayoutError(reason instanceof Error ? reason.message : "This graph layout could not be deleted.");
+    } finally {
+      setSavingLayout(false);
     }
   }
 
