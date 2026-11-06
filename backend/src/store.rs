@@ -2831,7 +2831,7 @@ pub async fn update_graph_layout(
     account_id: Uuid,
     slug: &str,
     layout_id: Uuid,
-    input: crate::models::GraphLayoutUpdateInput,
+    input: GraphLayoutUpdateInput,
 ) -> Result<GraphLayoutSummary, ApiError> {
     if input.expected_version < 1 {
         return Err(ApiError::bad_request(
@@ -2842,17 +2842,15 @@ pub async fn update_graph_layout(
     validate_graph_layout(name, &input.positions, &input.view)?;
 
     let world_id = require_world(pool, account_id, slug, false).await?;
-    let mut transaction = pool.begin().await?;
     let current = sqlx::query_as::<_, GraphLayoutRow>(
         "SELECT id, era_id, name, version, positions, view, filters, updated_at
          FROM world_graph_layouts
-         WHERE world_id = $1 AND account_id = $2 AND id = $3
-         FOR UPDATE",
+         WHERE world_id = $1 AND account_id = $2 AND id = $3",
     )
     .bind(world_id)
     .bind(account_id)
     .bind(layout_id)
-    .fetch_optional(&mut *transaction)
+    .fetch_optional(pool)
     .await?
     .ok_or_else(ApiError::not_found)?;
 
@@ -2862,6 +2860,24 @@ pub async fn update_graph_layout(
         ));
     }
     validate_graph_layout_nodes(pool, world_id, current.era_id, &input.positions).await?;
+
+    let mut transaction = pool.begin().await?;
+    let locked_version = sqlx::query_scalar::<_, i64>(
+        "SELECT version FROM world_graph_layouts
+         WHERE world_id = $1 AND account_id = $2 AND id = $3
+         FOR UPDATE",
+    )
+    .bind(world_id)
+    .bind(account_id)
+    .bind(layout_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+    if locked_version != input.expected_version {
+        return Err(ApiError::conflict(
+            "This saved layout changed since it was loaded. Reload it before updating.",
+        ));
+    }
 
     let row = sqlx::query_as::<_, GraphLayoutRow>(
         "UPDATE world_graph_layouts
