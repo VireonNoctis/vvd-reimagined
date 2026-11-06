@@ -625,9 +625,92 @@ async fn migrations_enforce_membership_and_same_world_references() {
         object_key
     );
 
+    let source_with_media = store::get_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        None,
+    )
+    .await
+    .expect("read the source card with its Gallery attachment");
+    assert_eq!(source_with_media.media.len(), 1);
+    assert_eq!(source_with_media.media[0].id, media_id);
+
+    assert!(
+        store::delete_media_asset(&pool, account_id, &format!("first-{unique}"), media_id)
+            .await
+            .is_err(),
+        "an attached Gallery item cannot be deleted"
+    );
+    assert!(
+        store::attach_media_asset(
+            &pool,
+            account_id,
+            &format!("first-{unique}"),
+            local_target_id,
+            media_id,
+        )
+        .await
+        .is_err(),
+        "a Gallery item cannot be attached to two cards"
+    );
+
+    store::detach_media_asset(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        media_id,
+    )
+    .await
+    .expect("detach Gallery media from the original card");
+    let source_without_media = store::get_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        None,
+    )
+    .await
+    .expect("read the source card after detaching media");
+    assert!(source_without_media.media.is_empty());
+
+    let attached = store::attach_media_asset(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        local_target_id,
+        media_id,
+    )
+    .await
+    .expect("attach the unassigned Gallery item to another card");
+    assert_eq!(attached.document_id, Some(local_target_id));
+
+    let target_with_media = store::get_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        local_target_id,
+        None,
+    )
+    .await
+    .expect("read the card with the new Gallery attachment");
+    assert_eq!(target_with_media.media.len(), 1);
+    assert_eq!(target_with_media.media[0].file_name, "cover.png");
+
+    store::detach_media_asset(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        local_target_id,
+        media_id,
+    )
+    .await
+    .expect("detach the Gallery item before deletion");
     store::delete_media_asset(&pool, account_id, &format!("first-{unique}"), media_id)
         .await
-        .expect("remove media asset metadata");
+        .expect("remove unassigned media asset metadata");
     assert!(
         store::list_media_assets(&pool, account_id, &format!("first-{unique}"))
             .await
