@@ -699,9 +699,13 @@ async fn delete_media_asset(
         .media
         .as_ref()
         .ok_or_else(ApiError::service_unavailable)?;
-    let object_key = store::media_object_key(&state.db, account.id, &slug, media_id, true).await?;
+    let world_id = store::require_world(&state.db, account.id, &slug, true).await?;
+    let mut transaction = state.db.begin().await?;
+    let object_key =
+        store::lock_media_asset_for_deletion(&mut *transaction, world_id, media_id).await?;
     storage.delete(&object_key).await?;
-    store::delete_media_asset(&state.db, account.id, &slug, media_id).await?;
+    store::mark_media_asset_deleted(&mut *transaction, world_id, media_id).await?;
+    transaction.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
