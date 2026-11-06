@@ -13,10 +13,10 @@ use crate::{
         CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateRow,
         CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary,
         DocumentRow, DocumentTypeRow, DocumentTypeSummary, EntityType, EraCreateInput, EraRow,
-        EraSummary, Folder, FolderCreateInput, FolderRow, FolderUpdateInput, GraphLayoutCreateInput,
-        GraphLayoutFilters, GraphLayoutRow, GraphLayoutSummary, GraphLayoutUpdateInput,
-        GraphLayoutView, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput, PropertyRow,
-        World, WorldRow,
+        EraSummary, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
+        GraphLayoutCreateInput, GraphLayoutFilters, GraphLayoutRow, GraphLayoutSummary,
+        GraphLayoutUpdateInput, GraphLayoutView, MediaAssetCreate, MediaAssetSummary,
+        MoveDocumentInput, PropertyRow, World, WorldRow,
     },
 };
 
@@ -2742,7 +2742,10 @@ async fn validate_graph_layout_nodes(
         .map(|document| document.id)
         .collect::<std::collections::HashSet<_>>();
 
-    if positions.iter().any(|position| !known_ids.contains(&position.document_id)) {
+    if positions
+        .iter()
+        .any(|position| !known_ids.contains(&position.document_id))
+    {
         return Err(ApiError::bad_request(
             "A saved layout can only position records in the selected world and era.",
         ));

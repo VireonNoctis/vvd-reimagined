@@ -82,7 +82,26 @@ fn validate_password(password: &str) -> Result<(), ApiError> {
     Ok(())
 }
 
+fn check_fetch_site(headers: &HeaderMap) -> Result<(), ApiError> {
+    let Some(value) = headers.get("sec-fetch-site") else {
+        // Non-browser API clients do not send Fetch Metadata headers.
+        return Ok(());
+    };
+    let site = value
+        .to_str()
+        .map_err(|_| ApiError::bad_request("Invalid request context."))?
+        .trim()
+        .to_ascii_lowercase();
+
+    if matches!(site.as_str(), "same-origin" | "none") {
+        Ok(())
+    } else {
+        Err(ApiError::forbidden())
+    }
+}
+
 fn check_origin(headers: &HeaderMap, state: &AppState) -> Result<(), ApiError> {
+    check_fetch_site(headers)?;
     let Some(expected) = state.config.allowed_origin.as_deref() else {
         return Ok(());
     };
@@ -98,6 +117,26 @@ fn check_origin(headers: &HeaderMap, state: &AppState) -> Result<(), ApiError> {
     }
 
     Ok(())
+}
+
+async fn security_headers(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    headers.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
+    headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
+    headers.insert(
+        "referrer-policy",
+        HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    headers.insert(
+        "permissions-policy",
+        HeaderValue::from_static("camera=(), geolocation=()"),
+    );
+    response
 }
 
 fn token_from_cookie(headers: &HeaderMap) -> Option<&str> {
@@ -325,6 +364,7 @@ pub fn router(state: AppState) -> Router {
             post(restore_document_revision),
         )
         .with_state(state)
+        .layer(axum::middleware::from_fn(security_headers))
 }
 
 async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse>, ApiError> {
@@ -1051,6 +1091,27 @@ mod tests {
             document_id: None,
         };
         assert!(validate_media_upload(&oversized).is_err());
+    }
+
+    #[test]
+    fn fetch_metadata_rejects_cross_site_and_same_site_requests() {
+        for site in ["cross-site", "same-site", "invalid"] {
+            let mut headers = HeaderMap::new();
+            headers.insert("sec-fetch-site", HeaderValue::from_static(site));
+            assert!(check_fetch_site(&headers).is_err(), "{site} must be rejected");
+        }
+    }
+
+    #[test]
+    fn fetch_metadata_allows_same_origin_and_non_browser_clients() {
+        let mut headers = HeaderMap::new();
+        assert!(check_fetch_site(&headers).is_ok());
+
+        headers.insert("sec-fetch-site", HeaderValue::from_static("same-origin"));
+        assert!(check_fetch_site(&headers).is_ok());
+
+        headers.insert("sec-fetch-site", HeaderValue::from_static("none"));
+        assert!(check_fetch_site(&headers).is_ok());
     }
 
     #[test]

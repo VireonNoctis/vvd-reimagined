@@ -11,7 +11,7 @@ Two edge types are currently projected:
 
 Mention matching is case-insensitive and uses whole-phrase boundaries. Longer phrases are considered before shorter overlapping phrases. A phrase is ignored if it is ambiguous because more than one card claims that name or alias. Self-mentions are ignored, and repeated mentions between the same pair are coalesced into one edge with an occurrence count.
 
-The two edge types have different visual treatments and independent filters. Character, Place and Faction nodes can also be filtered independently. Relation Tree relationships remain separate explicit data and are not inferred by the graph.
+The two edge types have different visual treatments and independent filters. Character, Place and Faction nodes can also be filtered independently. Selecting a mention relationship exposes source excerpts and the originating block id, so an inferred edge can be checked against the writing that produced it. Up to five excerpts are retained per relationship to keep the graph projection bounded; the full document remains the source of truth. Relation Tree relationships remain separate explicit data and are not inferred by the graph.
 
 Because the server returns era-resolved documents, the graph automatically follows the selected era. It does not create copies of cards or save graph edges as canonical content.
 
@@ -40,5 +40,5 @@ Create and update operations validate finite canvas coordinates, viewport bounds
 - Node positions are saved for canonical records only. There are no era-local documents in the current document model.
 - The graph does not write edges back into cards. Mention links remain derived; typed references remain card properties.
 - Saved positions are restored for current nodes. A card that was archived or is otherwise absent from the selected era is ignored when a layout is applied.
-- Mention evidence drill-down, manual graph edges, saved graph sharing, layout import/export and automatic layout algorithms remain future work.
+- Manual graph edges, saved graph sharing, layout import/export and automatic layout algorithms remain future work.
 - Relation Tree has its own explicit graph model and must not reuse mention edges as authored relationships.

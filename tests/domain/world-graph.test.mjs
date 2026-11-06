@@ -110,3 +110,23 @@ test("world graph filters edge types and record types independently", () => {
     edge.source !== "card-glass-court" && edge.target !== "card-glass-court"
   ));
 });
+
+test("mention edges retain bounded source evidence from the originating block", () => {
+  const world = structuredClone(demoWorld);
+  for (const document of world.documents) document.blocks = [];
+  world.documents[2].blocks.push({
+    id: "treaty-source",
+    type: "text",
+    text: "A signed letter confirms that FALLOWREACH remains the northern port."
+  });
+
+  const edge = buildWorldGraph(world).edges.find(
+    (item) => item.kind === "mention" && item.source === "card-glass-court" && item.target === "card-fallowreach"
+  );
+
+  assert.ok(edge);
+  assert.equal(edge.occurrences, 1);
+  assert.equal(edge.evidence?.[0]?.blockId, "treaty-source");
+  assert.equal(edge.evidence?.[0]?.matchedText, "FALLOWREACH");
+  assert.match(edge.evidence?.[0]?.excerpt ?? "", /FALLOWREACH/);
+});

@@ -25,7 +25,7 @@ The current application includes:
 - Per-document snapshots on mutation, revision listing and conflict-checked restore; archive and restore keep canonical records and inbound references intact.
 - Private Gallery uses S3-compatible presigned uploads/downloads; server-generated object keys and membership-checked metadata prevent client-selected storage paths.
 
-The graph is a derived view, not an editor or a second source of truth. Mention matching ignores ambiguous phrases, requires whole-phrase boundaries and coalesces repeated mentions between the same pair. Relation Tree edges remain a separate explicit model. Mention evidence drill-down, shared layouts and manual graph edges remain future work.
+The graph is a derived view, not an editor or a second source of truth. Mention matching ignores ambiguous phrases, requires whole-phrase boundaries and coalesces repeated mentions between the same pair. Each mention edge now exposes up to five source excerpts with the original matched phrase and block id. Relation Tree edges remain a separate explicit model. Shared layouts and manual graph edges remain future work.
 
 The first era implementation only edits existing canonical cards. It does not yet support era-local document additions, per-era hiding/deletion, era-specific revision history, media attachments or folders. Prime archive/restore is canonical and therefore applies to every era.
 

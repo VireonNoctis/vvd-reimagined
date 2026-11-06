@@ -6,6 +6,12 @@ export type WorldGraphNode = {
   entityType: CardEntityType;
 };
 
+export type WorldGraphMentionEvidence = {
+  blockId: string;
+  matchedText: string;
+  excerpt: string;
+};
+
 export type WorldGraphEdge = {
   id: string;
   source: string;
@@ -13,6 +19,7 @@ export type WorldGraphEdge = {
   label: string;
   kind: "reference" | "mention";
   occurrences: number;
+  evidence?: WorldGraphMentionEvidence[];
 };
 
 export type WorldGraph = { nodes: WorldGraphNode[]; edges: WorldGraphEdge[] };
@@ -65,6 +72,12 @@ function mentionTargets(world: World): { phrases: string[]; targets: Map<string,
   return { phrases, targets };
 }
 
+function mentionExcerpt(text: string, start: number, length: number): string {
+  const left = Math.max(0, start - 54);
+  const right = Math.min(text.length, start + length + 54);
+  return (left > 0 ? "…" : "") + text.slice(left, right).trim() + (right < text.length ? "…" : "");
+}
+
 function buildMentionEdges(world: World): WorldGraphEdge[] {
   const { phrases, targets } = mentionTargets(world);
   if (phrases.length === 0) return [];
@@ -73,7 +86,12 @@ function buildMentionEdges(world: World): WorldGraphEdge[] {
     `(^|[^\\p{L}\\p{N}_])(${phrases.map(escapePattern).join("|")})(?=$|[^\\p{L}\\p{N}_])`,
     "giu"
   );
-  const occurrences = new Map<string, { source: string; target: string; count: number }>();
+  const occurrences = new Map<string, {
+    source: string;
+    target: string;
+    count: number;
+    evidence: WorldGraphMentionEvidence[];
+  }>();
 
   for (const document of world.documents) {
     for (const block of document.blocks) {
@@ -86,8 +104,18 @@ function buildMentionEdges(world: World): WorldGraphEdge[] {
 
         const key = document.id + "\\u0000" + target;
         const edge = occurrences.get(key);
-        if (edge) edge.count += 1;
-        else occurrences.set(key, { source: document.id, target, count: 1 });
+        const evidence = {
+          blockId: block.id,
+          matchedText: match[2],
+          excerpt: mentionExcerpt(block.text, match.index + match[1].length, match[2].length)
+        };
+
+        if (edge) {
+          edge.count += 1;
+          if (edge.evidence.length < 5) edge.evidence.push(evidence);
+        } else {
+          occurrences.set(key, { source: document.id, target, count: 1, evidence: [evidence] });
+        }
       }
     }
   }
@@ -99,7 +127,8 @@ function buildMentionEdges(world: World): WorldGraphEdge[] {
       target: edge.target,
       label: "Mention",
       kind: "mention" as const,
-      occurrences: edge.count
+      occurrences: edge.count,
+      evidence: edge.evidence
     }))
     .sort((left, right) =>
       left.source.localeCompare(right.source) || left.target.localeCompare(right.target)

@@ -62,7 +62,8 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - [x] Derive unambiguous mention edges from canonical card names and aliases in body blocks; keep them distinct from typed references and Relation Tree edges.
 - [x] Add independent edge-kind and entity-type filters; graph reads the selected era's resolved records.
 - [x] Add personal saved layouts per world/era with node positions, viewport state and independent filters; use optimistic versions and server-side node validation.
-- [ ] Add mention evidence drill-down, saved graph sharing and manual graph edges.
+- [x] Add mention evidence drill-down with bounded source excerpts and originating block ids.
+- [ ] Add saved graph sharing and manual graph edges.
 - Maps with image backgrounds, layers, zones, labels and pins.
 - Relation Trees with independent nodes, typed edges and variants.
 - Canvas with cards, images, text, groups and drawing.

@@ -1138,7 +1138,10 @@ async fn personal_graph_layouts_are_versioned_private_and_era_scoped() {
     let unique = Uuid::new_v4().simple().to_string();
     for (id, email) in [
         (account_id, format!("layout-{unique}@example.test")),
-        (other_account_id, format!("layout-viewer-{unique}@example.test")),
+        (
+            other_account_id,
+            format!("layout-viewer-{unique}@example.test"),
+        ),
     ] {
         sqlx::query(
             "INSERT INTO accounts (id, email, display_name, password_hash)
@@ -1224,14 +1227,10 @@ async fn personal_graph_layouts_are_versioned_private_and_era_scoped() {
     assert_eq!(layout.view.zoom, 1.25);
     assert!(!layout.filters.show_mentions);
 
-    let own_layouts = store::list_graph_layouts(
-        &pool,
-        account_id,
-        &world.slug,
-        Some(world.active_era_id),
-    )
-    .await
-    .expect("list personal graph layouts");
+    let own_layouts =
+        store::list_graph_layouts(&pool, account_id, &world.slug, Some(world.active_era_id))
+            .await
+            .expect("list personal graph layouts");
     assert_eq!(own_layouts.len(), 1);
 
     let other_layouts = store::list_graph_layouts(
@@ -1288,7 +1287,10 @@ async fn personal_graph_layouts_are_versioned_private_and_era_scoped() {
 
     let foreign_delete =
         store::delete_graph_layout(&pool, other_account_id, &world.slug, layout.id).await;
-    assert!(foreign_delete.is_err(), "members cannot delete another member's layout");
+    assert!(
+        foreign_delete.is_err(),
+        "members cannot delete another member's layout"
+    );
 
     let other_era = store::create_era(
         &pool,
@@ -1302,15 +1304,14 @@ async fn personal_graph_layouts_are_versioned_private_and_era_scoped() {
     )
     .await
     .expect("create a second era");
-    let other_era_layouts = store::list_graph_layouts(
-        &pool,
-        account_id,
-        &world.slug,
-        Some(other_era.id),
-    )
-    .await
-    .expect("list layouts for the second era");
-    assert!(other_era_layouts.is_empty(), "layouts must not leak across eras");
+    let other_era_layouts =
+        store::list_graph_layouts(&pool, account_id, &world.slug, Some(other_era.id))
+            .await
+            .expect("list layouts for the second era");
+    assert!(
+        other_era_layouts.is_empty(),
+        "layouts must not leak across eras"
+    );
 
     let invalid_node = store::create_graph_layout(
         &pool,

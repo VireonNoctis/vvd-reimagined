@@ -6,7 +6,7 @@ An independent reconstruction of a connected worldbuilding, writing, collaborati
 
 The Next.js workspace and Rust API are connected when VVD_API_URL is configured: account sessions, world membership, world creation, canonical card reads and version-checked card updates use PostgreSQL. Without that setting, the app remains an explicitly read-only synthetic preview.
 
-Research baseline: 5 November 2026. Public documentation cannot replace direct inspection of the authenticated workspace. Exact current geometry, hidden menus, transition timings and some beta behaviour remain unverified.
+Research baseline: 6 November 2026. Public documentation cannot replace direct inspection of the authenticated workspace. Exact current geometry, hidden menus, transition timings and some beta behaviour remain unverified.
 
 ## Current implementation
 
@@ -19,15 +19,16 @@ Research baseline: 5 November 2026. Public documentation cannot replace direct i
 - Domain tests for canonical reference resolution and duplicate/missing-reference detection.
 - Login/register/logout, a same-origin API proxy, persistent world creation and a version-checked card editor.
 - Account security page with active-session listing, best-effort browser/platform context and account-scoped remote session revocation.
-- PostgreSQL-backed authentication throttles, nested folders, reversible archive, revision history and same-world card moves.
+- PostgreSQL-backed authentication throttles, nested folders, named eras with sparse inheritance, reversible archive, revision history, personal graph layouts and same-world card moves.
 - Private Gallery with short-lived presigned S3-compatible uploads and downloads, object metadata verification before publication, and membership-checked asset access.
-- CI configured for repository validation, lint, type-check, tests and production build.
+- WebGL 2 World Graph with separate typed-reference and mention edges, independent filters, personal saved layouts and source-evidence drill-down for inferred mentions.
+- CI configured for repository validation, lint, type-check, tests, production build, Rust formatting/Clippy and PostgreSQL integration checks.
 
 The sample world is deliberately synthetic and read-only when no API is configured. In connected mode, account and world data come from PostgreSQL; card saves are confirmed by the API before the UI refreshes.
 
 ## Not implemented yet
 
-Email verification/recovery, eras, multi-user collaboration, Quill, additional visual tools, Workshop, Wiki publishing, billing and account operations, production security review and operational hardening.
+Email verification and recovery, multifactor authentication, multi-user collaboration, Quill, Map/Relation Tree/Canvas/Timeline tools, Workshop, Wiki publishing, billing, account export/deletion, operational audit/backup/restore and independent production security review remain open. The current authentication and API protections are a hardening baseline, not a certification.
 
 ## Technology direction
 

@@ -668,10 +668,28 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument, intera
                   const node = visibleGraph.nodes.find((item) => item.id === id);
                   if (!node) return null;
                   return (
-                    <button type="button" key={edge.id} onClick={() => onSelectDocument(node.id)}>
-                      <span className={"graph-list-dot " + node.entityType} />
-                      <span><strong>{node.name}</strong><small>{edge.kind === "mention" ? "Mention in text" + (edge.occurrences > 1 ? " · " + edge.occurrences + " times" : "") : edge.label}</small></span>
-                    </button>
+                    <div className="graph-related-item" key={edge.id}>
+                      <button type="button" onClick={() => onSelectDocument(node.id)}>
+                        <span className={"graph-list-dot " + node.entityType} />
+                        <span>
+                          <strong>{node.name}</strong>
+                          <small>{edge.kind === "mention" ? "Mention in text · " + edge.occurrences + (edge.occurrences === 1 ? " match" : " matches") : edge.label}</small>
+                        </span>
+                      </button>
+                      {edge.kind === "mention" && edge.evidence?.length ? (
+                        <details className="graph-evidence">
+                          <summary>View source ({edge.evidence.length}{edge.evidence.length < edge.occurrences ? "+" : ""})</summary>
+                          <ul>
+                            {edge.evidence.map((item, index) => (
+                              <li key={item.blockId + ":" + index}>
+                                <span>{item.matchedText}</span>
+                                <p>{item.excerpt}</p>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>

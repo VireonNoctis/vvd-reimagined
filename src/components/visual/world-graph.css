@@ -93,3 +93,12 @@
 @media (prefers-reduced-motion: reduce) {
   .graph-layout-tools button,.graph-layout-save-form button { transition: none; }
 }
+
+.graph-related-item { min-width: 0; }
+.graph-evidence { margin: 0 6px 7px 23px; color: #737b6e; }
+.graph-evidence summary { width: fit-content; color: #7c8574; font-size: 9px; cursor: pointer; }
+.graph-evidence summary:focus-visible { outline: 2px solid #829477; outline-offset: 3px; }
+.graph-evidence ul { display: grid; gap: 7px; margin: 7px 0 0; padding: 0; list-style: none; }
+.graph-evidence li { padding: 7px 8px; border-left: 2px solid #cbd5c2; background: #f5f6f1; }
+.graph-evidence li > span { color: #68755f; font-size: 9px; font-weight: 700; }
+.graph-evidence p { margin: 3px 0 0; color: #7f857b; font-size: 9px; line-height: 1.55; overflow-wrap: anywhere; }

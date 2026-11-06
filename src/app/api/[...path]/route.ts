@@ -4,7 +4,7 @@ type RouteContext = {
   params: Promise<{ path: string[] }>;
 };
 
-const FORWARDED_REQUEST_HEADERS = ["accept", "content-type", "cookie", "origin"];
+const FORWARDED_REQUEST_HEADERS = ["accept", "content-type", "cookie", "origin", "sec-fetch-site"];
 const FORWARDED_RESPONSE_HEADERS = ["cache-control", "content-type", "location", "set-cookie", "vary"];
 
 async function proxy(request: NextRequest, context: RouteContext): Promise<Response> {
