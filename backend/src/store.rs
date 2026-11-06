@@ -300,7 +300,7 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
 
 async fn load_eras(pool: &PgPool, world_id: Uuid) -> Result<Vec<EraSummary>, ApiError> {
     let rows = sqlx::query_as::<_, EraRow>(
-        "SELECT id, name, description, parent_era_id, is_default, created_at, updated_at
+        "SELECT id, name, description, parent_era_id AS parent_id, is_default, created_at, updated_at
          FROM eras WHERE world_id = $1
          ORDER BY is_default DESC, created_at ASC, name ASC",
     )
@@ -389,7 +389,7 @@ async fn resolve_era(
 ) -> Result<EraRow, ApiError> {
     let row = if let Some(era_id) = requested_era_id {
         sqlx::query_as::<_, EraRow>(
-            "SELECT id, name, description, parent_era_id, is_default, created_at, updated_at
+            "SELECT id, name, description, parent_era_id AS parent_id, is_default, created_at, updated_at
              FROM eras WHERE world_id = $1 AND id = $2",
         )
         .bind(world_id)
@@ -398,7 +398,7 @@ async fn resolve_era(
         .await?
     } else {
         sqlx::query_as::<_, EraRow>(
-            "SELECT id, name, description, parent_era_id, is_default, created_at, updated_at
+            "SELECT id, name, description, parent_era_id AS parent_id, is_default, created_at, updated_at
              FROM eras WHERE world_id = $1 AND is_default",
         )
         .bind(world_id)
@@ -533,7 +533,7 @@ pub async fn create_era(
     let row = sqlx::query_as::<_, EraRow>(
         "INSERT INTO eras (world_id, id, name, description, parent_era_id, created_by)
          VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, name, description, parent_era_id, is_default, created_at, updated_at",
+         RETURNING id, name, description, parent_era_id AS parent_id, is_default, created_at, updated_at",
     )
     .bind(world_id)
     .bind(Uuid::new_v4())
@@ -1618,11 +1618,13 @@ pub async fn update_card(
         ));
     }
 
-    if let Some(era_id) = era_id {
-        return update_card_in_era(pool, account_id, slug, document_id, era_id, input).await;
-    }
-
     let world_id = require_world(pool, account_id, slug, true).await?;
+    if let Some(era_id) = era_id {
+        let selected_era = resolve_era(pool, world_id, Some(era_id)).await?;
+        if !selected_era.is_default {
+            return update_card_in_era(pool, account_id, slug, document_id, era_id, input).await;
+        }
+    }
     let aliases = input
         .aliases
         .iter()
