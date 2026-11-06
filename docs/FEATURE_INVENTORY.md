@@ -15,7 +15,7 @@ The current application includes:
 - Domain tests for stable lookup, reference resolution and duplicate/missing reference detection.
 - A same-origin Next.js API proxy, login/register/logout UI, session-aware server-rendered world library and persistent world creation.
 - A connected card editor for names, aliases, text/reference properties and every ordered text block; properties and blocks can be added, removed and reordered with stable ids and version-checked saves.
-- Named eras inherit canonical documents through parent chains; edits are sparse, versioned field overrides, so unmodified values continue following their parent without copying the world.
+- Named eras inherit canonical documents through parent chains; edits are sparse, versioned field overrides, so unmodified values continue following their parent without copying the world. See [Eras and inheritance](ERAS_AND_INHERITANCE.md) for the contract and known boundaries.
 - A read-only World Graph rendered with WebGL 2 from valid typed card references. Nodes can be selected, dragged and panned; the DOM inspector and record list provide accessible navigation and links back to canonical records.
 - A Rust/Axum API with PostgreSQL migrations for accounts, Argon2id password hashes, hashed opaque sessions, database-backed authentication throttles and best-effort browser/platform session labels, worlds, world memberships, canonical card documents, properties and ordered text blocks.
 - Membership-checked world and card reads, world/card creation, atomic version-checked card updates, nested world folders and conflict-checked card moves. Composite foreign keys keep card references inside their world.
@@ -23,6 +23,8 @@ The current application includes:
 - Private Gallery uses S3-compatible presigned uploads/downloads; server-generated object keys and membership-checked metadata prevent client-selected storage paths.
 
 The graph is a derived view, not an editor or a second source of truth. Its temporary node positions are not saved; mention-derived edges, filters and era-aware projections remain future work.
+
+The first era implementation only edits existing canonical cards. It does not yet support era-local document additions, per-era hiding/deletion, era-specific revision history, media attachments or folders. Prime archive/restore is canonical and therefore applies to every era.
 
 When VVD_API_URL is set, the app uses the Rust API for account sessions, world membership, world reads/creation and card edits. The editor submits expected-version mutations and renders conflicts/errors without claiming a save before the API confirms it. With no API configured, the synthetic fixture remains deliberately read-only. Uploads, collaboration, Quill and publishing remain outstanding.
 
@@ -33,8 +35,8 @@ When VVD_API_URL is set, the app uses the Rust API for account sessions, world m
 | Accounts and sessions | Rust API registration/login/logout/current-account endpoints, active-session listing and account-scoped remote revocation; Argon2id hashes, hashed opaque session tokens, PostgreSQL-backed IP/email throttles and best-effort browser/platform labels | Email verification and recovery still need a configured delivery provider; forwarded-IP trust and production deployment topology need review |
 | World membership | PostgreSQL roles: owner, admin, editor and viewer; server checks on each world/document operation | Studio roles and invitations are not implemented |
 | Canonical documents | PostgreSQL card identities with aliases, scalar/reference properties, ordered text blocks and optional nested-folder membership | Cards are the only registered type in this slice |
-| Reference integrity | Composite foreign keys prevent cross-world references | Era-aware references remain future work |
-| Card mutations | Transactional create/update, automatic snapshots, revision listing and conflict-checked revision restore; archive/restore and folder moves use version checks | Permanent deletion and revision retention policy remain open |
+| Reference integrity | Composite foreign keys and transactional validation prevent cross-world references in canonical documents and era override properties | References still target canonical documents only; era-local additions and per-era target visibility are not implemented |
+| Card mutations | Transactional canonical create/update, automatic snapshots, revision listing and conflict-checked revision restore; canonical archive/restore and folder moves use version checks | Era override revisions/restores, per-era tombstones and permanent deletion remain open |
 | Media | Optional S3-compatible provider, five-minute signed PUT/GET URLs, metadata verification and membership-checked private Gallery API/UI | Requires bucket credentials and CORS; no byte-level MIME sniffing, malware scanning or automated pending-object cleanup yet |
 
 ## Workspace and navigation
