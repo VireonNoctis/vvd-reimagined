@@ -1560,7 +1560,9 @@ pub async fn create_card(
     .await?
     .unwrap_or(false);
     if !card_enabled {
-        return Err(ApiError::bad_request("Card documents are disabled for this world."));
+        return Err(ApiError::bad_request(
+            "Card documents are disabled for this world.",
+        ));
     }
 
     let template_row = if let Some(template_id) = input.template_id {
