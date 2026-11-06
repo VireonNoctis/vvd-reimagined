@@ -9,10 +9,12 @@ use crate::{
     error::ApiError,
     models::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
-        CardDocument, CardProperty, CardPropertyInput, CardUpdateInput, DocumentRevisionSummary,
-        DocumentRow, EntityType, EraCreateInput, EraRow, EraSummary, Folder, FolderCreateInput,
-        FolderRow, FolderUpdateInput, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput,
-        PropertyRow, World, WorldRow,
+        CardDocument, CardProperty, CardPropertyInput, CardPropertyKind, CardTemplateBlock,
+        CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateRow, CardTemplateSummary,
+        CardUpdateInput, DocumentRevisionSummary, DocumentRow, DocumentTypeRow, DocumentTypeSummary,
+        EntityType, EraCreateInput, EraRow, EraSummary, Folder, FolderCreateInput, FolderRow,
+        FolderUpdateInput, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput, PropertyRow,
+        World, WorldRow,
     },
 };
 
@@ -213,7 +215,7 @@ pub async fn require_world(
 
 async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocument>, ApiError> {
     let documents = sqlx::query_as::<_, DocumentRow>(
-        "SELECT id, entity_type, name, aliases, updated_at, version, folder_id
+        "SELECT id, entity_type, template_id, name, aliases, updated_at, version, folder_id
          FROM documents
          WHERE world_id = $1 AND archived_at IS NULL
          ORDER BY name ASC, id ASC",
@@ -286,6 +288,7 @@ async fn load_documents(pool: &PgPool, world_id: Uuid) -> Result<Vec<CardDocumen
                 id: row.id,
                 kind: "card",
                 entity_type: entity_type(&row.entity_type)?,
+                template_id: row.template_id,
                 name: row.name,
                 aliases: row.aliases,
                 updated_at: date_label(row.updated_at),
