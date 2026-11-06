@@ -126,7 +126,10 @@ async fn security_headers(
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
     headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    headers.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
+    headers.insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
     headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
     headers.insert(
         "referrer-policy",
@@ -1098,7 +1101,10 @@ mod tests {
         for site in ["cross-site", "same-site", "invalid"] {
             let mut headers = HeaderMap::new();
             headers.insert("sec-fetch-site", HeaderValue::from_static(site));
-            assert!(check_fetch_site(&headers).is_err(), "{site} must be rejected");
+            assert!(
+                check_fetch_site(&headers).is_err(),
+                "{site} must be rejected"
+            );
         }
     }
 
