@@ -1759,8 +1759,8 @@ pub async fn delete_media_asset(
     let world_id = require_world(pool, account_id, slug, true).await?;
     let result = sqlx::query(
         "UPDATE media_assets SET status = 'deleted', updated_at = NOW()
-         WHERE world_id = $1 AND id = $2 AND document_id IS NULL
-           AND status IN ('pending', 'ready')",
+         WHERE world_id = $1 AND id = $2 AND status IN ('pending', 'ready')
+           AND (status = 'pending' OR document_id IS NULL)",
     )
     .bind(world_id)
     .bind(asset_id)
