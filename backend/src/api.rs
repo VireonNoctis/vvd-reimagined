@@ -23,12 +23,11 @@ use crate::{
     AppState,
     error::ApiError,
     models::{
-        Account, ArchivedDocumentSummary, CardCreateInput, CardTemplateCreateInput, CardTemplateSummary,
-        CardUpdateInput, DocumentRevisionSummary, DocumentTypeSummary, DocumentVersionInput,
-        EraCreateInput, EraSummary, Folder,
-        FolderCreateInput, FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary,
-        MediaUploadInput, MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary,
-        WorldCreateInput,
+        Account, ArchivedDocumentSummary, CardCreateInput, CardTemplateCreateInput,
+        CardTemplateSummary, CardUpdateInput, DocumentRevisionSummary, DocumentTypeSummary,
+        DocumentVersionInput, EraCreateInput, EraSummary, Folder, FolderCreateInput,
+        FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
+        MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
     store,
 };
@@ -845,8 +844,7 @@ async fn create_card_template(
 ) -> Result<impl IntoResponse, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
-    let template =
-        store::create_card_template(&state.db, account.id, &slug, input).await?;
+    let template = store::create_card_template(&state.db, account.id, &slug, input).await?;
     Ok((StatusCode::CREATED, Json(template)))
 }
 
