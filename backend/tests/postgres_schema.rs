@@ -4,8 +4,8 @@ use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
 use vvd_api::{
     models::{
-        CardBlockInput, CardPropertyInput, CardUpdateInput, FolderCreateInput, FolderUpdateInput,
-        MediaAssetCreate, MoveDocumentInput,
+        CardBlockInput, CardPropertyInput, CardUpdateInput, EraCreateInput, FolderCreateInput,
+        FolderUpdateInput, MediaAssetCreate, MoveDocumentInput,
     },
     store,
 };
@@ -34,6 +34,8 @@ async fn migrations_enforce_membership_and_same_world_references() {
     let local_target_id = Uuid::new_v4();
     let foreign_target_id = Uuid::new_v4();
     let unique = Uuid::new_v4().simple().to_string();
+    let default_era_id = Uuid::new_v4();
+    let other_default_era_id = Uuid::new_v4();
 
     sqlx::query(
         "INSERT INTO accounts (id, email, display_name, password_hash)
@@ -57,6 +59,21 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .execute(&pool)
     .await
     .expect("create test worlds");
+
+    sqlx::query(
+        "INSERT INTO eras (world_id, id, name, description, is_default, created_by)
+         VALUES
+            ($1, $2, 'Prime', '', TRUE, $3),
+            ($4, $5, 'Prime', '', TRUE, $3)",
+    )
+    .bind(world_id)
+    .bind(default_era_id)
+    .bind(account_id)
+    .bind(other_world_id)
+    .bind(other_default_era_id)
+    .execute(&pool)
+    .await
+    .expect("create default test eras");
 
     sqlx::query(
         "INSERT INTO world_memberships (world_id, account_id, role)
@@ -146,6 +163,165 @@ async fn migrations_enforce_membership_and_same_world_references() {
         cross_world_reference.is_err(),
         "cross-world references must be rejected by the database"
     );
+
+    let alternate_era = store::create_era(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        EraCreateInput {
+            name: "After the Meridian".to_owned(),
+            description: "A branch that inherits the shared world.".to_owned(),
+            parent_id: None,
+        },
+    )
+    .await
+    .expect("create an era inheriting from Prime");
+    let inherited = store::get_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(alternate_era.id),
+    )
+    .await
+    .expect("read the inherited document");
+    assert_eq!(inherited.name, "Test record");
+    assert_eq!(inherited.version, 1);
+
+    let alternate_update = store::update_card(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(alternate_era.id),
+        CardUpdateInput {
+            expected_version: 1,
+            name: "A different history".to_owned(),
+            aliases: vec!["The alternate".to_owned()],
+            properties: vec![CardPropertyInput::Reference {
+                id: "local-link".to_owned(),
+                label: "Local link".to_owned(),
+                document_id: local_target_id,
+            }],
+            blocks: Vec::new(),
+        },
+    )
+    .await
+    .expect("write an era-specific override");
+    assert_eq!(alternate_update.name, "A different history");
+    assert_eq!(alternate_update.version, 2);
+
+    let child_era = store::create_era(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        EraCreateInput {
+            name: "A second branch".to_owned(),
+            description: String::new(),
+            parent_id: Some(alternate_era.id),
+        },
+    )
+    .await
+    .expect("create a child era");
+    let inherited_child = store::get_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(child_era.id),
+    )
+    .await
+    .expect("resolve the child from its parent");
+    assert_eq!(inherited_child.name, "A different history");
+    assert_eq!(inherited_child.version, 2);
+
+    store::update_card(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(alternate_era.id),
+        CardUpdateInput {
+            expected_version: 2,
+            name: "The parent keeps changing".to_owned(),
+            aliases: vec!["The alternate".to_owned()],
+            properties: vec![CardPropertyInput::Reference {
+                id: "local-link".to_owned(),
+                label: "Local link".to_owned(),
+                document_id: local_target_id,
+            }],
+            blocks: Vec::new(),
+        },
+    )
+    .await
+    .expect("update the parent era");
+
+    store::update_card(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(child_era.id),
+        CardUpdateInput {
+            expected_version: 3,
+            name: "The parent keeps changing".to_owned(),
+            aliases: vec!["Only in the child".to_owned()],
+            properties: vec![CardPropertyInput::Reference {
+                id: "local-link".to_owned(),
+                label: "Local link".to_owned(),
+                document_id: local_target_id,
+            }],
+            blocks: Vec::new(),
+        },
+    )
+    .await
+    .expect("override one field in the child era");
+
+    store::update_card(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(alternate_era.id),
+        CardUpdateInput {
+            expected_version: 3,
+            name: "The parent changes once more".to_owned(),
+            aliases: vec!["The alternate".to_owned()],
+            properties: vec![CardPropertyInput::Reference {
+                id: "local-link".to_owned(),
+                label: "Local link".to_owned(),
+                document_id: local_target_id,
+            }],
+            blocks: Vec::new(),
+        },
+    )
+    .await
+    .expect("update a parent after its child has a sparse override");
+
+    let resolved_child = store::get_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(child_era.id),
+    )
+    .await
+    .expect("resolve the child with inherited and local fields");
+    assert_eq!(resolved_child.name, "The parent changes once more");
+    assert_eq!(resolved_child.aliases, vec!["Only in the child"]);
+    assert_eq!(resolved_child.version, 5);
+
+    let base_document = store::get_document(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(default_era_id),
+    )
+    .await
+    .expect("read the unchanged Prime document");
+    assert_eq!(base_document.name, "Test record");
+    assert!(base_document.aliases.is_empty());
 
     let root_folder = store::create_folder(
         &pool,
@@ -250,7 +426,7 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .await
     .expect("archive document");
     assert!(
-        store::list_documents(&pool, account_id, &format!("first-{unique}"))
+        store::list_documents(&pool, account_id, &format!("first-{unique}"), None)
             .await
             .expect("list active documents")
             .iter()
