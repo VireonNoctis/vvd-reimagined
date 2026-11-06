@@ -462,6 +462,80 @@ pub async fn get_world(
     load_world(pool, world_id, era_id).await
 }
 
+pub async fn create_era(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    input: EraCreateInput,
+) -> Result<EraSummary, ApiError> {
+    let name = input.name.trim();
+    let description = input.description.trim();
+    if name.is_empty() || name.chars().count() > 80 {
+        return Err(ApiError::bad_request(
+            "Era names must contain between 1 and 80 characters.",
+        ));
+    }
+    if description.chars().count() > 2_000 {
+        return Err(ApiError::bad_request("Era descriptions are limited to 2,000 characters."));
+    }
+
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let default_era_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM eras WHERE world_id = $1 AND is_default",
+    )
+    .bind(world_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(ApiError::internal)?;
+    let parent_id = input.parent_id.unwrap_or(default_era_id);
+
+    let parent_exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (SELECT 1 FROM eras WHERE world_id = $1 AND id = $2)",
+    )
+    .bind(world_id)
+    .bind(parent_id)
+    .fetch_one(pool)
+    .await?;
+    if !parent_exists {
+        return Err(ApiError::bad_request("Choose a parent era in this world."));
+    }
+
+    let name_exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (SELECT 1 FROM eras WHERE world_id = $1 AND LOWER(name) = LOWER($2))",
+    )
+    .bind(world_id)
+    .bind(name)
+    .fetch_one(pool)
+    .await?;
+    if name_exists {
+        return Err(ApiError::conflict("An era with that name already exists in this world."));
+    }
+
+    let row = sqlx::query_as::<_, EraRow>(
+        "INSERT INTO eras (world_id, id, name, description, parent_era_id, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, name, description, parent_era_id, is_default, created_at, updated_at",
+    )
+    .bind(world_id)
+    .bind(Uuid::new_v4())
+    .bind(name)
+    .bind(description)
+    .bind(parent_id)
+    .bind(account_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(EraSummary {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        parent_id: row.parent_id,
+        is_default: row.is_default,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    })
+}
+
 pub async fn create_world(
     pool: &PgPool,
     account_id: Uuid,
@@ -1097,9 +1171,11 @@ pub async fn list_documents(
     pool: &PgPool,
     account_id: Uuid,
     slug: &str,
+    era_id: Option<Uuid>,
 ) -> Result<Vec<CardDocument>, ApiError> {
     let world_id = require_world(pool, account_id, slug, false).await?;
-    load_documents(pool, world_id).await
+    let era = resolve_era(pool, world_id, era_id).await?;
+    load_documents_in_era(pool, world_id, era.id).await
 }
 
 pub async fn get_document(
@@ -1107,9 +1183,11 @@ pub async fn get_document(
     account_id: Uuid,
     slug: &str,
     document_id: Uuid,
+    era_id: Option<Uuid>,
 ) -> Result<CardDocument, ApiError> {
     let world_id = require_world(pool, account_id, slug, false).await?;
-    load_documents(pool, world_id)
+    let era = resolve_era(pool, world_id, era_id).await?;
+    load_documents_in_era(pool, world_id, era.id)
         .await?
         .into_iter()
         .find(|document| document.id == document_id)
