@@ -176,6 +176,24 @@ async fn migrations_enforce_membership_and_same_world_references() {
     )
     .await
     .expect("create an era inheriting from Prime");
+
+    let eras = store::list_eras(&pool, account_id, &format!("first-{unique}"))
+        .await
+        .expect("list world eras");
+    assert!(eras.iter().any(|era| era.id == alternate_era.id));
+    assert!(eras.iter().any(|era| era.id == default_era_id && era.is_default));
+
+    let era_world = store::get_world(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        Some(alternate_era.id),
+    )
+    .await
+    .expect("load a world in the selected era");
+    assert_eq!(era_world.active_era_id, alternate_era.id);
+    assert_eq!(era_world.documents[0].version, 1);
+
     let inherited = store::get_document(
         &pool,
         account_id,
@@ -279,6 +297,26 @@ async fn migrations_enforce_membership_and_same_world_references() {
     )
     .await
     .expect("update the parent era");
+
+    let stale_child_save = store::update_card(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        source_document_id,
+        Some(child_era.id),
+        CardUpdateInput {
+            expected_version: 2,
+            name: "This edit was opened before the parent changed".to_owned(),
+            aliases: Vec::new(),
+            properties: Vec::new(),
+            blocks: Vec::new(),
+        },
+    )
+    .await;
+    assert!(
+        stale_child_save.is_err(),
+        "a parent edit must invalidate an outdated child version token"
+    );
 
     store::update_card(
         &pool,
