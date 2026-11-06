@@ -666,6 +666,8 @@ async fn load_world(
 
     let eras = load_eras(pool, world_id).await?;
     let active_era = resolve_era(pool, world_id, requested_era_id).await?;
+    let document_types = load_document_types(pool, world_id).await?;
+    let card_templates = load_card_templates(pool, world_id).await?;
     let documents = load_documents_in_era(pool, world_id, active_era.id).await?;
     Ok(World {
         id: row.id,
@@ -676,6 +678,8 @@ async fn load_world(
         updated_at: date_label(row.updated_at),
         eras,
         active_era_id: active_era.id,
+        document_types,
+        card_templates,
         documents,
     })
 }
@@ -847,6 +851,43 @@ pub async fn create_world(
     .bind(id)
     .bind(Uuid::new_v4())
     .bind(account_id)
+    .execute(&mut *transaction)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO world_document_types (world_id, type_key, enabled)
+         SELECT $1, type_key, type_key = 'card' FROM document_type_registry",
+    )
+    .bind(id)
+    .execute(&mut *transaction)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO card_type_templates
+         (world_id, id, entity_type, name, description, property_definitions,
+          starter_blocks, is_default, created_by)
+         VALUES
+         ($1, $2, 'character', 'Character',
+          'A person or being with a place in the world.',
+          '[{"id":"role","label":"Role","kind":"text","required":false,"defaultValue":""},{"id":"age","label":"Age","kind":"text","required":false,"defaultValue":""}]'::jsonb,
+          '[{"id":"intro","label":"Introduction","text":""},{"id":"background","label":"Background","text":""}]'::jsonb,
+          TRUE, $3),
+         ($1, $4, 'place', 'Place',
+          'A location, settlement or region.',
+          '[{"id":"region","label":"Region","kind":"text","required":false,"defaultValue":""},{"id":"climate","label":"Climate","kind":"text","required":false,"defaultValue":""}]'::jsonb,
+          '[{"id":"overview","label":"Overview","text":""},{"id":"details","label":"Details","text":""}]'::jsonb,
+          TRUE, $3),
+         ($1, $5, 'faction', 'Faction',
+          'An organisation, culture or political group.',
+          '[{"id":"seat","label":"Seat","kind":"text","required":false,"defaultValue":""},{"id":"influence","label":"Influence","kind":"text","required":false,"defaultValue":""}]'::jsonb,
+          '[{"id":"overview","label":"Overview","text":""},{"id":"history","label":"History","text":""}]'::jsonb,
+          TRUE, $3)",
+    )
+    .bind(id)
+    .bind(Uuid::new_v4())
+    .bind(account_id)
+    .bind(Uuid::new_v4())
+    .bind(Uuid::new_v4())
     .execute(&mut *transaction)
     .await?;
 
@@ -1467,6 +1508,45 @@ pub async fn create_card(
         &input.blocks,
     )?;
     let world_id = require_world(pool, account_id, slug, true).await?;
+    let card_enabled = sqlx::query_scalar::<_, bool>(
+        "SELECT enabled FROM world_document_types WHERE world_id = $1 AND type_key = 'card'",
+    )
+    .bind(world_id)
+    .fetch_optional(pool)
+    .await?
+    .unwrap_or(false);
+    if !card_enabled {
+        return Err(ApiError::bad_request("Card documents are disabled for this world."));
+    }
+
+    let template_row = if let Some(template_id) = input.template_id {
+        sqlx::query_as::<_, CardTemplateRow>(
+            "SELECT id, entity_type, name, description, property_definitions,
+                    starter_blocks, is_default
+             FROM card_type_templates
+             WHERE world_id = $1 AND entity_type = $2 AND id = $3",
+        )
+        .bind(world_id)
+        .bind(input.entity_type.as_str())
+        .bind(template_id)
+        .fetch_optional(pool)
+        .await?
+    } else {
+        sqlx::query_as::<_, CardTemplateRow>(
+            "SELECT id, entity_type, name, description, property_definitions,
+                    starter_blocks, is_default
+             FROM card_type_templates
+             WHERE world_id = $1 AND entity_type = $2 AND is_default",
+        )
+        .bind(world_id)
+        .bind(input.entity_type.as_str())
+        .fetch_optional(pool)
+        .await?
+    }
+    .ok_or_else(ApiError::not_found)?;
+    let template = card_template_summary(template_row)?;
+    validate_template_properties(&template, &input.properties)?;
+
     let id = Uuid::new_v4();
     let document_slug = format!(
         "{}-{}",
@@ -1484,13 +1564,14 @@ pub async fn create_card(
 
     sqlx::query(
         "INSERT INTO documents
-         (world_id, id, slug, document_type, entity_type, name, aliases, created_by)
-         VALUES ($1, $2, $3, 'card', $4, $5, $6, $7)",
+         (world_id, id, slug, document_type, entity_type, template_id, name, aliases, created_by)
+         VALUES ($1, $2, $3, 'card', $4, $5, $6, $7, $8)",
     )
     .bind(world_id)
     .bind(id)
     .bind(document_slug)
     .bind(input.entity_type.as_str())
+    .bind(template.id)
     .bind(input.name.trim())
     .bind(aliases)
     .bind(account_id)
