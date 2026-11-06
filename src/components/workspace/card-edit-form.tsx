@@ -13,6 +13,8 @@ function draftId(prefix: string): string {
 
 export function CardEditForm({ world, document, onCancel }: Props) {
   const router = useRouter();
+  const activeEra = world.eras.find((era) => era.id === world.activeEraId);
+  const isPrimeEra = activeEra?.isDefault ?? true;
   const [name, setName] = useState(document.name);
   const [aliases, setAliases] = useState(document.aliases.join(", "));
   const [properties, setProperties] = useState<CardProperty[]>(document.properties);
@@ -86,9 +88,11 @@ export function CardEditForm({ world, document, onCancel }: Props) {
   return (
     <form className="card-edit-form" onSubmit={submit}>
       <div className="card-edit-heading">
-        <span className="eyebrow">EDIT CARD</span>
+        <span className="eyebrow">{isPrimeEra ? "EDIT CARD" : "EDIT IN " + (activeEra?.name ?? "THIS ERA").toUpperCase()}</span>
         <h2>Make it yours.</h2>
-        <p>Keep the record connected while shaping its details and story.</p>
+        <p>{isPrimeEra
+          ? "Keep the record connected while shaping its details and story."
+          : "Only this branch changes. Fields you leave untouched continue to inherit from its parent."}</p>
       </div>
 
       <label>
