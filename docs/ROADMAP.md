@@ -42,14 +42,15 @@ Without VVD_API_URL the app remains a read-only preview. With it configured, acc
 - [ ] Define card type templates and per-type property definitions.
 - [x] Add revision history, archive and restore.
 - Implement era inheritance/resolution.
-- Add aliases, references and search.
+- [x] Add aliases, typed references and searchable document names, aliases and entity types.
 
 Exit condition: a world can hold typed canonical records and resolve references correctly across eras, with membership enforced server-side.
 
 ## Phase 3 — Editor and media
 
-- [x] Build card create/view/edit against validated server operations (body blocks beyond the current first-block editing surface remain partial).
-- Add properties, images and ordered body blocks.
+- [x] Build card create/view/edit against validated, version-checked server operations.
+- [x] Edit text and linked-record properties and all ordered text blocks, including add/remove/reorder.
+- [ ] Add image fields and attach Gallery assets directly to card records.
 - [x] Add private media upload and Gallery (provider setup remains deployment-owned).
 - Add mention resolution, manual linking and verified Entity Detection behaviour.
 - Add offline status and failure/recovery UX.
