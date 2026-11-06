@@ -47,7 +47,6 @@ export function CardMediaManager({ worldSlug, documentId, initialAssets }: Props
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
     fetch(endpoint(worldSlug), { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error(await responseError(response, "The Gallery could not be loaded."));
