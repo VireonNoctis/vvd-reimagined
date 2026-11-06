@@ -33,7 +33,7 @@ A template contains:
 
 Templates are stored in `card_type_templates`. A card stores its selected `template_id` so its structural origin remains known after creation. The foreign key requires the template to belong to the same world and match the card subtype.
 
-Custom templates can be created through `POST /v1/worlds/{slug}/card-templates`; the world returns its templates in `cardTemplates`, and `GET /v1/worlds/{slug}/card-templates` provides a direct listing. The workspace includes a management page at `/worlds/{slug}/templates`.
+Custom templates can be created through `POST /v1/worlds/{slug}/card-templates`; the world returns its templates in `cardTemplates`, and `GET /v1/worlds/{slug}/card-templates` provides a direct listing. The workspace includes a management page at `/worlds/{slug}/templates`. Templates carry an optimistic version token and can be edited through `PATCH /v1/worlds/{slug}/card-templates/{templateId}` or removed through `DELETE` on the same resource.
 
 ## Validation
 
@@ -50,11 +50,11 @@ Template validation runs for canonical edits and era-local overrides. A template
 ## Current boundaries
 
 - The three built-in card subtypes remain a fixed enum. Creating arbitrary new entity subtypes is not part of this slice.
-- Templates can be created and selected, and defaults can be changed when creating a template. Editing or deleting an existing template is not implemented yet.
+- Templates can be created, selected, edited and deleted. Template updates are version-checked. Before a schema change is saved, existing cards using the template are checked for required properties and matching value kinds. A template cannot be deleted while it is the subtype default or while any canonical card (including archived cards) still references it.
 - Templates currently describe scalar/reference properties and text starter sections. Media, embedded tool blocks, conditional fields, allowed-reference subtype rules and migration of existing cards after template changes are future work.
 - The registry contains Map, Timeline, Relation Tree and Canvas metadata, but these types are planned only. No unsupported type is creatable.
 - The world allow-list is seeded per world, but there is no UI/API toggle for it yet. Only Card is enabled by default.
 
 ## Verification
 
-The PostgreSQL integration suite covers registry status and enabled flags, seeded defaults, custom template creation, template-to-subtype integrity, required fields on creation, required fields on later edits, and storage of the selected template id on a created card.
+The PostgreSQL integration suite covers registry status and enabled flags, seeded defaults, custom template creation and updates, stale-version conflicts, safe default switching, compatibility checks against existing cards, protected deletion of default/in-use templates, deletion of unused templates, required fields on creation and later card edits, and storage of the selected template id.
