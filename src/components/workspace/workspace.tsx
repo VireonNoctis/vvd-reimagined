@@ -102,6 +102,7 @@ export function Workspace({ world, document, interactive }: Props) {
           {interactive && (
             <>
               <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/media"}><Icon name="files" size={14} />Private Gallery</Link>
+              {isPrimeEra && <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/templates"}><Icon name="layers" size={14} />Card templates</Link>}
               {isPrimeEra && <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/archive"}><Icon name="archive" size={14} />Archived records</Link>}
             </>
           )}
