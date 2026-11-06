@@ -558,6 +558,41 @@ fn validate_template_properties(
                 "A property does not match the selected template definition.",
             ));
         }
+        if definition.required
+            && matches!(supplied, CardPropertyInput::Text { value, .. } if value.trim().is_empty())
+        {
+            return Err(ApiError::bad_request(
+                "A required template property cannot be empty.",
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+async fn validate_document_template(
+    connection: &mut PgConnection,
+    world_id: Uuid,
+    document_id: Uuid,
+    properties: &[CardPropertyInput],
+) -> Result<(), ApiError> {
+    let template = sqlx::query_as::<_, CardTemplateRow>(
+        "SELECT template.id, template.entity_type, template.name, template.description,
+                template.property_definitions, template.starter_blocks, template.is_default
+         FROM documents
+         INNER JOIN card_type_templates template
+           ON template.world_id = documents.world_id
+          AND template.entity_type = documents.entity_type
+          AND template.id = documents.template_id
+         WHERE documents.world_id = $1 AND documents.id = $2",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .fetch_optional(&mut *connection)
+    .await?;
+
+    if let Some(template) = template {
+        validate_template_properties(&card_template_summary(template)?, properties)?;
     }
 
     Ok(())
@@ -1959,6 +1994,7 @@ pub async fn update_card(
             "This card changed since it was opened. Reload it before saving again.",
         ));
     }
+    validate_document_template(&mut transaction, world_id, document_id, &input.properties).await?;
     save_document_revision(&mut transaction, world_id, document_id, account_id).await?;
 
     let result = sqlx::query(
@@ -2167,6 +2203,7 @@ async fn update_card_in_era(
         .iter()
         .map(|value| value.trim().to_owned())
         .collect::<Vec<_>>();
+    validate_document_template(&mut transaction, world_id, document_id, &input.properties).await?;
     ensure_references_exist(&mut transaction, world_id, &input.properties).await?;
 
     let properties = card_properties_from_input(&input.properties);
