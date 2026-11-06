@@ -23,10 +23,11 @@ use crate::{
     AppState,
     error::ApiError,
     models::{
-        Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput, EraCreateInput, EraSummary,
-        DocumentRevisionSummary, DocumentVersionInput, Folder, FolderCreateInput,
-        FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
-        MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
+        Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
+        DocumentRevisionSummary, DocumentVersionInput, EraCreateInput, EraSummary, Folder,
+        FolderCreateInput, FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary,
+        MediaUploadInput, MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary,
+        WorldCreateInput,
     },
     store,
 };
@@ -854,7 +855,15 @@ async fn update_card(
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
     Ok(Json(
-        store::update_card(&state.db, account.id, &slug, document_id, query.era_id, input).await?,
+        store::update_card(
+            &state.db,
+            account.id,
+            &slug,
+            document_id,
+            query.era_id,
+            input,
+        )
+        .await?,
     ))
 }
 
