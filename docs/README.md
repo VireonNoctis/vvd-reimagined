@@ -8,21 +8,21 @@ This folder is the product and implementation reference for vvd Reimagined. It r
 2. [Product model](PRODUCT_MODEL.md) — worlds, eras, documents, projects, apps, tools and blocks.
 3. [Feature inventory](FEATURE_INVENTORY.md) — capabilities and evidence caveats.
 4. [Instagram research](INSTAGRAM_RESEARCH.md) — public demos, current tool announcements, Wiki templates and creator ecosystem.
-4. [Quill](QUILL.md) — story, chapters, drafts, notes, references, audio and publishing.
-5. [Workspace interactions](WORKSPACE_INTERACTIONS.md) — navigation, menus and known workflows.
-6. [Workshop runtime](WORKSHOP_RUNTIME.md) — manifests, host, app/tool contract, codecs and extension lifecycle.
-7. [Platform and collaboration](PLATFORM_AND_COLLABORATION.md) — REST, MCP, CLI, authentication, CRDTs and presence.
-8. [Publishing and Wiki](PUBLISHING_AND_WIKI.md) — immutable versions, audiences, site publication and reader behaviour.
-9. [Plans and entitlements](PLANS_AND_ENTITLEMENTS.md) — current public plan matrix and downgrade semantics.
-10. [Design reconstruction](DESIGN_RECONSTRUCTION.md) — visual hierarchy, rendering strategy and responsive capture plan.
+5. [Quill](QUILL.md) — story, chapters, drafts, notes, references, audio and publishing.
+6. [Workspace interactions](WORKSPACE_INTERACTIONS.md) — navigation, menus and known workflows.
+7. [Workshop runtime](WORKSHOP_RUNTIME.md) — manifests, host, app/tool contract, codecs and extension lifecycle.
+8. [Platform and collaboration](PLATFORM_AND_COLLABORATION.md) — REST, MCP, CLI, authentication, CRDTs and presence.
+9. [Publishing and Wiki](PUBLISHING_AND_WIKI.md) — immutable versions, audiences, site publication and reader behaviour.
+10. [Plans and entitlements](PLANS_AND_ENTITLEMENTS.md) — current public plan matrix and downgrade semantics.
+11. [Design reconstruction](DESIGN_RECONSTRUCTION.md) — visual hierarchy, rendering strategy and responsive capture plan.
 
 ## Building the reconstruction
 
-11. [Architecture](ARCHITECTURE.md) — proposed application boundaries.
-12. [Roadmap](ROADMAP.md) — dependency-aware development sequence.
-13. [Open questions](OPEN_QUESTIONS.md) — behaviour requiring direct verification.
-14. [Project setup](PROJECT_SETUP.md) — current repository readiness.
-15. [Private media storage](MEDIA_STORAGE.md) — S3-compatible Gallery setup, permissions and upload lifecycle.
+12. [Architecture](ARCHITECTURE.md) — proposed application boundaries.
+13. [Roadmap](ROADMAP.md) — dependency-aware development sequence.
+14. [Open questions](OPEN_QUESTIONS.md) — behaviour requiring direct verification.
+15. [Project setup](PROJECT_SETUP.md) — current repository readiness.
+16. [Private media storage](MEDIA_STORAGE.md) — S3-compatible Gallery setup, permissions and upload lifecycle.
 
 ## Decisions
 
