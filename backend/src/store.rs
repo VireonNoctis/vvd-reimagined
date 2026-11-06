@@ -589,7 +589,7 @@ async fn ensure_template_compatible(
                         "This template is used by cards that do not satisfy the new required fields.",
                     ));
                 }
-                Some((_, kind, _)) if kind != expected_kind => {
+                Some((_, kind, _)) if kind.as_str() != expected_kind => {
                     return Err(ApiError::conflict(
                         "This template is used by cards with a different property type.",
                     ));
