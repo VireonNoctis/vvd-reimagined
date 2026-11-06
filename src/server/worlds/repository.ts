@@ -6,7 +6,7 @@ import { apiConfigured, apiRequest, ApiError } from "@/server/api";
 
 export interface WorldRepository {
   list(): Promise<readonly World[]>;
-  findBySlug(slug: string): Promise<World | null>;
+  findBySlug(slug: string, eraId?: string): Promise<World | null>;
 }
 
 class WorldRepositoryImpl implements WorldRepository {
@@ -24,10 +24,11 @@ class WorldRepositoryImpl implements WorldRepository {
     return this.previewWorlds;
   }
 
-  async findBySlug(slug: string): Promise<World | null> {
+  async findBySlug(slug: string, eraId?: string): Promise<World | null> {
     if (apiConfigured) {
       try {
-        return await apiRequest<World>("/v1/worlds/" + encodeURIComponent(slug));
+        const query = eraId ? "?eraId=" + encodeURIComponent(eraId) : "";
+        return await apiRequest<World>("/v1/worlds/" + encodeURIComponent(slug) + query);
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) return null;
         throw error;
