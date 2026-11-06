@@ -863,7 +863,7 @@ pub async fn create_world(
     .await?;
 
     sqlx::query(
-        "INSERT INTO card_type_templates
+        r#"INSERT INTO card_type_templates
          (world_id, id, entity_type, name, description, property_definitions,
           starter_blocks, is_default, created_by)
          VALUES
@@ -881,7 +881,7 @@ pub async fn create_world(
           'An organisation, culture or political group.',
           '[{"id":"seat","label":"Seat","kind":"text","required":false,"defaultValue":""},{"id":"influence","label":"Influence","kind":"text","required":false,"defaultValue":""}]'::jsonb,
           '[{"id":"overview","label":"Overview","text":""},{"id":"history","label":"History","text":""}]'::jsonb,
-          TRUE, $3)",
+          TRUE, $3)"#,
     )
     .bind(id)
     .bind(Uuid::new_v4())
