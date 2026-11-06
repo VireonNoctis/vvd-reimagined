@@ -17,6 +17,60 @@ export const demoWorld: World = {
     updatedAt: "2026-11-02T00:00:00Z"
   }],
   activeEraId: "era-prime-preview",
+  documentTypes: [
+    { typeKey: "card", name: "Card", description: "Structured world records.", enabled: true, implementationStatus: "ready" },
+    { typeKey: "map", name: "Map", description: "Image-backed maps with regions and pins.", enabled: false, implementationStatus: "planned" },
+    { typeKey: "timeline", name: "Timeline", description: "Events and calendars.", enabled: false, implementationStatus: "planned" },
+    { typeKey: "relation_tree", name: "Relation Tree", description: "Explicit relationships.", enabled: false, implementationStatus: "planned" },
+    { typeKey: "canvas", name: "Canvas", description: "Spatial documents and drawing.", enabled: false, implementationStatus: "planned" }
+  ],
+  cardTemplates: [
+    {
+      id: "template-character-preview",
+      entityType: "character",
+      name: "Character",
+      description: "A person or being with a place in the world.",
+      propertyDefinitions: [
+        { id: "role", label: "Role", kind: "text", required: false, defaultValue: "" },
+        { id: "age", label: "Age", kind: "text", required: false, defaultValue: "" }
+      ],
+      starterBlocks: [
+        { id: "intro", label: "Introduction", text: "" },
+        { id: "background", label: "Background", text: "" }
+      ],
+      isDefault: true
+    },
+    {
+      id: "template-place-preview",
+      entityType: "place",
+      name: "Place",
+      description: "A location, settlement or region.",
+      propertyDefinitions: [
+        { id: "region", label: "Region", kind: "text", required: false, defaultValue: "" },
+        { id: "climate", label: "Climate", kind: "text", required: false, defaultValue: "" }
+      ],
+      starterBlocks: [
+        { id: "overview", label: "Overview", text: "" },
+        { id: "details", label: "Details", text: "" }
+      ],
+      isDefault: true
+    },
+    {
+      id: "template-faction-preview",
+      entityType: "faction",
+      name: "Faction",
+      description: "An organisation, culture or political group.",
+      propertyDefinitions: [
+        { id: "seat", label: "Seat", kind: "text", required: false, defaultValue: "" },
+        { id: "influence", label: "Influence", kind: "text", required: false, defaultValue: "" }
+      ],
+      starterBlocks: [
+        { id: "overview", label: "Overview", text: "" },
+        { id: "history", label: "History", text: "" }
+      ],
+      isDefault: true
+    }
+  ],
   documents: [
     {
       id: "card-elowen-sable",
