@@ -368,8 +368,11 @@ async fn load_documents_in_era(
             document.blocks = serde_json::from_value(value.clone()).map_err(|_| ApiError::internal())?;
         }
 
-        document.version = version;
-        document.updated_at = date_label(updated_at);
+        document.version = document.version.saturating_add(version);
+        let updated_label = date_label(updated_at);
+        if updated_label > document.updated_at {
+            document.updated_at = updated_label;
+        }
     }
 
     Ok(documents)
@@ -1838,8 +1841,8 @@ async fn update_card_in_era(
     let properties = card_properties_from_input(&input.properties);
     let blocks = card_blocks_from_input(&input.blocks);
 
-    let existing_patch = sqlx::query_scalar::<_, serde_json::Value>(
-        "SELECT patch FROM document_era_overrides
+    let existing_patch = sqlx::query_as::<_, (serde_json::Value, i64)>(
+        "SELECT patch, version FROM document_era_overrides
          WHERE world_id = $1 AND era_id = $2 AND document_id = $3
          FOR UPDATE",
     )
@@ -1849,44 +1852,39 @@ async fn update_card_in_era(
     .fetch_optional(&mut *transaction)
     .await?;
     let mut patch = existing_patch
-        .and_then(|value| value.as_object().cloned())
+        .as_ref()
+        .and_then(|(value, _)| value.as_object().cloned())
         .unwrap_or_default();
+    let next_override_version = existing_patch
+        .as_ref()
+        .map(|(_, version)| *version)
+        .unwrap_or(0)
+        .checked_add(1)
+        .ok_or_else(ApiError::internal)?;
 
     set_or_inherit(&mut patch, "name", &input.name.trim(), &inherited.name)?;
     set_or_inherit(&mut patch, "aliases", &aliases, &inherited.aliases)?;
     set_or_inherit(&mut patch, "properties", &properties, &inherited.properties)?;
     set_or_inherit(&mut patch, "blocks", &blocks, &inherited.blocks)?;
 
-    if patch.is_empty() {
-        sqlx::query(
-            "DELETE FROM document_era_overrides
-             WHERE world_id = $1 AND era_id = $2 AND document_id = $3",
-        )
-        .bind(world_id)
-        .bind(era_id)
-        .bind(document_id)
-        .execute(&mut *transaction)
-        .await?;
-    } else {
-        sqlx::query(
-            "INSERT INTO document_era_overrides
-             (world_id, era_id, document_id, patch, version, updated_by)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (world_id, era_id, document_id)
-             DO UPDATE SET patch = EXCLUDED.patch,
-                           version = EXCLUDED.version,
-                           updated_by = EXCLUDED.updated_by,
-                           updated_at = NOW()",
-        )
-        .bind(world_id)
-        .bind(era_id)
-        .bind(document_id)
-        .bind(serde_json::Value::Object(patch))
-        .bind(input.expected_version + 1)
-        .bind(account_id)
-        .execute(&mut *transaction)
-        .await?;
-    }
+    sqlx::query(
+        "INSERT INTO document_era_overrides
+         (world_id, era_id, document_id, patch, version, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (world_id, era_id, document_id)
+         DO UPDATE SET patch = EXCLUDED.patch,
+                       version = EXCLUDED.version,
+                       updated_by = EXCLUDED.updated_by,
+                       updated_at = NOW()",
+    )
+    .bind(world_id)
+    .bind(era_id)
+    .bind(document_id)
+    .bind(serde_json::Value::Object(patch))
+    .bind(next_override_version)
+    .bind(account_id)
+    .execute(&mut *transaction)
+    .await?;
 
     sqlx::query("UPDATE worlds SET updated_at = NOW() WHERE id = $1")
         .bind(world_id)
