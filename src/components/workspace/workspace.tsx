@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
@@ -9,6 +10,7 @@ import { CardCreateForm } from "@/components/workspace/card-create-form";
 import { DocumentLifecycleActions } from "@/components/workspace/document-lifecycle-actions";
 import { FolderSidebar } from "@/components/workspace/folder-sidebar";
 import { EraSwitcher } from "@/components/workspace/era-switcher";
+import { CardMediaManager } from "@/components/workspace/card-media-manager";
 import { WorldGraph } from "@/components/visual/world-graph";
 import { resolveCardReference, type CardDocument, type World } from "@/domain/world";
 
@@ -127,6 +129,22 @@ export function Workspace({ world, document, interactive }: Props) {
               </div>
             </div>
             <div className="card-divider" />
+            {document.media?.some((asset) => asset.contentType.startsWith("image/")) && (
+              <div className="card-media-inline">
+                {document.media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => (
+                  <figure key={asset.id}>
+                    <Image
+                      src={"/api/v1/worlds/" + encodeURIComponent(world.slug) + "/media/" + encodeURIComponent(asset.id) + "/download"}
+                      alt={asset.fileName}
+                      width={1200}
+                      height={800}
+                      unoptimized
+                    />
+                    <figcaption>{asset.fileName}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
             <div className="card-content">{document.blocks.map((block) => <p key={block.id}>{block.text}</p>)}</div>
             <div className="document-endmark"><span /><small>END OF RECORD</small><span /></div>
           </article>
@@ -147,6 +165,13 @@ export function Workspace({ world, document, interactive }: Props) {
           <div className="details-meta"><span className="eyebrow">Record identity</span><dl>
             <div><dt>Document type</dt><dd>Card</dd></div><div><dt>Entity type</dt><dd>{document.entityType}</dd></div><div><dt>Aliases</dt><dd>{document.aliases.length}</dd></div><div><dt>Record ID</dt><dd className="record-id">{document.id}</dd></div>
           </dl></div>
+          {interactive && isPrimeEra && (
+            <CardMediaManager
+              worldSlug={world.slug}
+              documentId={document.id}
+              initialAssets={document.media ?? []}
+            />
+          )}
           <div className="inspector-note"><Icon name="spark" size={15} /><p>References point to the same world record. They are not copied into this card.</p></div>
         </aside>}
       </div>
