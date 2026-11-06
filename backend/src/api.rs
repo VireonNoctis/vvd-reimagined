@@ -611,10 +611,9 @@ async fn download_media_asset(
     let object_key = store::media_object_key(&state.db, account.id, &slug, media_id, false).await?;
     let url = storage.presign_download(&object_key).await?;
     let mut response = Redirect::temporary(&url).into_response();
-    response.headers_mut().insert(
-        CACHE_CONTROL,
-        HeaderValue::from_static("private, no-store"),
-    );
+    response
+        .headers_mut()
+        .insert(CACHE_CONTROL, HeaderValue::from_static("private, no-store"));
     Ok(response)
 }
 
