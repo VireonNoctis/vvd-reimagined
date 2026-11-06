@@ -181,7 +181,10 @@ async fn migrations_enforce_membership_and_same_world_references() {
         .await
         .expect("list world eras");
     assert!(eras.iter().any(|era| era.id == alternate_era.id));
-    assert!(eras.iter().any(|era| era.id == default_era_id && era.is_default));
+    assert!(
+        eras.iter()
+            .any(|era| era.id == default_era_id && era.is_default)
+    );
 
     let era_world = store::get_world(
         &pool,
