@@ -195,7 +195,15 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .await
     .expect("load a world in the selected era");
     assert_eq!(era_world.active_era_id, alternate_era.id);
-    assert_eq!(era_world.documents[0].version, 1);
+    assert_eq!(
+        era_world
+            .documents
+            .iter()
+            .find(|document| document.id == source_document_id)
+            .expect("find the inherited source document")
+            .version,
+        1
+    );
 
     let inherited = store::get_document(
         &pool,
