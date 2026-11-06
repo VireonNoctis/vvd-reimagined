@@ -10,11 +10,11 @@ use crate::{
     models::{
         ArchivedDocumentSummary, BlockRow, CardBlock, CardBlockInput, CardCreateInput,
         CardDocument, CardProperty, CardPropertyInput, CardPropertyKind, CardTemplateBlock,
-        CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateRow, CardTemplateSummary,
-        CardUpdateInput, DocumentRevisionSummary, DocumentRow, DocumentTypeRow, DocumentTypeSummary,
-        EntityType, EraCreateInput, EraRow, EraSummary, Folder, FolderCreateInput, FolderRow,
-        FolderUpdateInput, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput, PropertyRow,
-        World, WorldRow,
+        CardTemplateCreateInput, CardTemplatePropertyDefinition, CardTemplateRow,
+        CardTemplateSummary, CardUpdateInput, DocumentRevisionSummary, DocumentRow,
+        DocumentTypeRow, DocumentTypeSummary, EntityType, EraCreateInput, EraRow, EraSummary,
+        Folder, FolderCreateInput, FolderRow, FolderUpdateInput, MediaAssetCreate,
+        MediaAssetSummary, MoveDocumentInput, PropertyRow, World, WorldRow,
     },
 };
 
@@ -442,7 +442,11 @@ pub async fn create_card_template(
                 "Template property labels must contain between 1 and 100 characters.",
             ));
         }
-        if definition.default_value.as_ref().is_some_and(|value| value.chars().count() > 10_000) {
+        if definition
+            .default_value
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 10_000)
+        {
             return Err(ApiError::bad_request(
                 "Template property defaults are limited to 10,000 characters.",
             ));
@@ -485,7 +489,9 @@ pub async fn create_card_template(
     .await?
     .unwrap_or(false);
     if !card_enabled {
-        return Err(ApiError::bad_request("Card documents are disabled for this world."));
+        return Err(ApiError::bad_request(
+            "Card documents are disabled for this world.",
+        ));
     }
 
     if input.is_default {
@@ -500,8 +506,8 @@ pub async fn create_card_template(
     }
 
     let id = Uuid::new_v4();
-    let property_definitions = serde_json::to_value(&input.property_definitions)
-        .map_err(|_| ApiError::internal())?;
+    let property_definitions =
+        serde_json::to_value(&input.property_definitions).map_err(|_| ApiError::internal())?;
     let starter_blocks =
         serde_json::to_value(&input.starter_blocks).map_err(|_| ApiError::internal())?;
     let row = sqlx::query_as::<_, CardTemplateRow>(
@@ -551,7 +557,10 @@ fn validate_template_properties(
         let matches_kind = matches!(
             (definition.kind, supplied),
             (CardPropertyKind::Text, CardPropertyInput::Text { .. })
-                | (CardPropertyKind::Reference, CardPropertyInput::Reference { .. })
+                | (
+                    CardPropertyKind::Reference,
+                    CardPropertyInput::Reference { .. }
+                )
         );
         if !matches_kind {
             return Err(ApiError::bad_request(
