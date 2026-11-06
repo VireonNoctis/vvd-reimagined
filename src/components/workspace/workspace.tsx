@@ -47,6 +47,7 @@ export function Workspace({ world, document, interactive }: Props) {
 
   const activeEra = world.eras.find((era) => era.id === world.activeEraId);
   const isPrimeEra = activeEra?.isDefault ?? true;
+  const imageAttachments = document?.media?.filter((asset) => asset.contentType.startsWith("image/")) ?? [];
   const updated = document
     ? new Date(document.updatedAt + "T12:00:00").toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric" })
     : "";
@@ -129,9 +130,9 @@ export function Workspace({ world, document, interactive }: Props) {
               </div>
             </div>
             <div className="card-divider" />
-            {document.media?.some((asset) => asset.contentType.startsWith("image/")) && (
+            {imageAttachments.length > 0 && (
               <div className="card-media-inline">
-                {document.media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => (
+                {imageAttachments.map((asset) => (
                   <figure key={asset.id}>
                     <Image
                       src={"/api/v1/worlds/" + encodeURIComponent(world.slug) + "/media/" + encodeURIComponent(asset.id) + "/download"}
