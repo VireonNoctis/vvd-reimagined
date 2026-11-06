@@ -268,7 +268,7 @@ export function CardCreateForm({ world, onCancel }: Props) {
             disabled={busy}
           >+ Add section</button>
         </div>
-        {blocks.length === 0 && <p className="card-editor-empty">No starter sections. Add one when you're ready.</p>}
+        {blocks.length === 0 && <p className="card-editor-empty">No starter sections. Add one when you are ready.</p>}
         <div className="card-editor-block-list">
           {blocks.map((block, index) => (
             <section className="card-editor-block" key={block.id}>
