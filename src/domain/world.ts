@@ -18,6 +18,7 @@ export type CardTemplate = {
   id: string;
   entityType: CardEntityType;
   version: number;
+  version: number;
   name: string;
   description: string;
   propertyDefinitions: CardTemplatePropertyDefinition[];
