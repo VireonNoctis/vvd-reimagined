@@ -573,7 +573,55 @@ export function WorldGraph({ world, selectedDocumentId, onSelectDocument, intera
             >{type}</button>
           ))}
         </div>
+        {interactive && (
+          <div className="graph-layout-tools">
+            <span className="graph-layout-label">LAYOUT</span>
+            <select
+              value={layoutId}
+              onChange={(event) => applyLayout(event.target.value)}
+              aria-label="Saved graph layouts"
+              disabled={savingLayout}
+            >
+              <option value="">Current view</option>
+              {currentLayouts.map((layout) => (
+                <option value={layout.id} key={layout.id}>{layout.name}</option>
+              ))}
+            </select>
+            {selectedLayout && (
+              <>
+                <button type="button" onClick={() => void updateLayout()} disabled={savingLayout}>Update</button>
+                <button type="button" onClick={() => void deleteLayout()} disabled={savingLayout}>Delete</button>
+              </>
+            )}
+            <button
+              type="button"
+              className="graph-layout-save-toggle"
+              onClick={() => { setSaveOpen((open) => !open); setLayoutError(""); }}
+              disabled={savingLayout || graph.nodes.length === 0}
+            >Save as</button>
+          </div>
+        )}
       </div>
+
+      {saveOpen && interactive && (
+        <form className="graph-layout-save-form" onSubmit={saveLayout}>
+          <label>
+            <span className="eyebrow">SAVE THIS VIEW</span>
+            <input
+              value={layoutName}
+              onChange={(event) => setLayoutName(event.target.value)}
+              placeholder="Layout name"
+              maxLength={80}
+              autoFocus
+              required
+              disabled={savingLayout}
+            />
+          </label>
+          <button type="submit" disabled={savingLayout}>{savingLayout ? "Saving…" : "Save layout"}</button>
+          <button type="button" onClick={() => setSaveOpen(false)} disabled={savingLayout}>Cancel</button>
+        </form>
+      )}
+      {layoutError && interactive && <p className="graph-layout-error" role="alert">{layoutError}</p>}
 
       <div className="graph-layout">
         <div className="graph-viewport">
