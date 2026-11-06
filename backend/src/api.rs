@@ -25,7 +25,8 @@ use crate::{
     models::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
         DocumentRevisionSummary, DocumentVersionInput, Folder, FolderCreateInput,
-        FolderUpdateInput, LoginInput, MediaAssetSummary, MediaUploadInput, MediaUploadTicket,
+        FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
+        MediaUploadTicket,
         MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
     },
     store,
@@ -500,7 +501,7 @@ fn validate_media_upload(input: &MediaUploadInput) -> Result<(String, String), A
 
     let file_name = input
         .file_name
-        .rsplit(|character| character == '/' || character == '\\')
+        .rsplit(['/', '\\'])
         .next()
         .unwrap_or_default()
         .chars()
@@ -538,13 +539,15 @@ async fn create_media_upload(
         &state.db,
         account.id,
         &slug,
-        asset_id,
-        &object_key,
-        &file_name,
-        &content_type,
-        input.size_bytes,
-        input.document_id,
-        expires_at,
+        MediaAssetCreate {
+            id: asset_id,
+            object_key,
+            file_name,
+            content_type: content_type.clone(),
+            size_bytes: input.size_bytes,
+            document_id: input.document_id,
+            expires_at,
+        },
     )
     .await?;
 
