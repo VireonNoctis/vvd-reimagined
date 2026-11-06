@@ -1727,11 +1727,11 @@ fn card_blocks_from_input(blocks: &[CardBlockInput]) -> Vec<CardBlock> {
         .collect()
 }
 
-fn set_or_inherit<T: Serialize>(
+fn set_or_inherit<T: Serialize, U: Serialize>(
     patch: &mut serde_json::Map<String, serde_json::Value>,
     key: &str,
     value: &T,
-    inherited: &T,
+    inherited: &U,
 ) -> Result<(), ApiError> {
     let value = serde_json::to_value(value).map_err(|_| ApiError::internal())?;
     let inherited = serde_json::to_value(inherited).map_err(|_| ApiError::internal())?;
