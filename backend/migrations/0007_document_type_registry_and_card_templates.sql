@@ -54,13 +54,15 @@ CREATE TABLE card_type_templates (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (world_id, id),
-    UNIQUE (world_id, entity_type, id),
-    UNIQUE (world_id, entity_type, name)
+    UNIQUE (world_id, entity_type, id)
 );
 
 CREATE UNIQUE INDEX card_type_templates_one_default_idx
     ON card_type_templates (world_id, entity_type)
     WHERE is_default;
+
+CREATE UNIQUE INDEX card_type_templates_name_unique
+    ON card_type_templates (world_id, entity_type, LOWER(name));
 
 CREATE INDEX card_type_templates_world_type_idx
     ON card_type_templates (world_id, entity_type, created_at DESC);
