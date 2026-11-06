@@ -26,7 +26,8 @@ use crate::{
         Account, ArchivedDocumentSummary, CardCreateInput, CardTemplateCreateInput,
         CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary,
         DocumentTypeSummary, DocumentVersionInput, EraCreateInput, EraSummary, Folder,
-        FolderCreateInput, FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary,
+        FolderCreateInput, FolderUpdateInput, GraphLayoutCreateInput, GraphLayoutSummary,
+        GraphLayoutUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary,
         MediaUploadInput, MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary,
         WorldCreateInput,
     },
@@ -253,6 +254,14 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/worlds/{slug}", get(get_world))
         .route("/v1/worlds/{slug}/eras", get(list_eras).post(create_era))
         .route("/v1/worlds/{slug}/document-types", get(list_document_types))
+        .route(
+            "/v1/worlds/{slug}/graph-layouts",
+            get(list_graph_layouts).post(create_graph_layout),
+        )
+        .route(
+            "/v1/worlds/{slug}/graph-layouts/{layout_id}",
+            patch(update_graph_layout).delete(delete_graph_layout),
+        )
         .route(
             "/v1/worlds/{slug}/card-templates",
             get(list_card_templates).post(create_card_template),
@@ -848,6 +857,54 @@ async fn restore_document_revision(
         )
         .await?,
     ))
+}
+
+async fn list_graph_layouts(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+    Query(query): Query<EraQuery>,
+) -> Result<Json<Vec<GraphLayoutSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::list_graph_layouts(&state.db, account.id, &slug, query.era_id).await?,
+    ))
+}
+
+async fn create_graph_layout(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+    Json(input): Json<GraphLayoutCreateInput>,
+) -> Result<impl IntoResponse, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let layout = store::create_graph_layout(&state.db, account.id, &slug, input).await?;
+    Ok((StatusCode::CREATED, Json(layout)))
+}
+
+async fn update_graph_layout(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, layout_id)): Path<(String, Uuid)>,
+    Json(input): Json<GraphLayoutUpdateInput>,
+) -> Result<Json<GraphLayoutSummary>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::update_graph_layout(&state.db, account.id, &slug, layout_id, input).await?,
+    ))
+}
+
+async fn delete_graph_layout(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, layout_id)): Path<(String, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    store::delete_graph_layout(&state.db, account.id, &slug, layout_id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn list_document_types(
