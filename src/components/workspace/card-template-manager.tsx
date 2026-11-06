@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import type { CardEntityType, CardTemplatePropertyDefinition, World } from "@/domain/world";
+import type { CardEntityType, CardTemplate, CardTemplatePropertyDefinition, World } from "@/domain/world";
 
 type Props = { world: World; interactive: boolean };
 
@@ -20,6 +20,9 @@ const entityLabels: Record<CardEntityType, string> = {
 export function CardTemplateManager({ world, interactive }: Props) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [expectedVersion, setExpectedVersion] = useState(1);
+  const [templateActionError, setTemplateActionError] = useState("");
   const [entityType, setEntityType] = useState<CardEntityType>("character");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -32,6 +35,9 @@ export function CardTemplateManager({ world, interactive }: Props) {
   const [busy, setBusy] = useState(false);
 
   function resetForm() {
+    setEditingTemplateId(null);
+    setExpectedVersion(1);
+    setEntityType("character");
     setName("");
     setDescription("");
     setProperties([]);
@@ -40,19 +46,65 @@ export function CardTemplateManager({ world, interactive }: Props) {
     setError("");
   }
 
+  function beginEdit(template: CardTemplate) {
+    setEditingTemplateId(template.id);
+    setExpectedVersion(template.version);
+    setEntityType(template.entityType);
+    setName(template.name);
+    setDescription(template.description);
+    setProperties(template.propertyDefinitions.map((item) => ({ ...item })));
+    setBlocks(template.starterBlocks.map((item) => ({ ...item })));
+    setIsDefault(template.isDefault);
+    setError("");
+    setTemplateActionError("");
+    setCreating(true);
+  }
+
+  async function removeTemplate(template: CardTemplate) {
+    setTemplateActionError("");
+    if (template.isDefault) {
+      setTemplateActionError("Choose another default template before deleting this one.");
+      return;
+    }
+    if (!window.confirm("Delete the “" + template.name + "” template? Cards already using it will be preserved, but the template cannot be removed while it is assigned.")) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const response = await fetch(
+        "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/card-templates/" + encodeURIComponent(template.id),
+        { method: "DELETE" }
+      );
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(result.error || "The template could not be deleted.");
+      if (editingTemplateId === template.id) {
+        resetForm();
+        setCreating(false);
+      }
+      router.refresh();
+    } catch (reason) {
+      setTemplateActionError(reason instanceof Error ? reason.message : "The template could not be deleted.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setBusy(true);
+    const editing = editingTemplateId !== null;
+    const basePath = "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/card-templates";
 
     try {
       const response = await fetch(
-        "/api/v1/worlds/" + encodeURIComponent(world.slug) + "/card-templates",
+        editing ? basePath + "/" + encodeURIComponent(editingTemplateId) : basePath,
         {
-          method: "POST",
+          method: editing ? "PATCH" : "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            entityType,
+            ...(editing ? { expectedVersion } : { entityType }),
             name: name.trim(),
             description: description.trim(),
             propertyDefinitions: properties,
@@ -62,15 +114,15 @@ export function CardTemplateManager({ world, interactive }: Props) {
         }
       );
       const result = await response.json().catch(() => ({})) as { id?: string; error?: string };
-      if (!response.ok || !result.id) {
-        throw new Error(result.error || "The template could not be created.");
+      if (!response.ok || (!editing && !result.id)) {
+        throw new Error(result.error || (editing ? "The template could not be updated." : "The template could not be created."));
       }
 
       resetForm();
       setCreating(false);
       router.refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The template could not be created.");
+      setError(reason instanceof Error ? reason.message : (editing ? "The template could not be updated." : "The template could not be created."));
     } finally {
       setBusy(false);
     }
@@ -128,7 +180,16 @@ export function CardTemplateManager({ world, interactive }: Props) {
             <h2>Card templates</h2>
           </div>
           {interactive && (
-            <button className="auth-submit template-add-button" type="button" onClick={() => { setCreating((value) => !value); setError(""); }}>
+            <button className="auth-submit template-add-button" type="button" onClick={() => {
+              if (creating) {
+                resetForm();
+                setCreating(false);
+              } else {
+                resetForm();
+                setCreating(true);
+              }
+              setTemplateActionError("");
+            }}>
               {creating ? "Close editor" : "+ New template"}
             </button>
           )}
@@ -137,14 +198,14 @@ export function CardTemplateManager({ world, interactive }: Props) {
         {creating && interactive && (
           <form className="template-builder" onSubmit={submit}>
             <div className="template-builder-heading">
-              <span className="eyebrow">NEW TYPE TEMPLATE</span>
-              <h3>Define a reusable starting point.</h3>
+              <span className="eyebrow">{editingTemplateId ? "EDIT TYPE TEMPLATE" : "NEW TYPE TEMPLATE"}</span>
+              <h3>{editingTemplateId ? "Refine this starting point." : "Define a reusable starting point."}</h3>
               <p>Required fields are checked when a card is created. Optional fields can be filled in later.</p>
             </div>
             <div className="template-builder-grid">
               <label>
                 <span>Card type</span>
-                <select value={entityType} onChange={(event) => setEntityType(event.target.value as CardEntityType)} disabled={busy}>
+                <select value={entityType} onChange={(event) => setEntityType(event.target.value as CardEntityType)} disabled={busy || editingTemplateId !== null}>
                   <option value="character">Character</option>
                   <option value="place">Place</option>
                   <option value="faction">Faction</option>
@@ -223,11 +284,12 @@ export function CardTemplateManager({ world, interactive }: Props) {
             {error && <p className="auth-error" role="alert">{error}</p>}
             <div className="card-edit-actions">
               <button className="text-link" type="button" onClick={() => { setCreating(false); resetForm(); }} disabled={busy}>Cancel</button>
-              <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Saving…" : "Save template"} <span aria-hidden="true">↗</span></button>
+              <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Saving…" : editingTemplateId ? "Update template" : "Save template"} <span aria-hidden="true">↗</span></button>
             </div>
           </form>
         )}
 
+        {templateActionError && <p className="auth-error" role="alert">{templateActionError}</p>}
         <div className="template-type-groups">
           {typeGroups.map(({ type, templates }) => (
             <section className="template-type-group" key={type}>
@@ -248,6 +310,12 @@ export function CardTemplateManager({ world, interactive }: Props) {
                       <span>{template.propertyDefinitions.length} properties</span>
                       <span>{template.starterBlocks.length} sections</span>
                     </div>
+                    {interactive && (
+                      <div className="card-template-actions">
+                        <button className="editor-secondary-button" type="button" onClick={() => beginEdit(template)} disabled={busy}>Edit</button>
+                        <button className="editor-secondary-button template-delete-button" type="button" onClick={() => removeTemplate(template)} disabled={busy || template.isDefault} title={template.isDefault ? "Choose another default template first" : "Delete unused template"}>Delete</button>
+                      </div>
+                    )}
                   </article>
                 ))}
                 {templates.length === 0 && <p className="card-editor-empty">No templates for this type yet.</p>}
