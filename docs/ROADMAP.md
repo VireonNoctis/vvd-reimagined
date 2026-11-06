@@ -38,8 +38,8 @@ Without VVD_API_URL the app remains a read-only preview. With it configured, acc
 - [x] Make card writes transactional and version-checked; enforce same-world references with composite foreign keys.
 - [x] Connect the Next.js world library and card editor to API-backed reads and version-checked writes.
 - [x] Implement nested folders and move cards between folders.
-- [ ] Add registered document types beyond cards.
-- [ ] Define card type templates and per-type property definitions.
+- [x] Add a document type registry and per-world allow-list; Map, Timeline, Relation Tree and Canvas stay planned until their typed content handlers exist.
+- [x] Add per-subtype card templates with property definitions, starter blocks and required-field validation on create and edit.
 - [x] Add revision history, archive and restore.
 - [x] Add named eras that inherit from a parent by reference, with sparse field-level overrides, recursive resolution and version checks across ancestor changes. Current slice is limited to edits of canonical cards; branch-local additions, per-era tombstones and era-specific revision history remain open.
 - [x] Add aliases, typed references and searchable document names, aliases and entity types.
