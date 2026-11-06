@@ -513,7 +513,8 @@ pub async fn create_card_template(
 
     if input.is_default {
         sqlx::query(
-            "UPDATE card_type_templates SET is_default = FALSE, updated_at = NOW()
+            "UPDATE card_type_templates
+             SET is_default = FALSE, version = version + 1, updated_at = NOW()
              WHERE world_id = $1 AND entity_type = $2 AND is_default",
         )
         .bind(world_id)
@@ -724,8 +725,8 @@ pub async fn delete_card_template(
 ) -> Result<(), ApiError> {
     let world_id = require_world(pool, account_id, slug, true).await?;
     let mut transaction = pool.begin().await?;
-    let row = sqlx::query_as::<_, (bool, i64)>(
-        "SELECT is_default, version FROM card_type_templates
+    let is_default = sqlx::query_scalar::<_, bool>(
+        "SELECT is_default FROM card_type_templates
          WHERE world_id = $1 AND id = $2
          FOR UPDATE",
     )
@@ -735,7 +736,7 @@ pub async fn delete_card_template(
     .await?
     .ok_or_else(ApiError::not_found)?;
 
-    if row.0 {
+    if is_default {
         return Err(ApiError::conflict(
             "Choose another default template before deleting this one.",
         ));
@@ -825,7 +826,8 @@ async fn validate_document_template(
            ON template.world_id = documents.world_id
           AND template.entity_type = documents.entity_type
           AND template.id = documents.template_id
-         WHERE documents.world_id = $1 AND documents.id = $2",
+         WHERE documents.world_id = $1 AND documents.id = $2
+         FOR SHARE",
     )
     .bind(world_id)
     .bind(document_id)
