@@ -23,8 +23,9 @@ use crate::{
     AppState,
     error::ApiError,
     models::{
-        Account, ArchivedDocumentSummary, CardCreateInput, CardUpdateInput,
-        DocumentRevisionSummary, DocumentVersionInput, EraCreateInput, EraSummary, Folder,
+        Account, ArchivedDocumentSummary, CardCreateInput, CardTemplateCreateInput, CardTemplateSummary,
+        CardUpdateInput, DocumentRevisionSummary, DocumentTypeSummary, DocumentVersionInput,
+        EraCreateInput, EraSummary, Folder,
         FolderCreateInput, FolderUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary,
         MediaUploadInput, MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary,
         WorldCreateInput,
@@ -251,6 +252,11 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/worlds", get(list_worlds).post(create_world))
         .route("/v1/worlds/{slug}", get(get_world))
         .route("/v1/worlds/{slug}/eras", get(list_eras).post(create_era))
+        .route("/v1/worlds/{slug}/document-types", get(list_document_types))
+        .route(
+            "/v1/worlds/{slug}/card-templates",
+            get(list_card_templates).post(create_card_template),
+        )
         .route(
             "/v1/worlds/{slug}/documents",
             get(list_documents).post(create_card),
@@ -807,6 +813,41 @@ async fn restore_document_revision(
         )
         .await?,
     ))
+}
+
+async fn list_document_types(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+) -> Result<Json<Vec<DocumentTypeSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::list_document_types(&state.db, account.id, &slug).await?,
+    ))
+}
+
+async fn list_card_templates(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+) -> Result<Json<Vec<CardTemplateSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::list_card_templates(&state.db, account.id, &slug).await?,
+    ))
+}
+
+async fn create_card_template(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(slug): Path<String>,
+    Json(input): Json<CardTemplateCreateInput>,
+) -> Result<impl IntoResponse, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let template =
+        store::create_card_template(&state.db, account.id, &slug, input).await?;
+    Ok((StatusCode::CREATED, Json(template)))
 }
 
 async fn list_documents(
