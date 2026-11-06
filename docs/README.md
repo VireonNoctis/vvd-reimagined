@@ -24,6 +24,7 @@ This folder is the product and implementation reference for vvd Reimagined. It r
 15. [Project setup](PROJECT_SETUP.md) — current repository readiness.
 16. [Private media storage](MEDIA_STORAGE.md) — S3-compatible Gallery setup, permissions and upload lifecycle.
 17. [Eras and inheritance](ERAS_AND_INHERITANCE.md) — sparse field overrides, parent resolution, version checks and current limits.
+18. [Document types and templates](DOCUMENT_TYPES_AND_TEMPLATES.md) — registry status, world allow-lists, per-type card templates and validation boundaries.
 
 ## Decisions
 
