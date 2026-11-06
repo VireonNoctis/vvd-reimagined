@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
-import type { CardEntityType, CardTemplateBlock, World } from "@/domain/world";
+import type { CardEntityType, CardProperty, CardTemplateBlock, World } from "@/domain/world";
 
 type Props = { world: World; onCancel?: () => void };
 
@@ -82,20 +82,27 @@ export function CardCreateForm({ world, onCancel }: Props) {
       return;
     }
 
-    const properties = selectedTemplate.propertyDefinitions.flatMap((definition) => {
+    const properties: CardProperty[] = [];
+    for (const definition of selectedTemplate.propertyDefinitions) {
       const value = propertyValues[definition.id] ?? "";
       if (definition.kind === "reference") {
-        return value
-          ? [{ id: definition.id, label: definition.label, kind: "reference" as const, documentId: value }]
-          : [];
+        if (value) {
+          properties.push({
+            id: definition.id,
+            label: definition.label,
+            kind: "reference",
+            documentId: value
+          });
+        }
+      } else {
+        properties.push({
+          id: definition.id,
+          label: definition.label,
+          kind: "text",
+          value
+        });
       }
-      return [{
-        id: definition.id,
-        label: definition.label,
-        kind: "text" as const,
-        value
-      }];
-    });
+    }
 
     const missingRequired = selectedTemplate.propertyDefinitions.some((definition) => {
       if (!definition.required) return false;
