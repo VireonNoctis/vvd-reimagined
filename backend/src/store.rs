@@ -339,10 +339,10 @@ async fn load_documents_in_era(
             INNER JOIN era_path child ON parent.id = child.parent_era_id
             WHERE parent.world_id = $1
          )
-         SELECT override.document_id, override.patch, override.version, override.updated_at
-         FROM document_era_overrides override
-         INNER JOIN era_path path ON path.id = override.era_id
-         WHERE override.world_id = $1
+         SELECT era_override.document_id, era_override.patch, era_override.version, era_override.updated_at
+         FROM document_era_overrides era_override
+         INNER JOIN era_path path ON path.id = era_override.era_id
+         WHERE era_override.world_id = $1
          ORDER BY path.depth DESC",
     )
     .bind(world_id)
@@ -1838,6 +1838,8 @@ async fn update_card_in_era(
         .iter()
         .map(|value| value.trim().to_owned())
         .collect::<Vec<_>>();
+    ensure_references_exist(&mut transaction, world_id, &input.properties).await?;
+
     let properties = card_properties_from_input(&input.properties);
     let blocks = card_blocks_from_input(&input.blocks);
 
