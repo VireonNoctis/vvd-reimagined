@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 type MediaAsset = {
@@ -105,6 +106,10 @@ export function MediaGallery({ worldSlug, initialAssets }: Props) {
   }
 
   async function remove(asset: MediaAsset) {
+    if (asset.documentId) {
+      setError("Detach this item from its card before deleting it from the Gallery.");
+      return;
+    }
     if (!window.confirm("Delete " + asset.fileName + " from this world's private Gallery?")) return;
     setBusyId(asset.id);
     setError("");
@@ -141,10 +146,22 @@ export function MediaGallery({ worldSlug, initialAssets }: Props) {
             <article className="media-card" key={asset.id}>
               <div className="media-preview"><MediaPreview worldSlug={worldSlug} asset={asset} /></div>
               <div className="media-card-info">
-                <div><strong title={asset.fileName}>{asset.fileName}</strong><span>{asset.contentType} · {formatSize(asset.sizeBytes)}</span></div>
-                <button className="session-revoke" type="button" disabled={Boolean(busyId)} onClick={() => void remove(asset)}>
-                  {busyId === asset.id ? "Deleting…" : "Delete"}
-                </button>
+                <div>
+                  <strong title={asset.fileName}>{asset.fileName}</strong>
+                  <span>{asset.contentType} · {formatSize(asset.sizeBytes)}</span>
+                  {asset.documentId && (
+                    <Link className="media-attached-link" href={"/worlds/" + encodeURIComponent(worldSlug) + "?doc=" + encodeURIComponent(asset.documentId)}>
+                      Attached to a card · Open record
+                    </Link>
+                  )}
+                </div>
+                <button
+                  className="session-revoke"
+                  type="button"
+                  disabled={Boolean(busyId) || Boolean(asset.documentId)}
+                  title={asset.documentId ? "Detach this asset from its card first" : "Delete from Gallery"}
+                  onClick={() => void remove(asset)}
+                >{busyId === asset.id ? "Deleting…" : "Delete"}</button>
               </div>
             </article>
           ))}
