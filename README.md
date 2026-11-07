@@ -20,7 +20,7 @@ Research baseline: 6 November 2026. Public documentation cannot replace direct i
 - Login/register/logout, a same-origin API proxy, persistent world creation and a version-checked card editor.
 - Account security centre with password changes, current-session rotation, per-device and all-other-session revocation, live session-list refresh after password changes, and a responsive security overview.
 - PostgreSQL-backed authentication throttles, nested folders, named eras with sparse inheritance, reversible archive, revision history, personal graph layouts and same-world card moves.
-- Private Gallery with short-lived presigned S3-compatible uploads and downloads, object metadata verification before publication, and membership-checked asset access.
+- Private Gallery with short-lived presigned S3-compatible uploads/downloads, object metadata verification, ClamAV byte scanning before publication and membership-checked asset access. Uploads fail closed until a private scanner is configured.
 - WebGL 2 World Graph with separate typed-reference and mention edges, independent filters, personal saved layouts and source-evidence drill-down for inferred mentions.
 - CI configured for repository validation, lint, type-check, tests, production build, Rust formatting/Clippy and PostgreSQL integration checks.
 
@@ -28,7 +28,7 @@ The sample world is deliberately synthetic and read-only when no API is configur
 
 ## Not implemented yet
 
-Email verification and recovery, multifactor authentication, multi-user collaboration, Quill, Map/Relation Tree/Canvas/Timeline tools, Workshop, Wiki publishing, billing, account export/deletion, operational audit/backup/restore and independent production security review remain open. The current authentication and API protections are a hardening baseline, not a certification.
+Email verification and recovery, multifactor authentication, multi-user collaboration, Quill, Map/Relation Tree/Canvas/Timeline tools, Workshop, Wiki publishing, billing, account export/deletion, operational audit/backup/restore and independent production security review remain open. Production Gallery use also requires an isolated ClamAV service and managed signature updates. The current authentication and API protections are a hardening baseline, not a certification.
 
 ## Technology direction
 

@@ -23,7 +23,7 @@ The current implementation includes the following controls. They are implementat
 - The Next.js application and Rust API set no-sniff, frame-denial, referrer and permission headers. Production frontend responses set HSTS.
 - World membership and role checks are enforced in Rust for reads and writes. Viewers are read-only; world writes require owner, admin or editor. Composite foreign keys keep canonical references inside their world.
 - Card changes use transactions and expected versions. Immutable snapshots support revision inspection and conflict-checked restore. Archive is reversible and does not silently destroy canonical IDs.
-- Private media uses server-generated object keys, short-lived signed URLs, membership-checked access and server-side size/content-type metadata comparisons. Unsupported file types, including SVG, are rejected.
+- Private media uses server-generated object keys, short-lived signed URLs, membership-checked access and server-side size/content-type metadata comparisons. Unsupported file types, including SVG, are rejected. An upload cannot receive a ticket or become ready unless a ClamAV daemon is configured; completed objects are streamed through ClamAV INSTREAM before publication, and infected objects are rejected and deleted.
 
 ## Important boundaries and production gates
 
@@ -33,7 +33,7 @@ The current implementation includes the following controls. They are implementat
 - Independent security review and penetration testing of authentication, authorization, session lifecycle, CSRF, storage and deployment.
 - Verified deployment topology, TLS termination, trusted reverse-proxy configuration, host allow-listing and network restrictions for PostgreSQL and object storage.
 - A defined secret-management and rotation process. Production credentials must not be committed or exposed to browser bundles.
-- Malware/content scanning and operational quarantine for uploaded files; metadata checks do not prove that a file is safe to open.
+- Production must run a maintained, network-isolated ClamAV daemon, set `VVD_CLAMAV_ADDRESS`, configure `StreamMaxLength` above the largest permitted upload (250 MB), monitor scanner availability/signature freshness and test rejection/deletion behaviour. The API fails closed for new uploads when the scanner is unavailable. The integration is implemented, but the repository cannot provision or verify the production daemon.
 - Storage bucket policies, CORS rules, lifecycle cleanup for expired pending uploads, backup policy and restore drills.
 - Central audit events for membership, sharing, account and destructive operations; alerting, monitoring and incident response.
 - A Content Security Policy designed with Next.js nonce support. A permissive CSP is deliberately not asserted by the current configuration.

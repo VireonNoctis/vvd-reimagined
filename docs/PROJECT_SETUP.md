@@ -34,7 +34,7 @@ cargo run -p vvd-api
 
 The API applies pending migrations on startup. It listens on `http://127.0.0.1:4100` by default.
 
-Private Gallery uploads stay disabled unless both `VVD_S3_BUCKET` and `VVD_S3_REGION` are set. The AWS SDK uses its normal credential chain, such as environment credentials or an attached workload role. For an S3-compatible development endpoint, set `VVD_S3_ENDPOINT` and `VVD_S3_FORCE_PATH_STYLE=true` when the provider requires path-style requests. Production custom endpoints must use HTTPS.
+Private Gallery uploads stay disabled unless `VVD_S3_BUCKET`, `VVD_S3_REGION` and `VVD_CLAMAV_ADDRESS` are set. Run ClamAV in a private network reachable only by the API and set `VVD_CLAMAV_ADDRESS=clamav:3310` (adjust for your network). Configure ClamAV `StreamMaxLength` above the 250 MB maximum Gallery upload. The AWS SDK uses its normal credential chain, such as environment credentials or an attached workload role. For an S3-compatible development endpoint, set `VVD_S3_ENDPOINT` and `VVD_S3_FORCE_PATH_STYLE=true` when the provider requires path-style requests. Production custom endpoints must use HTTPS.
 
 Run the frontend in a second terminal:
 
@@ -86,6 +86,6 @@ Authentication uses an HttpOnly, SameSite=Strict cookie. Production must set APP
 
 ## Outstanding before public deployment
 
-Nested world folders, card moves, revision history, reversible archive, request rate limits, best-effort session device labels and the private-media API/UI are implemented. Gallery uploads require a configured private S3-compatible bucket and working credentials. The API verifies the stored object's size and declared content type; it does not scan file bytes for malware or MIME spoofing. Configure bucket CORS for the exact app origin and PUT with the Content-Type header, keep public access blocked, and grant only required object-level permissions. Expired pending uploads need a storage lifecycle/cleanup policy.
+Nested world folders, card moves, revision history, reversible archive, request rate limits, best-effort session device labels and the private-media API/UI are implemented. Gallery uploads require a configured private S3-compatible bucket and working credentials. The API verifies the stored object's size and declared content type, then streams the complete object through ClamAV before marking it ready. Upload tickets are unavailable if the scanner is not configured; scanner failures fail closed. Configure bucket CORS for the exact app origin and PUT with the Content-Type header, keep public access blocked, and grant only required object-level permissions. Expired pending uploads need a storage lifecycle/cleanup policy. Production must also maintain ClamAV signatures, monitor scanner health and restrict scanner network access.
 
 Email verification and recovery still need a real mail-delivery provider and verified sender configuration. Production secret management, audit events, backup/restore drills and a security review remain open. Collaboration infrastructure is not part of this slice.
