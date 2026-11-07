@@ -28,7 +28,8 @@ use crate::{
         DocumentTypeSummary, DocumentVersionInput, EraCreateInput, EraSummary, Folder,
         FolderCreateInput, FolderUpdateInput, GraphLayoutCreateInput, GraphLayoutSummary,
         GraphLayoutUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
-        MediaUploadTicket, MoveDocumentInput, RegisterInput, SecurityEventSummary, SessionSummary, WorldCreateInput,
+        MediaUploadTicket, MoveDocumentInput, RegisterInput, SecurityEventSummary, SessionSummary,
+        WorldCreateInput,
     },
     store,
 };
@@ -505,12 +506,11 @@ async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Result<Res
     if let Some(token) = token_from_cookie(&headers)
         && token.len() <= 64
     {
-        let account_id = sqlx::query_scalar::<_, Uuid>(
-            "SELECT account_id FROM sessions WHERE token_hash = $1",
-        )
-        .bind(token_hash(token))
-        .fetch_optional(&state.db)
-        .await?;
+        let account_id =
+            sqlx::query_scalar::<_, Uuid>("SELECT account_id FROM sessions WHERE token_hash = $1")
+                .bind(token_hash(token))
+                .fetch_optional(&state.db)
+                .await?;
         sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
             .bind(token_hash(token))
             .execute(&state.db)
@@ -542,7 +542,9 @@ async fn list_security_events(
     headers: HeaderMap,
 ) -> Result<Json<Vec<SecurityEventSummary>>, ApiError> {
     let account = signed_in_account(&state.db, &headers).await?;
-    Ok(Json(store::list_security_events(&state.db, account.id).await?))
+    Ok(Json(
+        store::list_security_events(&state.db, account.id).await?,
+    ))
 }
 
 async fn revoke_session(
@@ -655,7 +657,13 @@ async fn change_password(
         .await?;
 
     transaction.commit().await?;
-    record_security_event(&state, account.id, "password_changed", serde_json::json!({})).await;
+    record_security_event(
+        &state,
+        account.id,
+        "password_changed",
+        serde_json::json!({}),
+    )
+    .await;
     attach_cookie(StatusCode::NO_CONTENT, session_cookie(&next_token, &state))
 }
 
@@ -767,11 +775,9 @@ async fn create_media_upload(
 ) -> Result<impl IntoResponse, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
-    let scanner = state
-        .config
-        .clamav_address
-        .as_deref()
-        .ok_or_else(ApiError::service_unavailable)?;
+    if state.config.clamav_address.is_none() {
+        return Err(ApiError::service_unavailable());
+    }
     let storage = state
         .media
         .as_ref()

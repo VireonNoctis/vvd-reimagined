@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type SecurityEvent = {
   id: string;
@@ -29,7 +29,9 @@ function formatDate(value: string): string {
 function description(event: SecurityEvent): string {
   if (event.eventType === "sessions_revoked") {
     const count = Number(event.details.revokedCount) || 0;
-    return count === 1 ? "One other browser was signed out." : String(count) + " other browsers were signed out.";
+    return count === 1
+      ? "One other browser was signed out."
+      : String(count) + " other browsers were signed out.";
   }
   if (event.eventType === "password_changed") {
     return "Your password was updated and other sessions were ended.";
@@ -46,29 +48,41 @@ export function SecurityEventLog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const load = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetch("/api/v1/auth/security-events", {
+        cache: "no-store",
+        signal
+      });
+      if (!response.ok) throw new Error("Security activity could not be loaded.");
+      const body = await response.json() as SecurityEvent[];
+      if (!signal?.aborted) {
+        setEvents(body);
+        setError("");
+      }
+    } catch (reason) {
+      if (!signal?.aborted) {
+        setError(reason instanceof Error ? reason.message : "Security activity could not be loaded.");
+      }
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/v1/auth/security-events", {
-      cache: "no-store",
-      signal: controller.signal
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Security activity could not be loaded.");
-        return await response.json() as SecurityEvent[];
-      })
-      .then((body) => {
-        if (!controller.signal.aborted) setEvents(body);
-      })
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : "Security activity could not be loaded.");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, []);
+    const refresh = () => {
+      setLoading(true);
+      void load();
+    };
+
+    void load(controller.signal);
+    window.addEventListener("vvd:security-events-changed", refresh);
+    return () => {
+      controller.abort();
+      window.removeEventListener("vvd:security-events-changed", refresh);
+    };
+  }, [load]);
 
   return (
     <section className="security-settings-card security-history-card" aria-labelledby="security-history-heading">

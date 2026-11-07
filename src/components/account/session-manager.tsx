@@ -79,6 +79,7 @@ export function SessionManager() {
       const body = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(body.error || "This session could not be ended.");
       setSessions((current) => current.filter((session) => session.id !== id));
+      window.dispatchEvent(new Event("vvd:security-events-changed"));
       setNotice("That browser has been signed out.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "This session could not be ended.");
@@ -96,6 +97,7 @@ export function SessionManager() {
       const body = await response.json().catch(() => ({})) as { error?: string; revokedCount?: number };
       if (!response.ok) throw new Error(body.error || "Other sessions could not be ended.");
       setSessions((current) => current.filter((session) => session.current));
+      window.dispatchEvent(new Event("vvd:security-events-changed"));
       setConfirmAll(false);
       setNotice(body.revokedCount
         ? body.revokedCount + (body.revokedCount === 1 ? " other browser was signed out." : " other browsers were signed out.")
