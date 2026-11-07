@@ -17,6 +17,7 @@ The current implementation includes the following controls. They are implementat
 - Passwords are hashed with Argon2id; registration enforces a 12–128 character length.
 - Sessions use opaque random tokens. Only SHA-256 token digests are stored in PostgreSQL. Session cookies are HttpOnly, SameSite=Strict, expire after 14 days, and receive Secure in production.
 - Users can inspect active sessions, end one remote session or end every other session without deleting the current browser.
+- Account security history records successful sign-ins/sign-outs, password changes and remote-session revocations for 90 days; the signed-in account can inspect its latest 50 events. Event details do not include raw IP addresses, credentials or session tokens.
 - Password changes require the current password, reject reusing the existing password, rotate the current session token and revoke all other sessions inside one database transaction.
 - Registration and login use database-backed IP and normalized-email throttles with 15-minute windows. Source IP is taken from the TCP peer address; forwarded headers are not trusted by the API.
 - Mutating browser requests check the configured application Origin and Fetch Metadata. Cross-site and same-site browser contexts are rejected; clients that do not send Fetch Metadata remain distinguishable as non-browser clients.
@@ -35,7 +36,7 @@ The current implementation includes the following controls. They are implementat
 - A defined secret-management and rotation process. Production credentials must not be committed or exposed to browser bundles.
 - Production must run a maintained, network-isolated ClamAV daemon, set `VVD_CLAMAV_ADDRESS`, configure `StreamMaxLength` above the largest permitted upload (250 MB), monitor scanner availability/signature freshness and test rejection/deletion behaviour. The API fails closed for new uploads when the scanner is unavailable. The integration is implemented, but the repository cannot provision or verify the production daemon.
 - Storage bucket policies, CORS rules, lifecycle cleanup for expired pending uploads, backup policy and restore drills.
-- Central audit events for membership, sharing, account and destructive operations; alerting, monitoring and incident response.
+- Extend the current account security history to world membership, sharing and destructive operations; central alerting, monitoring and incident response remain open.
 - A Content Security Policy designed with Next.js nonce support. A permissive CSP is deliberately not asserted by the current configuration.
 - Automated dependency vulnerability review and a reproducible lockfile-backed installation for both npm and Cargo.
 - Private vulnerability reporting must be enabled in repository settings and tested; the presence of this document does not prove that setting is active.

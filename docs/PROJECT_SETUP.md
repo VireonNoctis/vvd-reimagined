@@ -68,6 +68,7 @@ The Rust integration test applies the migrations and checks membership enforceme
 - `POST /v1/auth/register` and `POST /v1/auth/login`: create an account/session or start a session.
 - `POST /v1/auth/logout` and `GET /v1/auth/me`: end/read the current session.
 - `GET /v1/auth/sessions` and `DELETE /v1/auth/sessions/{id}`: list active sessions with a best-effort browser/platform label and revoke another browser session. The current browser is marked and must use logout.
+- `GET /v1/auth/security-events`: list the signed-in account's latest 50 security events from the previous 90 days.
 - Registration and login attempts are throttled in PostgreSQL using hashed IP/email identifiers and 15-minute windows. The API uses the direct peer address; proxy deployments must preserve a trustworthy network boundary rather than accepting arbitrary forwarded headers.
 - `GET /v1/worlds` and `POST /v1/worlds`: list accessible worlds or create an owner-managed world.
 - `GET /v1/worlds/{slug}`: read a world and its canonical card records.
@@ -88,4 +89,4 @@ Authentication uses an HttpOnly, SameSite=Strict cookie. Production must set APP
 
 Nested world folders, card moves, revision history, reversible archive, request rate limits, best-effort session device labels and the private-media API/UI are implemented. Gallery uploads require a configured private S3-compatible bucket and working credentials. The API verifies the stored object's size and declared content type, then streams the complete object through ClamAV before marking it ready. Upload tickets are unavailable if the scanner is not configured; scanner failures fail closed. Configure bucket CORS for the exact app origin and PUT with the Content-Type header, keep public access blocked, and grant only required object-level permissions. Expired pending uploads need a storage lifecycle/cleanup policy. Production must also maintain ClamAV signatures, monitor scanner health and restrict scanner network access.
 
-Email verification and recovery still need a real mail-delivery provider and verified sender configuration. Production secret management, audit events, backup/restore drills and a security review remain open. Collaboration infrastructure is not part of this slice.
+Email verification and recovery still need a real mail-delivery provider and verified sender configuration. Production secret management, world-wide audit events, backup/restore drills and a security review remain open. Collaboration infrastructure is not part of this slice.

@@ -103,7 +103,8 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - Central versioned entitlements.
 - Billing, receipts and usage reporting.
 - Collaborator/studio role management.
-- Account export/deletion, audit events, observability and backups.
+- [x] Account security event history for successful sign-ins/sign-outs, password changes and remote-session revocations (90-day retention; latest 50 visible).
+- [ ] Account export/deletion, world-wide audit events, observability and backups.
 - Security review and restore drills.
 
 ## Phase 9 — Responsive parity and polish

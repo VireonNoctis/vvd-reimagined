@@ -18,7 +18,7 @@ Research baseline: 6 November 2026. Public documentation cannot replace direct i
 - Responsive desktop, tablet and phone layouts.
 - Domain tests for canonical reference resolution and duplicate/missing-reference detection.
 - Login/register/logout, a same-origin API proxy, persistent world creation and a version-checked card editor.
-- Account security centre with password changes, current-session rotation, per-device and all-other-session revocation, live session-list refresh after password changes, and a responsive security overview.
+- Account security centre with password changes, current-session rotation, per-device and all-other-session revocation, live session-list refresh after password changes, and a 90-day security activity history.
 - PostgreSQL-backed authentication throttles, nested folders, named eras with sparse inheritance, reversible archive, revision history, personal graph layouts and same-world card moves.
 - Private Gallery with short-lived presigned S3-compatible uploads/downloads, object metadata verification, ClamAV byte scanning before publication and membership-checked asset access. Uploads fail closed until a private scanner is configured.
 - WebGL 2 World Graph with separate typed-reference and mention edges, independent filters, personal saved layouts and source-evidence drill-down for inferred mentions.
