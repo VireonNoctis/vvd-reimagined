@@ -725,6 +725,11 @@ async fn create_media_upload(
 ) -> Result<impl IntoResponse, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
+    let scanner = state
+        .config
+        .clamav_address
+        .as_deref()
+        .ok_or_else(ApiError::service_unavailable)?;
     let storage = state
         .media
         .as_ref()
@@ -769,6 +774,11 @@ async fn complete_media_upload(
 ) -> Result<Json<MediaAssetSummary>, ApiError> {
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
+    let scanner = state
+        .config
+        .clamav_address
+        .as_deref()
+        .ok_or_else(ApiError::service_unavailable)?;
     let storage = state
         .media
         .as_ref()
@@ -782,6 +792,14 @@ async fn complete_media_upload(
         store::reject_media_upload(&state.db, account.id, &slug, media_id).await?;
         return Err(ApiError::bad_request(
             "The uploaded file does not match the requested type or size.",
+        ));
+    }
+
+    if !storage.scan(&object_key, scanner).await? {
+        let _ = storage.delete(&object_key).await;
+        store::reject_media_upload(&state.db, account.id, &slug, media_id).await?;
+        return Err(ApiError::bad_request(
+            "The uploaded file was rejected by the security scanner.",
         ));
     }
 

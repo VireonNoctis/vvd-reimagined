@@ -15,6 +15,7 @@ pub struct Config {
     pub secure_cookies: bool,
     pub allowed_origin: Option<String>,
     pub storage: Option<StorageConfig>,
+    pub clamav_address: Option<String>,
 }
 
 impl Config {
@@ -35,6 +36,13 @@ impl Config {
 
         if app_env.eq_ignore_ascii_case("production") && allowed_origin.is_none() {
             return Err("APP_ORIGIN is required in production".into());
+        }
+
+        let clamav_address = env::var("VVD_CLAMAV_ADDRESS")
+            .ok()
+            .filter(|value| !value.trim().is_empty());
+        if clamav_address.as_deref().is_some_and(|value| value.contains('/') || value.chars().any(char::is_whitespace)) {
+            return Err("VVD_CLAMAV_ADDRESS must be a private host:port address".into());
         }
 
         let bucket = env::var("VVD_S3_BUCKET")
@@ -77,6 +85,7 @@ impl Config {
             secure_cookies,
             allowed_origin,
             storage,
+            clamav_address,
         })
     }
 }

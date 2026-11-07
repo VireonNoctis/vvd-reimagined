@@ -1,6 +1,11 @@
 use std::time::Duration;
 
 use aws_sdk_s3::{Client, config::Region, presigning::PresigningConfig};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    time::timeout,
+};
 
 use crate::{config::StorageConfig, error::ApiError};
 
@@ -82,6 +87,75 @@ impl MediaStore {
         })
     }
 
+    pub async fn scan(&self, object_key: &str, scanner_address: &str) -> Result<bool, ApiError> {
+        let scan = async {
+            let object = self
+                .client
+                .get_object()
+                .bucket(&self.bucket)
+                .key(object_key)
+                .send()
+                .await
+                .map_err(|_| ApiError::service_unavailable())?;
+            let mut body = object.body.into_async_read();
+            let mut scanner = TcpStream::connect(scanner_address)
+                .await
+                .map_err(|_| ApiError::service_unavailable())?;
+
+            scanner
+                .write_all(b"zINSTREAM\0")
+                .await
+                .map_err(|_| ApiError::service_unavailable())?;
+
+            let mut buffer = [0_u8; 64 * 1024];
+            loop {
+                let count = body
+                    .read(&mut buffer)
+                    .await
+                    .map_err(|_| ApiError::service_unavailable())?;
+                if count == 0 {
+                    break;
+                }
+                scanner
+                    .write_all(&(count as u32).to_be_bytes())
+                    .await
+                    .map_err(|_| ApiError::service_unavailable())?;
+                scanner
+                    .write_all(&buffer[..count])
+                    .await
+                    .map_err(|_| ApiError::service_unavailable())?;
+            }
+
+            scanner
+                .write_all(&0_u32.to_be_bytes())
+                .await
+                .map_err(|_| ApiError::service_unavailable())?;
+
+            let mut reply = Vec::with_capacity(128);
+            loop {
+                let mut byte = [0_u8; 1];
+                let count = scanner
+                    .read(&mut byte)
+                    .await
+                    .map_err(|_| ApiError::service_unavailable())?;
+                if count == 0 || byte[0] == 0 {
+                    break;
+                }
+                if reply.len() >= 1024 {
+                    return Err(ApiError::service_unavailable());
+                }
+                reply.push(byte[0]);
+            }
+
+            scan_reply_is_clean(&reply)
+        };
+
+        match timeout(Duration::from_secs(300), scan).await {
+            Ok(result) => result,
+            Err(_) => Err(ApiError::service_unavailable()),
+        }
+    }
+
     pub async fn presign_download(&self, object_key: &str) -> Result<String, ApiError> {
         let request = self
             .client
@@ -113,5 +187,32 @@ impl MediaStore {
                 ApiError::internal()
             })?;
         Ok(())
+    }
+}
+
+fn scan_reply_is_clean(reply: &[u8]) -> Result<bool, ApiError> {
+    let response = std::str::from_utf8(reply)
+        .map_err(|_| ApiError::service_unavailable())?
+        .trim();
+
+    if response.ends_with(" OK") {
+        Ok(true)
+    } else if response.contains(" FOUND") {
+        Ok(false)
+    } else {
+        Err(ApiError::service_unavailable())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scan_reply_is_clean;
+
+    #[test]
+    fn clamd_reply_distinguishes_clean_and_infected_streams() {
+        assert!(scan_reply_is_clean(b"stream: OK").expect("clean result"));
+        assert!(!scan_reply_is_clean(b"stream: Test-Signature FOUND").expect("infected result"));
+        assert!(scan_reply_is_clean(b"stream: ERROR").is_err());
+        assert!(scan_reply_is_clean(b"").is_err());
     }
 }
