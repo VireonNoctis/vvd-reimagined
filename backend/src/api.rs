@@ -559,12 +559,11 @@ async fn change_password(
     )
     .await?;
 
-    let stored_hash = sqlx::query_scalar::<_, String>(
-        "SELECT password_hash FROM accounts WHERE id = $1",
-    )
-    .bind(account.id)
-    .fetch_one(&state.db)
-    .await?;
+    let stored_hash =
+        sqlx::query_scalar::<_, String>("SELECT password_hash FROM accounts WHERE id = $1")
+            .bind(account.id)
+            .fetch_one(&state.db)
+            .await?;
     let parsed_hash = PasswordHash::new(&stored_hash).map_err(|_| ApiError::internal())?;
     Argon2::default()
         .verify_password(input.current_password.as_bytes(), &parsed_hash)
