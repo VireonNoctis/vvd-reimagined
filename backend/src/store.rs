@@ -2953,6 +2953,61 @@ pub async fn list_sessions(
         .collect())
 }
 
+pub async fn record_security_event(
+    pool: &PgPool,
+    account_id: Uuid,
+    event_type: &str,
+    details: serde_json::Value,
+) -> Result<(), ApiError> {
+    sqlx::query(
+        "INSERT INTO account_security_events (id, account_id, event_type, details)
+         VALUES ($1, $2, $3, $4)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(account_id)
+    .bind(event_type)
+    .bind(details)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "DELETE FROM account_security_events
+         WHERE account_id = $1 AND created_at < NOW() - INTERVAL '90 days'",
+    )
+    .bind(account_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn list_security_events(
+    pool: &PgPool,
+    account_id: Uuid,
+) -> Result<Vec<crate::models::SecurityEventSummary>, ApiError> {
+    let rows = sqlx::query_as::<_, (Uuid, String, serde_json::Value, DateTime<Utc>)>(
+        "SELECT id, event_type, details, created_at
+         FROM account_security_events
+         WHERE account_id = $1
+           AND created_at >= NOW() - INTERVAL '90 days'
+         ORDER BY created_at DESC, id DESC
+         LIMIT 50",
+    )
+    .bind(account_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| crate::models::SecurityEventSummary {
+            id: row.0,
+            event_type: row.1,
+            details: row.2,
+            created_at: row.3,
+        })
+        .collect())
+}
+
 pub async fn revoke_session(
     pool: &PgPool,
     account_id: Uuid,

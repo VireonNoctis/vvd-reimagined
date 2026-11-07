@@ -395,6 +395,15 @@ pub struct SessionSummary {
     pub current: bool,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecurityEventSummary {
+    pub id: Uuid,
+    pub event_type: String,
+    pub details: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphLayoutNodePosition {

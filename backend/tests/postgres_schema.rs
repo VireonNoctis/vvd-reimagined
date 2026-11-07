@@ -51,6 +51,27 @@ async fn migrations_enforce_membership_and_same_world_references() {
     .await
     .expect("create test account");
 
+    store::record_security_event(
+        &pool,
+        account_id,
+        "sign_in",
+        serde_json::json!({ "source": "integration-test" }),
+    )
+    .await
+    .expect("record account security event");
+    let security_events = store::list_security_events(&pool, account_id)
+        .await
+        .expect("list account security events");
+    assert_eq!(security_events.len(), 1);
+    assert_eq!(security_events[0].event_type, "sign_in");
+    assert_eq!(security_events[0].details["source"], "integration-test");
+    assert!(
+        store::list_security_events(&pool, Uuid::new_v4())
+            .await
+            .expect("scope security events to the signed-in account")
+            .is_empty()
+    );
+
     sqlx::query(
         "INSERT INTO worlds (id, slug, name, created_by)
          VALUES ($1, $2, 'First world', $3), ($4, $5, 'Second world', $3)",

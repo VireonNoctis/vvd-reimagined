@@ -28,7 +28,7 @@ use crate::{
         DocumentTypeSummary, DocumentVersionInput, EraCreateInput, EraSummary, Folder,
         FolderCreateInput, FolderUpdateInput, GraphLayoutCreateInput, GraphLayoutSummary,
         GraphLayoutUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
-        MediaUploadTicket, MoveDocumentInput, RegisterInput, SessionSummary, WorldCreateInput,
+        MediaUploadTicket, MoveDocumentInput, RegisterInput, SecurityEventSummary, SessionSummary, WorldCreateInput,
     },
     store,
 };
@@ -296,6 +296,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/logout", post(logout))
         .route("/v1/auth/me", get(me))
+        .route("/v1/auth/security-events", get(list_security_events))
         .route(
             "/v1/auth/sessions",
             get(list_sessions).delete(revoke_other_sessions),
@@ -445,6 +446,20 @@ async fn register(
     )
 }
 
+async fn record_security_event(
+    state: &AppState,
+    account_id: Uuid,
+    event_type: &str,
+    details: serde_json::Value,
+) {
+    if store::record_security_event(&state.db, account_id, event_type, details)
+        .await
+        .is_err()
+    {
+        tracing::warn!(event_type, "could not persist account security event");
+    }
+}
+
 async fn login(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -475,6 +490,7 @@ async fn login(
     let token = Uuid::new_v4().to_string();
     let mut connection = state.db.acquire().await?;
     insert_session(&mut connection, row.0, &token, user_agent(&headers)).await?;
+    record_security_event(&state, row.0, "sign_in", serde_json::json!({})).await;
 
     let account = Account {
         id: row.0,
@@ -489,10 +505,19 @@ async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Result<Res
     if let Some(token) = token_from_cookie(&headers)
         && token.len() <= 64
     {
+        let account_id = sqlx::query_scalar::<_, Uuid>(
+            "SELECT account_id FROM sessions WHERE token_hash = $1",
+        )
+        .bind(token_hash(token))
+        .fetch_optional(&state.db)
+        .await?;
         sqlx::query("DELETE FROM sessions WHERE token_hash = $1")
             .bind(token_hash(token))
             .execute(&state.db)
             .await?;
+        if let Some(account_id) = account_id {
+            record_security_event(&state, account_id, "sign_out", serde_json::json!({})).await;
+        }
     }
 
     attach_cookie(StatusCode::NO_CONTENT, expired_cookie(&state))
@@ -512,6 +537,14 @@ async fn list_sessions(
     Ok(Json(sessions))
 }
 
+async fn list_security_events(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<SecurityEventSummary>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(store::list_security_events(&state.db, account.id).await?))
+}
+
 async fn revoke_session(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -521,6 +554,7 @@ async fn revoke_session(
     let account = signed_in_account(&state.db, &headers).await?;
     let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
     store::revoke_session(&state.db, account.id, session_id, &token_hash(token)).await?;
+    record_security_event(&state, account.id, "session_revoked", serde_json::json!({})).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -532,6 +566,13 @@ async fn revoke_other_sessions(
     let account = signed_in_account(&state.db, &headers).await?;
     let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
     let revoked = store::revoke_other_sessions(&state.db, account.id, &token_hash(token)).await?;
+    record_security_event(
+        &state,
+        account.id,
+        "sessions_revoked",
+        serde_json::json!({ "revokedCount": revoked }),
+    )
+    .await;
     Ok(Json(serde_json::json!({ "revokedCount": revoked })))
 }
 
@@ -614,6 +655,7 @@ async fn change_password(
         .await?;
 
     transaction.commit().await?;
+    record_security_event(&state, account.id, "password_changed", serde_json::json!({})).await;
     attach_cookie(StatusCode::NO_CONTENT, session_cookie(&next_token, &state))
 }
 
