@@ -41,9 +41,24 @@ export function SessionManager() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void load(controller.signal);
+    fetch("/api/v1/auth/sessions", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Active sessions could not be loaded.");
+        return await response.json() as Session[];
+      })
+      .then((body) => {
+        if (!controller.signal.aborted) setSessions(body);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) {
+          setError(reason instanceof Error ? reason.message : "Active sessions could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
-  }, [load]);
+  }, []);
 
   async function revoke(id: string) {
     setBusyId(id);
