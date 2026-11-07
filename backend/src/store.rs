@@ -14,7 +14,7 @@ use crate::{
         CardTemplateSummary, CardTemplateUpdateInput, CardUpdateInput, DocumentRevisionSummary,
         DocumentRow, DocumentTypeRow, DocumentTypeSummary, EntityType, EraCreateInput, EraRow,
         EraSummary, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
-        GraphLayoutCreateInput, GraphLayoutFilters, GraphLayoutRow, GraphLayoutSummary,
+        GraphLayoutCreateInput, GraphLayoutRow, GraphLayoutSummary,
         GraphLayoutUpdateInput, GraphLayoutView, MediaAssetCreate, MediaAssetSummary,
         MoveDocumentInput, PropertyRow, World, WorldRow,
     },
