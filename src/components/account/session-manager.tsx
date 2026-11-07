@@ -60,6 +60,16 @@ export function SessionManager() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const refresh = () => {
+      setLoading(true);
+      setConfirmAll(false);
+      void load();
+    };
+    window.addEventListener("vvd:sessions-changed", refresh);
+    return () => window.removeEventListener("vvd:sessions-changed", refresh);
+  }, [load]);
+
   async function revoke(id: string) {
     setBusyId(id);
     setError("");

@@ -35,6 +35,7 @@ export function PasswordChangeForm() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmation("");
+      window.dispatchEvent(new Event("vvd:sessions-changed"));
       setSuccess("Password changed. Other browsers have been signed out.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Your password could not be changed.");
