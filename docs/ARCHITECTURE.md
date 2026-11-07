@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** proposed reconstruction architecture. The frontend and visual-rendering choices are accepted. Backend and persistence vendors remain proposals.
+**Status:** Next.js/React/TypeScript, WebGL rendering, a Rust modular monolith and PostgreSQL persistence are accepted for this reconstruction. S3 and collaboration-provider choices remain deferred.
 
 ## System overview
 
@@ -66,7 +66,9 @@ Three.js is optional and must be lazy-loaded for genuine 3D use cases such as th
 
 ## Backend direction
 
-Rust is the leading backend candidate based on the project's wider technical preferences, but it is not accepted in this repository's ADRs yet. If selected, start with a modular monolith and extract services only when operational needs justify it.
+A Rust modular monolith now owns identity, sessions, memberships, world/document operations and relational integrity. The service is in `backend/`, uses Axum and SQLx, and applies SQL migrations on startup. Start with clear modules and extract services only when operational needs justify it.
+
+The API stores only a digest of each opaque session token. It checks world membership on every world/document read and write. Write permission is role-based and database transactions contain both document metadata and card-content changes. Optimistic version checks prevent silent overwrites. The API does not yet include email verification, account recovery, public-deployment rate limits or session-device management; those are required before launch.
 
 Candidate modules:
 - Identity and session management.
@@ -85,11 +87,11 @@ Candidate modules:
 
 ### PostgreSQL
 
-Candidate for accounts, memberships, worlds, eras, document identities, typed relational properties, project metadata, plan configuration, publication pointers and transactional invariants. This is not a claim that vvd uses PostgreSQL.
+Accepted for the reconstruction's relational source of truth: accounts, hashed sessions, worlds, memberships, document identities, card properties, ordered text blocks and version pointers. Composite foreign keys keep a reference inside its source world. Migrations live in `backend/migrations`. This is not a claim that vvd uses PostgreSQL.
 
 ### S3-compatible object storage
 
-Candidate for images, audio, map backgrounds, cover art, attachments, model assets and exports. Objects should be private by default. Issue signed URLs only after checking access, and avoid guessable public object paths.
+Deferred until media upload and Gallery are implemented. When selected, use private objects by default and issue short-lived signed URLs only after an access check. Avoid guessable public object paths.
 
 ### Collaboration state
 

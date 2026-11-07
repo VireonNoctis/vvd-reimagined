@@ -4,6 +4,45 @@ This is the working inventory of product capabilities found in vvd's public mate
 
 Evidence labels: **A** current developer docs; **B** current product or store listing; **C** help-centre workflow; **D** reconstruction proposal/inference.
 
+## Implementation status in this repository
+
+The current application includes:
+
+- A world selector backed by PostgreSQL in connected mode, with a synthetic read-only fixture only when the API is not configured.
+- A responsive workspace shell with a navigation rail, searchable document library and details inspector.
+- Typed card records with names, aliases, text blocks and scalar properties.
+- Canonical card references that navigate to the referenced document rather than copying its content.
+- Domain tests for stable lookup, reference resolution and duplicate/missing reference detection.
+- A same-origin Next.js API proxy, login/register/logout UI, session-aware server-rendered world library and persistent world creation.
+- A connected card editor for names, aliases, text/reference properties and every ordered text block; properties and blocks can be added, removed and reordered with stable ids and version-checked saves.
+- A PostgreSQL document-type registry and per-world allow-list. Card is ready; Map, Timeline, Relation Tree and Canvas appear as planned catalogue entries and cannot be created before their typed handlers exist.
+- A world-level card template manager with Character, Place and Faction defaults, custom templates, starter sections and per-type property definitions. Templates are versioned and editable; defaults switch transactionally; required-field/kind changes are checked against existing cards; deletion is blocked for defaults or templates still assigned to cards. Required property kinds/values are validated server-side on create, canonical edit and era-local edit. See [Document types and templates](DOCUMENT_TYPES_AND_TEMPLATES.md).
+- Ready private Gallery assets can be attached to one canonical card, displayed inline when they are images, and detached from the card without deleting the Gallery object. The inspector manages attachments; Gallery deletion is blocked until detachment.
+- Named eras inherit canonical documents through parent chains; edits are sparse, versioned field overrides, so unmodified values continue following their parent without copying the world. See [Eras and inheritance](ERAS_AND_INHERITANCE.md) for the contract and known boundaries.
+- A read-only World Graph rendered with WebGL 2 from canonical cards, valid typed references and unambiguous name/alias mentions found in body blocks. Reference and mention edges remain separate; users can filter edge kinds and character/place/faction nodes. The graph projects the selected era's resolved card state. Personal saved layouts persist node positions, viewport and filter state per world/era with optimistic updates. See [World Graph](WORLD_GRAPH.md).
+- A Rust/Axum API with PostgreSQL migrations for accounts, Argon2id password hashes, hashed opaque sessions, database-backed authentication throttles and best-effort browser/platform session labels. Account security includes current-password-confirmed password changes with session rotation, bulk revocation of other sessions and per-session revocation, plus an account-scoped 90-day event history. The security centre refreshes the active-session list immediately after password rotation.
+- Membership-checked world and card reads, world/card creation, atomic version-checked card updates, nested world folders and conflict-checked card moves. Composite foreign keys keep card references inside their world.
+- Per-document snapshots on mutation, revision listing and conflict-checked restore; archive and restore keep canonical records and inbound references intact.
+- Private Gallery uses S3-compatible presigned uploads/downloads; server-generated object keys and membership-checked metadata prevent client-selected storage paths.
+
+The graph is a derived view, not an editor or a second source of truth. Mention matching ignores ambiguous phrases, requires whole-phrase boundaries and coalesces repeated mentions between the same pair. Each mention edge now exposes up to five source excerpts with the original matched phrase and block id. Relation Tree edges remain a separate explicit model. Shared layouts and manual graph edges remain future work.
+
+The first era implementation only edits existing canonical cards. It does not yet support era-local document additions, per-era hiding/deletion, era-specific revision history, media attachments or folders. Prime archive/restore is canonical and therefore applies to every era.
+
+When VVD_API_URL is set, the app uses the Rust API for account sessions, world membership, world reads/creation and card edits. The editor submits expected-version mutations and renders conflicts/errors without claiming a save before the API confirms it. With no API configured, the synthetic fixture remains deliberately read-only. Uploads, collaboration, Quill and publishing remain outstanding.
+
+## Backend and persistence
+
+| Capability | Current implementation | Boundary |
+| --- | --- | --- |
+| Accounts and sessions | Rust API registration/login/logout/current-account endpoints, active-session listing, per-session and bulk remote revocation, current-password-confirmed password changes with session rotation, and a 90-day account security history for successful sign-ins/sign-outs, password changes and session revocations; Argon2id hashes, hashed opaque session tokens, PostgreSQL-backed IP/email throttles and best-effort browser/platform labels | Email verification/recovery and MFA are not implemented; account history does not yet cover world membership/sharing or admin operations; forwarded-IP trust and production deployment topology need review |
+| World membership | PostgreSQL roles: owner, admin, editor and viewer; server checks on each world/document operation | Studio roles and invitations are not implemented |
+| Document types | Global registry plus a per-world allow-list; the API reports implementation readiness and enabled state | Card is the only ready content handler; Map, Timeline, Relation Tree and Canvas are planned only |
+| Reference integrity | Composite foreign keys and transactional validation prevent cross-world references in canonical documents and era override properties | References still target canonical documents only; era-local additions and per-era target visibility are not implemented |
+| Card templates | Per-world Character/Place/Faction templates with versioned edits, safe default switching, compatibility checks against existing cards, protected deletion and server-side required-field/kind validation | Arbitrary custom entity subtypes and media/tool blocks remain future work |
+| Card mutations | Transactional canonical create/update, automatic snapshots, revision listing and conflict-checked revision restore; canonical archive/restore and folder moves use version checks | Era override revisions/restores, per-era tombstones and permanent deletion remain open |
+| Media | Optional S3-compatible provider, five-minute signed PUT/GET URLs, metadata verification, ClamAV INSTREAM scanning before publication, fail-closed upload tickets, membership-checked private Gallery, and one-card-at-a-time canonical card attachments with detach-before-delete rules | Attachments are canonical (not era-specific); audio/video remain downloadable rather than embedded; deployment must provision and isolate ClamAV, keep signatures current and add automated pending-object cleanup |
+
 ## Workspace and navigation
 
 | Feature | Publicly described behaviour | Evidence | Confidence note |
@@ -23,7 +62,7 @@ Evidence labels: **A** current developer docs; **B** current product or store li
 The current and older sources together describe:
 - Reusable cards for characters, locations, factions, items, creatures and other entities.
 - Name, aliases, type/subtype, optional image, properties and body blocks.
-- Property values as text/scalar or typed references to other cards.
+- Property values as text/scalar or references to other cards.
 - Per-card and type-level properties.
 - Type templates that provide default fields/structure.
 - Card body blocks for text, media and embedded tool content.
@@ -63,28 +102,12 @@ Audio, cover images, map backdrops, and 3D model assets are separate file types 
 
 ## Quill
 
-See [Quill](QUILL.md) for the detailed workflow. Current public material describes:
-- A story/book project with a cover.
-- Ordered chapters with multiple drafts per chapter.
-- Chapter rename, reorder and side-by-side opening.
-- Chapter count and story word count.
-- A left chapter list, centre writing surface and collapsible right context panel.
-- Focus Mode, Drafts, Notes, Styling, world documents, detected cards, Radio and Gallery blocks.
-- References to cards, maps, canvases, trees and graph.
-- Auto-link mentions, manual @ lookup and Entity Detection.
-- General and chapter-attached notes; selected-text annotation.
-- Per-draft revision history and regular undo/redo.
-- Audio attachment at paragraph or chapter scope.
-- Publish preview, styling, export and chapter-level publishing.
-- EPUB, PDF and DOCX exports.
-
-The side-panel and publishing pages are marked work in progress. Treat the concepts as observed documentation, not exact current UI parity.
+See [Quill](QUILL.md) for the detailed workflow. Current public material describes stories, chapters, drafts, a writing surface, contextual world references, notes, styling, audio, history and publishing/export.
 
 ## Wiki and public surfaces
 
 - Wiki is an app that reads a world rather than maintaining its own copy of every card/map/note.
 - It can present a reader-friendly site with search, sections, inline card links and map pins.
-- The older help centre says the wiki is not public by default.
 - The current developer wiki reference describes theme fields and audience modes: public, unlisted capability URL, password and entitled.
 - Public pricing material describes invite-only publishing, public/password publication and custom domains at different tiers.
 - The older help centre documents desktop/tablet preview modes and configurable title/description/banner/featured content.
@@ -132,7 +155,7 @@ Older terms and help material differ. App-store purchase channels and regional a
 
 - Apple listing describes iPad and Mac support.
 - Android listing explicitly highlights tablet-oriented UI with larger targets, long-press menus, drag between panels and stylus drawing.
-- Older help material advises against small-screen mobile browser use.
+- Older help material advises against narrow mobile browser use.
 
 Treat desktop, tablet and phone browser as separate layout classes until current app capture proves the actual support matrix.
 
@@ -151,31 +174,26 @@ A feature is not complete when its main canvas renders. For every major surface,
 - Responsive behaviour and accessibility.
 - Server-side permission tests and data integrity tests.
 
-
 ## Instagram-led additions and product-status corrections
 
 ### Trade Routes — first-party core tool
 
-The Instagram announcement describes a trade/economy simulation for fictional worlds: assign resources to settlements, connect settlements with roads and rivers, and simulate supply movement. The first-party listing at https://vvd.world/t/trade-routes now classifies Trade Routes as a core vvd tool (version 0.1.50 at the 2026-11-05 research snapshot). Its public tool page currently has no detailed description, so the social post is the only public functional summary found in this pass.
+The Instagram announcement describes a trade/economy simulation for fictional worlds: assign resources to settlements, connect settlements with roads and rivers, and simulate supply movement. The first-party listing at https://vvd.world/t/trade-routes classifies Trade Routes as a core vvd tool (version 0.1.50 at the 2026-11-05 research snapshot). Its public tool page currently has no detailed description, so the social post is the only public functional summary found in this pass.
 
-Treat this as a real first-party tool in the current product inventory. The precise resource schema, route graph, simulation rules, event cadence, visual outputs and persistence behaviour remain unverified.
+Treat this as a first-party tool in the product inventory. The precise resource schema, route graph, simulation rules, event cadence, visual outputs and persistence behaviour remain unverified.
 
 ### Overworld — first-party Wiki template
 
-The current Wiki developer reference identifies Default and Overworld as built-in first-party site templates. Instagram's Overworld demonstration describes map-first Wiki navigation, interactive regions/pins, a cleaner page UI and animated clouds. This is an extension of Wiki publishing, not an independent content database or a new world model.
+The current Wiki developer reference identifies Default and Overworld as built-in first-party site templates. Instagram's Overworld demonstration describes map-first Wiki navigation, interactive regions/pins, a cleaner reader UI and animated clouds. This is an extension of Wiki publishing, not an independent content database or a new world model.
 
 ### Calendar — community Workshop creation
 
-Instagram demonstrates a custom fictional calendar with events, holidays, lunar cycles and a world-matched visual theme. The public listing at https://vvd.world/t/calendar identifies HHaseeb as its creator, not vvd. Treat it as a community Workshop tool example and a requirement for extensible custom calendar codecs—not as a built-in core tool. The social caption's detailed calendar functions still need direct inspection.
+Instagram demonstrates a custom fictional calendar with events, holidays, lunar cycles and a world-matched visual theme. The public listing at https://vvd.world/t/calendar identifies HHaseeb as its creator, not vvd. Treat it as a community Workshop tool example and a requirement for extensible custom calendar codecs—not as a built-in core tool.
 
 ### 3D showcase versus 3D Model Viewer
 
-Instagram showcases a creator workflow involving 3D maps, timelines and Quill. That is a product-use example, not evidence of a native 3D map editor. The first-party 3D Model Viewer is a separate documented tool for inspecting 3D characters, environments and items from different angles. Keep 2D map authoring, 3D asset viewing and any future 3D scene surface as distinct capabilities until the current app demonstrates otherwise.
+Instagram showcases a creator workflow involving 3D maps, historical timelines and Quill. That is a product-use example, not evidence of a native 3D map editor. The first-party 3D Model Viewer is a separate documented tool for inspecting 3D characters, environments and items from different angles. Keep 2D Maps, 3D asset viewing and any future 3D scene surface distinct.
 
 ### Creator link-in-bio — announcement, status unverified
 
-A profile post previews customisable creator link-in-bio pages for writers, worldbuilders, artists and studios, with portfolio, shop, product and external links. No current route or technical reference was found. Keep it outside the core world/document model until its current availability and relation to Wiki/profile features are confirmed.
-
-### Fellowship and editorial activity
-
-The profile also promotes the vvd Fellowship, creator spotlights, storytelling articles, events and human-creativity/editorial content. These belong to the wider creator ecosystem; they are not application features or account-plan entitlements.
+A profile post previews customisable creator link-in-bio pages for writers, worldbuilders, artists and studios. No current route or technical reference was found. Keep it outside the core world/document model until current availability and its relationship to Wiki/profile features are confirmed.

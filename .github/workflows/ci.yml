@@ -1,4 +1,4 @@
-name: Repository checks
+name: Application checks
 
 on:
   push:
@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   validate:
-    name: Repository configuration
+    name: Repository and application
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,3 +25,71 @@ jobs:
 
       - name: Validate repository configuration
         run: python3 scripts/validate.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test domain invariants
+        run: npm test
+
+      - name: Build
+        run: npm run build
+  backend:
+    name: Rust API and PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_DB: vvd_test
+          POSTGRES_USER: vvd
+          POSTGRES_PASSWORD: vvd
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vvd -d vvd_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://vvd:vvd@localhost:5432/vvd_test
+      APP_ENV: test
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          rustup default 1.99.1
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Run Rust and PostgreSQL tests
+        run: cargo test --workspace
+
+      - name: Build API
+        run: cargo build --workspace --release
