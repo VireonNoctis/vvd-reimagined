@@ -41,7 +41,10 @@ impl Config {
         let clamav_address = env::var("VVD_CLAMAV_ADDRESS")
             .ok()
             .filter(|value| !value.trim().is_empty());
-        if clamav_address.as_deref().is_some_and(|value| value.contains('/') || value.chars().any(char::is_whitespace)) {
+        if clamav_address
+            .as_deref()
+            .is_some_and(|value| value.contains('/') || value.chars().any(char::is_whitespace))
+        {
             return Err("VVD_CLAMAV_ADDRESS must be a private host:port address".into());
         }
 
