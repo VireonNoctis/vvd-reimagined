@@ -39,6 +39,7 @@ REQUIRED_APP_FILES = (
     ".nvmrc",
     "next-env.d.ts",
     "next.config.ts",
+    "proxy.ts",
     "eslint.config.mjs",
     ".github/workflows/ci.yml",
     "src/app/layout.tsx",

@@ -45,7 +45,7 @@ export VVD_API_URL=http://127.0.0.1:4100
 npm run dev
 ~~~
 
-Set VVD_API_URL=http://127.0.0.1:4100 in the frontend environment. The same-origin /api route forwards the current browser session to the API; server-rendered world reads use the HttpOnly cookie without exposing it to client code. When VVD_API_URL is absent, the read-only fixture is used.
+Set VVD_API_URL=http://127.0.0.1:4100 in the frontend environment. For private Gallery direct uploads, also set `VVD_CSP_CONNECT_ORIGINS` to the exact HTTPS storage origin (for example `https://your-bucket-endpoint.example`). Use comma-separated exact origins when more than one host is needed; HTTP localhost origins are accepted only in development. The frontend CSP and bucket CORS policy must both allow the storage host. The same-origin /api route forwards the current browser session to the API; server-rendered world reads use the HttpOnly cookie without exposing it to client code. When VVD_API_URL is absent, the read-only fixture is used.
 
 ## Checks
 

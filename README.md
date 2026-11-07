@@ -24,7 +24,7 @@ Research baseline: 6 November 2026. Public documentation cannot replace direct i
 - WebGL 2 World Graph with separate typed-reference and mention edges, independent filters, personal saved layouts and source-evidence drill-down for inferred mentions.
 - CI configured for repository validation, lint, type-check, tests, production build, Rust formatting/Clippy and PostgreSQL integration checks.
 
-The sample world is deliberately synthetic and read-only when no API is configured. In connected mode, account and world data come from PostgreSQL; card saves are confirmed by the API before the UI refreshes.
+The sample world is deliberately synthetic and read-only when no API is configured. In connected mode, account and world data come from PostgreSQL; card saves are confirmed by the API before the UI refreshes. The Next.js 16 Proxy applies a per-request nonce-based CSP to rendered pages; configure the presigned storage host in `VVD_CSP_CONNECT_ORIGINS`.
 
 ## Not implemented yet
 
