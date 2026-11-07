@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PasswordChangeForm } from "@/components/account/password-change-form";
 import { SessionManager } from "@/components/account/session-manager";
+import { SecurityEventLog } from "@/components/account/security-event-log";
 import { apiConfigured, requireAccount } from "@/server/api";
 
 export default async function AccountSecurityPage() {
@@ -68,6 +69,8 @@ export default async function AccountSecurityPage() {
             <SessionManager />
           </section>
         </div>
+
+        <SecurityEventLog />
 
         <aside className="security-availability-note">
           <span className="security-note-mark">i</span>

@@ -67,6 +67,7 @@ REQUIRED_APP_FILES = (
     "src/app/login/page.tsx",
     "src/app/account/security/page.tsx",
     "src/components/account/session-manager.tsx",
+    "src/components/account/security-event-log.tsx",
     "src/app/worlds/new/page.tsx",
     "tests/domain/world.test.mjs",
     "src/domain/world-graph.ts",
