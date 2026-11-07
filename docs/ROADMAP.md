@@ -25,6 +25,8 @@ The shared world/document model must work before graph, Quill and publishing sur
 - [x] Finish Rust formatting, Clippy, PostgreSQL migration/integration tests and release build in CI.
 - [x] Establish the Rust API session boundary and server-side world membership checks.
 - [x] Connect Next.js to the API through a same-origin proxy, sign-in/register/logout and session-aware server reads.
+- [x] Add account password changes with current-password verification, current-session rotation and revocation of other sessions.
+- [x] Add one-action revocation of all other active sessions while preserving the current browser.
 - [ ] Add distinct public, authenticated and published-reader route boundaries.
 
 Without VVD_API_URL the app remains a read-only preview. With it configured, account sessions, world reads/creation and version-checked card edits use the Rust API.
@@ -112,4 +114,4 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - Optional lazy Three.js Model Viewer.
 - Reduced-motion, keyboard and visual regression coverage.
 
-Authentication has PostgreSQL-backed 15-minute throttles and best-effort session device labels. Cards keep immutable JSONB snapshots on edits and moves; members can inspect prior versions, restore a snapshot with optimistic concurrency, and archive/restore records without deleting canonical IDs or references. Nested folders support child folders, rename/reparent and version-checked card moves. Email verification and account recovery still need a configured mail-delivery provider; private media storage and collaboration remain next. The connected sign-in/world/card path and first WebGL graph are already implemented; do not mark the reconstruction production-ready while hardening and recovery paths remain open.
+Authentication has PostgreSQL-backed 15-minute throttles, best-effort session device labels, current-password-confirmed password changes and session rotation/revocation. Cards keep immutable JSONB snapshots on edits and moves; members can inspect prior versions, restore a snapshot with optimistic concurrency, and archive/restore records without deleting canonical IDs or references. Nested folders support child folders, rename/reparent and version-checked card moves. Email verification/recovery still needs a configured mail-delivery provider; MFA, private-media operations, collaboration and the remaining recovery paths remain open. The connected sign-in/world/card path and first WebGL graph are already implemented; do not mark the reconstruction production-ready while hardening and recovery paths remain open.

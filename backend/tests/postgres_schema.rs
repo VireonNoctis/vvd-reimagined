@@ -797,6 +797,37 @@ async fn migrations_enforce_membership_and_same_world_references() {
     assert_eq!(remaining[0].id, current_session_id);
     assert!(remaining[0].current);
 
+    let final_session_ids = [Uuid::new_v4(), Uuid::new_v4()];
+    let final_token_hashes = [
+        Sha256::digest(b"other-browser-one").to_vec(),
+        Sha256::digest(b"other-browser-two").to_vec(),
+    ];
+    sqlx::query(
+        "INSERT INTO sessions (id, account_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, NOW() + INTERVAL '1 day'),
+                ($4, $2, $5, NOW() + INTERVAL '1 day')",
+    )
+    .bind(final_session_ids[0])
+    .bind(account_id)
+    .bind(&final_token_hashes[0])
+    .bind(final_session_ids[1])
+    .bind(&final_token_hashes[1])
+    .execute(&pool)
+    .await
+    .expect("create more remote sessions");
+
+    let revoked = store::revoke_other_sessions(&pool, account_id, &current_token_hash)
+        .await
+        .expect("revoke every other browser session");
+    assert_eq!(revoked, 2);
+
+    let after_global_revoke = store::list_sessions(&pool, account_id, &current_token_hash)
+        .await
+        .expect("list sessions after global revocation");
+    assert_eq!(after_global_revoke.len(), 1);
+    assert_eq!(after_global_revoke[0].id, current_session_id);
+    assert!(after_global_revoke[0].current);
+
     sqlx::query("DELETE FROM worlds WHERE id = $1 OR id = $2")
         .bind(world_id)
         .bind(other_world_id)

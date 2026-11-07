@@ -2976,6 +2976,23 @@ pub async fn revoke_session(
     Ok(())
 }
 
+pub async fn revoke_other_sessions(
+    pool: &PgPool,
+    account_id: Uuid,
+    current_token_hash: &[u8],
+) -> Result<u64, ApiError> {
+    let result = sqlx::query(
+        "DELETE FROM sessions
+         WHERE account_id = $1 AND token_hash <> $2",
+    )
+    .bind(account_id)
+    .bind(current_token_hash.to_vec())
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

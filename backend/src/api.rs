@@ -39,6 +39,13 @@ struct EraQuery {
     era_id: Option<Uuid>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PasswordChangeInput {
+    current_password: String,
+    new_password: String,
+}
+
 const SESSION_COOKIE: &str = "vvd_session";
 const SESSION_SECONDS: i64 = 60 * 60 * 24 * 14;
 
@@ -289,8 +296,12 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/auth/login", post(login))
         .route("/v1/auth/logout", post(logout))
         .route("/v1/auth/me", get(me))
-        .route("/v1/auth/sessions", get(list_sessions))
+        .route(
+            "/v1/auth/sessions",
+            get(list_sessions).delete(revoke_other_sessions),
+        )
         .route("/v1/auth/sessions/{session_id}", delete(revoke_session))
+        .route("/v1/auth/password", patch(change_password))
         .route("/v1/worlds", get(list_worlds).post(create_world))
         .route("/v1/worlds/{slug}", get(get_world))
         .route("/v1/worlds/{slug}/eras", get(list_eras).post(create_era))
@@ -511,6 +522,100 @@ async fn revoke_session(
     let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
     store::revoke_session(&state.db, account.id, session_id, &token_hash(token)).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn revoke_other_sessions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
+    let revoked = store::revoke_other_sessions(&state.db, account.id, &token_hash(token)).await?;
+    Ok(Json(serde_json::json!({ "revokedCount": revoked })))
+}
+
+async fn change_password(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    connect_info: ConnectInfo<SocketAddr>,
+    Json(input): Json<PasswordChangeInput>,
+) -> Result<Response, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let token = token_from_cookie(&headers).ok_or_else(ApiError::unauthorized)?;
+
+    if input.current_password.is_empty() || input.current_password.chars().count() > 128 {
+        return Err(ApiError::bad_request("The current password is incorrect."));
+    }
+    validate_password(&input.new_password)?;
+    check_auth_rate_limit(
+        &state.db,
+        "password_change",
+        &account.email,
+        &source_ip(connect_info),
+        20,
+        5,
+    )
+    .await?;
+
+    let stored_hash = sqlx::query_scalar::<_, String>(
+        "SELECT password_hash FROM accounts WHERE id = $1",
+    )
+    .bind(account.id)
+    .fetch_one(&state.db)
+    .await?;
+    let parsed_hash = PasswordHash::new(&stored_hash).map_err(|_| ApiError::internal())?;
+    Argon2::default()
+        .verify_password(input.current_password.as_bytes(), &parsed_hash)
+        .map_err(|_| ApiError::bad_request("The current password is incorrect."))?;
+
+    if Argon2::default()
+        .verify_password(input.new_password.as_bytes(), &parsed_hash)
+        .is_ok()
+    {
+        return Err(ApiError::bad_request(
+            "Choose a password you have not used for this account.",
+        ));
+    }
+
+    let new_hash = Argon2::default()
+        .hash_password(input.new_password.as_bytes())
+        .map_err(|_| ApiError::internal())?
+        .to_string();
+    let next_token = Uuid::new_v4().to_string();
+    let current_hash = token_hash(token);
+    let mut transaction = state.db.begin().await?;
+
+    sqlx::query("UPDATE accounts SET password_hash = $1 WHERE id = $2")
+        .bind(new_hash)
+        .bind(account.id)
+        .execute(&mut *transaction)
+        .await?;
+
+    let rotated = sqlx::query(
+        "UPDATE sessions
+         SET token_hash = $1, expires_at = NOW() + INTERVAL '14 days'
+         WHERE account_id = $2 AND token_hash = $3 AND expires_at > NOW()",
+    )
+    .bind(token_hash(&next_token))
+    .bind(account.id)
+    .bind(current_hash)
+    .execute(&mut *transaction)
+    .await?;
+
+    if rotated.rows_affected() != 1 {
+        return Err(ApiError::unauthorized());
+    }
+
+    sqlx::query("DELETE FROM sessions WHERE account_id = $1 AND token_hash <> $2")
+        .bind(account.id)
+        .bind(token_hash(&next_token))
+        .execute(&mut *transaction)
+        .await?;
+
+    transaction.commit().await?;
+    attach_cookie(StatusCode::NO_CONTENT, session_cookie(&next_token, &state))
 }
 
 async fn list_worlds(

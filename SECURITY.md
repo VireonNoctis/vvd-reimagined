@@ -16,7 +16,8 @@ The current implementation includes the following controls. They are implementat
 
 - Passwords are hashed with Argon2id; registration enforces a 12–128 character length.
 - Sessions use opaque random tokens. Only SHA-256 token digests are stored in PostgreSQL. Session cookies are HttpOnly, SameSite=Strict, expire after 14 days, and receive Secure in production.
-- Users can inspect their active sessions and revoke another session belonging to their own account. The current session signs out through the normal logout route.
+- Users can inspect active sessions, end one remote session or end every other session without deleting the current browser.
+- Password changes require the current password, reject reusing the existing password, rotate the current session token and revoke all other sessions inside one database transaction.
 - Registration and login use database-backed IP and normalized-email throttles with 15-minute windows. Source IP is taken from the TCP peer address; forwarded headers are not trusted by the API.
 - Mutating browser requests check the configured application Origin and Fetch Metadata. Cross-site and same-site browser contexts are rejected; clients that do not send Fetch Metadata remain distinguishable as non-browser clients.
 - The Next.js application and Rust API set no-sniff, frame-denial, referrer and permission headers. Production frontend responses set HSTS.
@@ -28,7 +29,7 @@ The current implementation includes the following controls. They are implementat
 
 **Security is not complete and this branch is not production-certified.** The following work remains before a public launch:
 
-- Email verification, password recovery, multifactor authentication, password changes and account-deletion/export workflows.
+- Email verification, password recovery, multifactor authentication and account-deletion/export workflows.
 - Independent security review and penetration testing of authentication, authorization, session lifecycle, CSRF, storage and deployment.
 - Verified deployment topology, TLS termination, trusted reverse-proxy configuration, host allow-listing and network restrictions for PostgreSQL and object storage.
 - A defined secret-management and rotation process. Production credentials must not be committed or exposed to browser bundles.
