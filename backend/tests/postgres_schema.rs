@@ -1439,7 +1439,6 @@ async fn personal_graph_layouts_are_versioned_private_and_era_scoped() {
         .expect("delete the owner's saved layout");
 }
 
-
 #[tokio::test]
 async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
     let Ok(database_url) = std::env::var("DATABASE_URL") else {
@@ -1538,7 +1537,8 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
     assert_eq!(maps[0].id, map.id);
 
     let mut revised_map = map.data.clone();
-    revised_map["pins"][0]["label"] = serde_json::Value::String("Fallowreach — seat of the Marches".to_owned());
+    revised_map["pins"][0]["label"] =
+        serde_json::Value::String("Fallowreach — seat of the Marches".to_owned());
     let updated_map = store::update_visual_tool_document(
         &pool,
         account_id,
