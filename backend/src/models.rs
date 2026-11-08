@@ -481,6 +481,77 @@ pub(crate) struct GraphLayoutRow {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum VisualToolKind {
+    Map,
+    RelationTree,
+    Canvas,
+    Timeline,
+}
+
+impl VisualToolKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Map => "map",
+            Self::RelationTree => "relation_tree",
+            Self::Canvas => "canvas",
+            Self::Timeline => "timeline",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self, &'static str> {
+        match value {
+            "map" => Ok(Self::Map),
+            "relation_tree" => Ok(Self::RelationTree),
+            "canvas" => Ok(Self::Canvas),
+            "timeline" => Ok(Self::Timeline),
+            _ => Err("Unknown visual tool."),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VisualToolDocument {
+    pub id: Uuid,
+    pub kind: VisualToolKind,
+    pub era_id: Uuid,
+    pub name: String,
+    pub version: i64,
+    pub data: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VisualToolCreateInput {
+    pub era_id: Option<Uuid>,
+    pub name: String,
+    pub data: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VisualToolUpdateInput {
+    pub expected_version: i64,
+    pub name: String,
+    pub data: serde_json::Value,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub(crate) struct VisualToolDocumentRow {
+    pub id: Uuid,
+    pub kind: String,
+    pub era_id: Uuid,
+    pub name: String,
+    pub version: i64,
+    pub data: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaAssetSummary {
