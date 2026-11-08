@@ -99,6 +99,11 @@ export function VisualToolWorkspace({
     setSelectedId(id);
     setName(next.name);
     setData(next.data);
+    setSelectedCanvasObjectId("");
+    setCanvasUndo([]);
+    setCanvasRedo([]);
+    canvasGestureRef.current = null;
+    canvasNoteBeforeRef.current = null;
     setState("idle");
     setError("");
   }
@@ -107,6 +112,11 @@ export function VisualToolWorkspace({
     setSelectedId("");
     setName("Untitled " + (kind === "relation_tree" ? "relations" : kind));
     setData(createVisualToolData(kind));
+    setSelectedCanvasObjectId("");
+    setCanvasUndo([]);
+    setCanvasRedo([]);
+    canvasGestureRef.current = null;
+    canvasNoteBeforeRef.current = null;
     setState("idle");
     setError("");
   }
@@ -289,8 +299,8 @@ export function VisualToolWorkspace({
         objects: value.objects.map((item) => {
           if (item.id !== gesture.id) return item;
           if (gesture.mode === "resize") {
-            const width = Math.max(0.08, Math.min(1 - gesture.x, gesture.width + dx));
-            const height = Math.max(0.08, Math.min(1 - gesture.y, gesture.height + dy));
+            const width = Math.max(0.12, Math.min(1 - gesture.x, gesture.width + dx));
+            const height = Math.max(0.12, Math.min(1 - gesture.y, gesture.height + dy));
             return { ...item, width, height };
           }
           return {
@@ -324,7 +334,7 @@ export function VisualToolWorkspace({
         id,
         kind: "image",
         x: 0.08 + (index % 3) * 0.29,
-        y: 0.12 + Math.floor(index / 3) * 0.27,
+        y: Math.min(0.78, 0.12 + Math.floor(index / 3) * 0.27),
         width: 0.25,
         height: 0.18,
         mediaId: selectedMediaId
@@ -343,7 +353,7 @@ export function VisualToolWorkspace({
         id,
         kind: kindToAdd,
         x: 0.08 + (index % 3) * 0.29,
-        y: 0.12 + Math.floor(index / 3) * 0.27,
+        y: Math.min(0.78, 0.12 + Math.floor(index / 3) * 0.27),
         width: 0.25,
         height: 0.18,
         ...(kindToAdd === "card" && selectedCard ? { cardId: selectedCard.id } : {}),
