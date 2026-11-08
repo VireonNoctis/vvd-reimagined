@@ -1836,9 +1836,7 @@ fn validate_visual_tool_data(
             }
             if let Some(variants) = data.get("variants") {
                 if variants.as_array().is_none_or(|items| items.len() > 100) {
-                    return Err(ApiError::bad_request(
-                        "Relation Tree variants are invalid.",
-                    ));
+                    return Err(ApiError::bad_request("Relation Tree variants are invalid."));
                 }
             }
         }
