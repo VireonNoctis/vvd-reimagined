@@ -154,6 +154,47 @@ async fn migrations_enforce_membership_and_same_world_references() {
             .is_ok()
     );
 
+    let expired_upload_id = Uuid::new_v4();
+    let expired_object_key = format!("assets/{}", expired_upload_id.simple());
+    store::create_media_asset(
+        &pool,
+        account_id,
+        &format!("first-{unique}"),
+        MediaAssetCreate {
+            id: expired_upload_id,
+            object_key: expired_object_key.clone(),
+            file_name: "abandoned.png".to_owned(),
+            content_type: "image/png".to_owned(),
+            size_bytes: 128,
+            document_id: None,
+            expires_at: Utc::now() - Duration::minutes(1),
+        },
+    )
+    .await
+    .expect("create an expired private upload");
+
+    let claimed_uploads = store::claim_expired_media_uploads(&pool, 50)
+        .await
+        .expect("claim expired Gallery uploads");
+    assert_eq!(claimed_uploads, vec![(expired_upload_id, expired_object_key)]);
+    assert!(
+        store::claim_expired_media_uploads(&pool, 50)
+            .await
+            .expect("avoid claiming a live cleanup lease twice")
+            .is_empty()
+    );
+    store::finish_expired_media_cleanup(&pool, expired_upload_id)
+        .await
+        .expect("finish the expired Gallery cleanup");
+    let expired_status = sqlx::query_scalar::<_, String>(
+        "SELECT status FROM media_assets WHERE id = $1",
+    )
+    .bind(expired_upload_id)
+    .fetch_one(&pool)
+    .await
+    .expect("read the cleaned Gallery state");
+    assert_eq!(expired_status, "deleted");
+
     for (id, owning_world) in [
         (source_document_id, world_id),
         (local_target_id, world_id),
