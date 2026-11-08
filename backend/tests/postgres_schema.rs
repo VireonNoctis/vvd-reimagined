@@ -9,7 +9,7 @@ use vvd_api::{
         CardUpdateInput, EntityType, EraCreateInput, FolderCreateInput, FolderUpdateInput,
         GraphLayoutCreateInput, GraphLayoutEntityFilters, GraphLayoutFilters,
         GraphLayoutNodePosition, GraphLayoutUpdateInput, GraphLayoutView, MediaAssetCreate,
-        MoveDocumentInput,
+        MoveDocumentInput, VisualToolCreateInput, VisualToolUpdateInput,
     },
     store,
 };
@@ -1437,4 +1437,267 @@ async fn personal_graph_layouts_are_versioned_private_and_era_scoped() {
     store::delete_graph_layout(&pool, account_id, &world.slug, layout.id)
         .await
         .expect("delete the owner's saved layout");
+}
+
+
+#[tokio::test]
+async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
+    let Ok(database_url) = std::env::var("DATABASE_URL") else {
+        return;
+    };
+
+    let pool = PgPoolOptions::new()
+        .max_connections(4)
+        .connect(&database_url)
+        .await
+        .expect("connect to the PostgreSQL test service");
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("apply backend migrations");
+
+    let account_id = Uuid::new_v4();
+    let unique = Uuid::new_v4().simple().to_string();
+    sqlx::query(
+        "INSERT INTO accounts (id, email, display_name, password_hash)
+         VALUES ($1, $2, 'Visual Tool Tester', 'test-only')",
+    )
+    .bind(account_id)
+    .bind(format!("visual-{unique}@example.test"))
+    .execute(&pool)
+    .await
+    .expect("create visual tool test account");
+
+    let world = store::create_world(
+        &pool,
+        account_id,
+        "Visual Tool World".to_owned(),
+        String::new(),
+        "Fantasy".to_owned(),
+    )
+    .await
+    .expect("create a world with visual tools enabled");
+
+    let card = store::create_card(
+        &pool,
+        account_id,
+        &world.slug,
+        CardCreateInput {
+            name: "Fallowreach".to_owned(),
+            entity_type: EntityType::Place,
+            template_id: None,
+            aliases: Vec::new(),
+            properties: Vec::new(),
+            blocks: Vec::new(),
+        },
+    )
+    .await
+    .expect("create a canonical place for visual links");
+
+    let map = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "map",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "The Northern Marches".to_owned(),
+            data: serde_json::json!({
+                "width": 1600,
+                "height": 900,
+                "layers": [
+                    {"id":"regions", "name":"Regions", "opacity":1.0, "visible":true, "locked":false}
+                ],
+                "regions": [
+                    {"id":"north", "name":"Northern Marches", "points":[
+                        {"x":0.1,"y":0.1},{"x":0.8,"y":0.12},{"x":0.75,"y":0.7},{"x":0.15,"y":0.8}
+                    ]}
+                ],
+                "pins": [
+                    {"id":"capital","label":"Fallowreach","x":0.45,"y":0.35,"cardId":card.id}
+                ]
+            }),
+        },
+    )
+    .await
+    .expect("create a persisted map with a same-world card link");
+    assert_eq!(map.kind.as_str(), "map");
+    assert_eq!(map.version, 1);
+
+    let maps = store::list_visual_tool_documents(
+        &pool,
+        account_id,
+        &world.slug,
+        "map",
+        Some(world.active_era_id),
+    )
+    .await
+    .expect("list visual maps in the selected era");
+    assert_eq!(maps.len(), 1);
+    assert_eq!(maps[0].id, map.id);
+
+    let mut revised_map = map.data.clone();
+    revised_map["pins"][0]["label"] = serde_json::Value::String("Fallowreach — seat of the Marches".to_owned());
+    let updated_map = store::update_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "map",
+        map.id,
+        VisualToolUpdateInput {
+            expected_version: 1,
+            name: map.name.clone(),
+            data: revised_map.clone(),
+        },
+    )
+    .await
+    .expect("save the new map version");
+    assert_eq!(updated_map.version, 2);
+
+    let stale_map = store::update_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "map",
+        map.id,
+        VisualToolUpdateInput {
+            expected_version: 1,
+            name: map.name.clone(),
+            data: revised_map,
+        },
+    )
+    .await;
+    assert!(stale_map.is_err(), "stale visual saves must be rejected");
+
+    let relation_tree = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "relation_tree",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Political alliances".to_owned(),
+            data: serde_json::json!({
+                "nodes":[
+                    {"id":"marches","label":"Northern Marches","x":0.25,"y":0.5,"cardId":card.id},
+                    {"id":"court","label":"Glass Court","x":0.75,"y":0.5}
+                ],
+                "edges":[
+                    {"id":"treaty","source":"marches","target":"court","relationType":"alliance","label":"Treaty"}
+                ],
+                "variants":[]
+            }),
+        },
+    )
+    .await
+    .expect("create a relation tree with explicit typed edges");
+    assert_eq!(relation_tree.kind.as_str(), "relation_tree");
+
+    let canvas = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "canvas",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Story board".to_owned(),
+            data: serde_json::json!({
+                "objects":[
+                    {"id":"place-card","kind":"card","x":0.1,"y":0.15,"width":0.3,"height":0.24,"cardId":card.id},
+                    {"id":"heading","kind":"text","x":0.55,"y":0.2,"width":0.3,"height":0.12,"text":"A new alliance"}
+                ],
+                "strokes":[]
+            }),
+        },
+    )
+    .await
+    .expect("create a canvas with linked canonical content");
+    assert_eq!(canvas.kind.as_str(), "canvas");
+
+    let timeline = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "timeline",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "The Marches Chronicle".to_owned(),
+            data: serde_json::json!({
+                "calendar":{
+                    "name":"Marcher Reckoning",
+                    "months":[{"name":"Frostfall","days":30},{"name":"Thaw","days":28}]
+                },
+                "events":[
+                    {"id":"founding","title":"Fallowreach founded","year":12,"month":1,"day":3,"cardId":card.id}
+                ]
+            }),
+        },
+    )
+    .await
+    .expect("create a calendar-aware timeline");
+    assert_eq!(timeline.kind.as_str(), "timeline");
+
+    let invalid_relation = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "relation_tree",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Broken links".to_owned(),
+            data: serde_json::json!({
+                "nodes":[{"id":"one","label":"One","x":0.2,"y":0.2}],
+                "edges":[{"id":"bad","source":"one","target":"missing","relationType":"ally"}],
+                "variants":[]
+            }),
+        },
+    )
+    .await;
+    assert!(invalid_relation.is_err(), "relation edges must point to existing nodes");
+
+    let other_world = store::create_world(
+        &pool,
+        account_id,
+        "Separate Visual World".to_owned(),
+        String::new(),
+        "Fantasy".to_owned(),
+    )
+    .await
+    .expect("create a second world");
+    let foreign_card = store::create_card(
+        &pool,
+        account_id,
+        &other_world.slug,
+        CardCreateInput {
+            name: "Foreign place".to_owned(),
+            entity_type: EntityType::Place,
+            template_id: None,
+            aliases: Vec::new(),
+            properties: Vec::new(),
+            blocks: Vec::new(),
+        },
+    )
+    .await
+    .expect("create a card in the second world");
+
+    let cross_world_link = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "map",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Invalid map".to_owned(),
+            data: serde_json::json!({
+                "width":1000,"height":800,"layers":[],"regions":[],
+                "pins":[{"id":"foreign","label":"Foreign","x":0.5,"y":0.5,"cardId":foreign_card.id}]
+            }),
+        },
+    )
+    .await;
+    assert!(
+        cross_world_link.is_err(),
+        "visual tools must not link records from another world"
+    );
 }
