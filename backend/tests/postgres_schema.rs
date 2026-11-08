@@ -954,13 +954,15 @@ async fn document_registry_and_card_templates_are_world_scoped_and_validated() {
     assert!(card_type.enabled);
     assert_eq!(card_type.implementation_status, "ready");
 
-    let map_type = world
-        .document_types
-        .iter()
-        .find(|item| item.type_key == "map")
-        .expect("map type is in the registry");
-    assert!(!map_type.enabled);
-    assert_eq!(map_type.implementation_status, "planned");
+    for type_key in ["map", "relation_tree", "canvas", "timeline"] {
+        let visual_type = world
+            .document_types
+            .iter()
+            .find(|item| item.type_key == type_key)
+            .unwrap_or_else(|| panic!("{type_key} type is in the registry"));
+        assert!(visual_type.enabled, "{type_key} is enabled for new worlds");
+        assert_eq!(visual_type.implementation_status, "ready");
+    }
 
     assert_eq!(world.card_templates.len(), 3);
     assert!(
