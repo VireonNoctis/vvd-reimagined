@@ -1587,6 +1587,51 @@ pub async fn move_document(
     get_document(pool, account_id, slug, document_id, None).await
 }
 
+pub async fn claim_expired_media_uploads(
+    pool: &PgPool,
+    limit: i64,
+) -> Result<Vec<(Uuid, String)>, ApiError> {
+    let mut transaction = pool.begin().await?;
+    let assets = sqlx::query_as::<_, (Uuid, String)>(
+        "WITH expired AS (
+            SELECT id
+            FROM media_assets
+            WHERE (status = 'pending' AND expires_at <= NOW())
+               OR (status = 'rejected' AND updated_at <= NOW() - INTERVAL '5 minutes')
+               OR (status = 'deleting' AND updated_at <= NOW() - INTERVAL '5 minutes')
+            ORDER BY COALESCE(expires_at, updated_at), id
+            FOR UPDATE SKIP LOCKED
+            LIMIT $1
+         )
+         UPDATE media_assets AS asset
+         SET status = 'deleting', updated_at = NOW()
+         FROM expired
+         WHERE asset.id = expired.id
+         RETURNING asset.id, asset.object_key",
+    )
+    .bind(limit.clamp(1, 250))
+    .fetch_all(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    Ok(assets)
+}
+
+pub async fn finish_expired_media_cleanup(
+    pool: &PgPool,
+    asset_id: Uuid,
+) -> Result<(), ApiError> {
+    sqlx::query(
+        "UPDATE media_assets
+         SET status = 'deleted', updated_at = NOW()
+         WHERE id = $1 AND status = 'deleting'",
+    )
+    .bind(asset_id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn create_media_asset(
     pool: &PgPool,
     account_id: Uuid,
