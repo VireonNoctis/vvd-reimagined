@@ -107,6 +107,11 @@ export function Workspace({ world, document, interactive }: Props) {
               <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/media"}><Icon name="files" size={14} />Private Gallery</Link>
               {isPrimeEra && <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/templates"}><Icon name="layers" size={14} />Card templates</Link>}
               {isPrimeEra && <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/archive"}><Icon name="archive" size={14} />Archived records</Link>}
+              <div className="sidebar-section-heading visual-tool-sidebar-heading"><span>Visual tools</span></div>
+              <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/tools/map"}><Icon name="globe" size={14} />Maps</Link>
+              <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/tools/relation_tree"}><Icon name="share-2" size={14} />Relation Trees</Link>
+              <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/tools/canvas"}><Icon name="layers" size={14} />Canvas</Link>
+              <Link className="archive-shortcut" href={"/worlds/" + world.slug + "/tools/timeline"}><Icon name="files" size={14} />Timeline</Link>
             </>
           )}
           <div className="sidebar-footnote"><span className="status-dot" />{interactive ? "Connected · server-backed" : "Sample world · Read only"}</div>
