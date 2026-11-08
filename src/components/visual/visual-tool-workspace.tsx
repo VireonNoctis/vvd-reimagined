@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
-import type { CardDocument, Era } from "@/domain/world";
+import type { CardDocument, CardMediaAsset, Era } from "@/domain/world";
 import {
   cardLabel,
   createVisualToolData,
@@ -22,6 +23,7 @@ type Props = {
   activeEraId: string;
   eras: Era[];
   cards: CardDocument[];
+  media: CardMediaAsset[];
   kind: VisualToolKind;
   initialDocuments: VisualToolDocument[];
   interactive: boolean;
@@ -46,7 +48,7 @@ function requestUrl(slug: string, kind: VisualToolKind, id?: string): string {
 }
 
 export function VisualToolWorkspace({
-  worldSlug, worldName, activeEraId, eras, cards, kind, initialDocuments, interactive
+  worldSlug, worldName, activeEraId, eras, cards, media, kind, initialDocuments, interactive
 }: Props) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [selectedId, setSelectedId] = useState(initialDocuments[0]?.id ?? "");
@@ -54,6 +56,7 @@ export function VisualToolWorkspace({
   const [name, setName] = useState(selected?.name ?? "Untitled " + titles[kind].slice(0, -1));
   const [data, setData] = useState<VisualToolData>(selected?.data ?? createVisualToolData(kind));
   const [selectedCardId, setSelectedCardId] = useState("");
+  const [selectedMediaId, setSelectedMediaId] = useState("");
   const [eventTitle, setEventTitle] = useState("");
   const [eventYear, setEventYear] = useState("1");
   const [eventMonth, setEventMonth] = useState("1");
@@ -179,6 +182,27 @@ export function VisualToolWorkspace({
     });
   }
 
+  function addCanvasImage() {
+    if (!selectedMediaId) {
+      setError("Choose a ready Gallery image before placing it on the Canvas.");
+      setState("error");
+      return;
+    }
+    patchData((current) => {
+      const canvas = current as CanvasData;
+      const index = canvas.objects.length;
+      return { ...canvas, objects: [...canvas.objects, {
+        id: makeId("image"),
+        kind: "image",
+        x: 0.08 + (index % 3) * 0.29,
+        y: 0.12 + Math.floor(index / 3) * 0.27,
+        width: 0.25,
+        height: 0.18,
+        mediaId: selectedMediaId
+      }] };
+    });
+  }
+
   function addCanvasObject(kindToAdd: "card" | "text") {
     patchData((current) => {
       const canvas = current as CanvasData;
@@ -270,13 +294,16 @@ export function VisualToolWorkspace({
         <div className="visual-tool-toolbar">
           <label className="visual-tool-name">Document name<input value={name} onChange={(event) => { setName(event.target.value); setState("idle"); }} maxLength={120} /></label>
           <label className="visual-tool-link-picker"><span>Link a world card</span><select value={selectedCardId} onChange={(event) => setSelectedCardId(event.target.value)}><option value="">No linked card</option>{cards.map((card) => <option key={card.id} value={card.id}>{cardLabel(card)}</option>)}</select></label>
+          <label className="visual-tool-link-picker"><span>Gallery image</span><select value={selectedMediaId} onChange={(event) => setSelectedMediaId(event.target.value)}><option value="">No image selected</option>{media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => <option key={asset.id} value={asset.id}>{asset.fileName}</option>)}</select></label>
         </div>
 
         {map && <div className="tool-editor tool-map-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">SPATIAL EDITOR</span><h2>Map surface</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addMapRegion} disabled={!interactive}>Add region</button><button className="toolbar-button" type="button" onClick={addMapPin} disabled={!interactive}>Add pin</button></div></div>
+          <div className="tool-editor-heading"><div><span className="eyebrow">SPATIAL EDITOR</span><h2>Map surface</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addMapRegion} disabled={!interactive}>Add region</button><button className="toolbar-button" type="button" onClick={addMapPin} disabled={!interactive}>Add pin</button></div><label className="map-background-select"><span>Background</span><select value={map.backgroundMediaId ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), backgroundMediaId: event.target.value || undefined }))} disabled={!interactive}><option value="">Grid</option>{media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => <option value={asset.id} key={asset.id}>{asset.fileName}</option>)}</select></label></div>
           <svg className="map-artboard" viewBox="0 0 1000 620" role="img" aria-label="Map canvas with editable region and pin records">
             <defs><pattern id="map-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeOpacity=".11" strokeWidth="1" /></pattern></defs>
-            <rect width="1000" height="620" fill="url(#map-grid)" />
+            <rect width="1000" height="620" fill="#eff1e9" />
+            {map.backgroundMediaId && <image href={"/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/media/" + encodeURIComponent(map.backgroundMediaId) + "/download"} x="0" y="0" width="1000" height="620" preserveAspectRatio="xMidYMid slice" />}
+            <rect width="1000" height="620" fill="url(#map-grid)" opacity=".38" />
             {map.regions.map((region) => <g key={region.id}><polygon points={region.points.map((point) => (point.x * 1000) + "," + (point.y * 620)).join(" ")} /><text x={region.points.reduce((sum, point) => sum + point.x * 1000, 0) / region.points.length} y={region.points.reduce((sum, point) => sum + point.y * 620, 0) / region.points.length}>{region.name}</text></g>)}
             {map.pins.map((pin) => <g key={pin.id}><circle cx={pin.x * 1000} cy={pin.y * 620} r="9" /><circle cx={pin.x * 1000} cy={pin.y * 620} r="3" /><text x={pin.x * 1000 + 16} y={pin.y * 620 - 12}>{pin.label}</text></g>)}
           </svg>
@@ -303,11 +330,11 @@ export function VisualToolWorkspace({
         </div>}
 
         {canvas && <div className="tool-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">FREEFORM WORKSPACE</span><h2>Canvas</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={() => addCanvasObject("card")} disabled={!interactive}>Place card</button><button className="toolbar-button" type="button" onClick={() => addCanvasObject("text")} disabled={!interactive}>Add note</button></div></div>
+          <div className="tool-editor-heading"><div><span className="eyebrow">FREEFORM WORKSPACE</span><h2>Canvas</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={() => addCanvasObject("card")} disabled={!interactive}>Place card</button><button className="toolbar-button" type="button" onClick={() => addCanvasObject("text")} disabled={!interactive}>Add note</button><button className="toolbar-button" type="button" onClick={addCanvasImage} disabled={!interactive || !selectedMediaId}>Place image</button></div></div>
           <div className="canvas-artboard">
             {canvas.objects.map((object) => <div className={"canvas-object kind-" + object.kind} key={object.id} style={{ left: (object.x * 100) + "%", top: (object.y * 100) + "%", width: (object.width * 100) + "%", minHeight: (object.height * 100) + "%" }}>
               <small>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Unlinked card" : object.kind === "text" ? "NOTE" : object.kind.toUpperCase()}</small>
-              {object.kind === "text" ? <textarea value={object.text ?? ""} onChange={(event) => patchData((current) => ({ ...(current as CanvasData), objects: (current as CanvasData).objects.map((item) => item.id === object.id ? { ...item, text: event.target.value } : item) }))} disabled={!interactive} aria-label="Canvas note" /> : <strong>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Card" : "Canvas object"}</strong>}
+              {object.kind === "text" ? <textarea value={object.text ?? ""} onChange={(event) => patchData((current) => ({ ...(current as CanvasData), objects: (current as CanvasData).objects.map((item) => item.id === object.id ? { ...item, text: event.target.value } : item) }))} disabled={!interactive} aria-label="Canvas note" /> : object.kind === "image" ? <>{(() => { const asset = media.find((item) => item.id === object.mediaId); return asset ? <Image src={"/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/media/" + encodeURIComponent(asset.id) + "/download"} alt={asset.fileName} fill sizes="(max-width: 620px) 45vw, 220px" unoptimized /> : <strong>Missing Gallery asset</strong>; })()}</> : <strong>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Card" : "Canvas object"}</strong>}
             </div>)}
             {canvas.objects.length === 0 && <span className="canvas-empty-note">Place a card or add a note to start.</span>}
           </div>
