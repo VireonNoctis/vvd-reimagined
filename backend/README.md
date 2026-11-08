@@ -36,8 +36,14 @@ Production must set `APP_ENV=production`, `APP_ORIGIN` and `COOKIE_SECURE=true`,
 | GET | `/v1/worlds` | List worlds the account belongs to |
 | POST | `/v1/worlds` | Create a world; creator becomes owner |
 | GET | `/v1/worlds/{slug}` | Read one world and its card records |
+| GET/POST | `/v1/worlds/{slug}/visual-tools/{kind}` | List or create a world/era-scoped Map, Relation Tree, Canvas or Timeline document |
+| PATCH | `/v1/worlds/{slug}/visual-tools/{kind}/{id}` | Update a visual document with an expected version |
 | GET/POST | `/v1/worlds/{slug}/documents` | List or create cards |
 | GET/PATCH | `/v1/worlds/{slug}/documents/{id}` | Read or version-checked update |
+
+## Visual tool documents
+
+The `visual-tools` API accepts `map`, `relation_tree`, `canvas` and `timeline` kinds. A record belongs to one world and one era. JSON payloads are schema-validated on the server, capped at 1.4 MB, and use optimistic version checks. References to cards and ready Gallery media must resolve within the same world. Relation edges must point to existing nodes; map and canvas coordinates are normalized; timeline dates are checked against the selected calendar's month lengths.
 
 ## Data rules
 
