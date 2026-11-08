@@ -40,7 +40,7 @@ Without VVD_API_URL the app remains a read-only preview. With it configured, acc
 - [x] Make card writes transactional and version-checked; enforce same-world references with composite foreign keys.
 - [x] Connect the Next.js world library and card editor to API-backed reads and version-checked writes.
 - [x] Implement nested folders and move cards between folders.
-- [x] Add a document type registry and per-world allow-list; Map, Timeline, Relation Tree and Canvas stay planned until their typed content handlers exist.
+- [x] Add a document type registry and per-world allow-list; Card, Map, Timeline, Relation Tree and Canvas have ready typed content handlers.
 - [x] Add per-subtype card templates with property definitions, starter blocks and required-field validation on create and edit.
 - [x] Add revision history, archive and restore.
 - [x] Add named eras that inherit from a parent by reference, with sparse field-level overrides, recursive resolution and version checks across ancestor changes. Current slice is limited to edits of canonical cards; branch-local additions, per-era tombstones and era-specific revision history remain open.
@@ -73,7 +73,8 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - [x] Add Timeline documents with configurable month lengths, dated events and canonical card links.
 - [ ] Add map backdrops, image georeferencing, richer layer controls, region labels and pin/zone editing.
 - [ ] Add Relation Tree variants, free draw, custom relation-type persistence and richer edge editing.
-- [ ] Add Canvas drag/resize, grouping, image/media placement, drawing tools and undo/redo.
+- [x] Add Canvas selection, drag/resize, object deletion, Gallery image placement and bounded undo/redo.
+- [ ] Add Canvas grouping, freehand drawing UI and richer object tools.
 - [ ] Add custom calendar weekdays, leap/irregular rules, recurring events and event ranges.
 - Trade Routes settlement resources, road/river networks and supply-flow simulation.
 - Extensible custom-calendar support, keeping community-created calendars distinct from built-in Timeline.

@@ -28,7 +28,7 @@ Data is a JSON object with `width`, `height`, `layers`, `regions` and `pins`.
 - Pins have a label and may link to a canonical card.
 - Layers persist name, visibility, lock and opacity settings.
 
-Current boundary: the first editor can add regions and linked pins and rename pins. Image backgrounds, georeferencing, full layer controls, zones, labels and richer pin editing remain outstanding.
+Current boundary: the editor supports Gallery-image backgrounds, adding regions and linked pins, and renaming pins. Direct region geometry editing, georeferencing, full layer controls, zones and richer pin/label editing remain outstanding.
 
 ## Relation Tree
 
@@ -48,7 +48,7 @@ Data has `objects` and `strokes`.
 - Card and media objects retain canonical references instead of duplicating their source.
 - Drawing strokes store bounded point arrays with normalized coordinates.
 
-Current boundary: the first editor places cards and text notes. Drag/resize, grouping, image placement, drawing UI, undo and redo remain outstanding.
+Current boundary: the editor can place cards, text notes and private Gallery images; select, drag, resize and delete objects; and undo/redo up to 40 recent edits. Group editing, freehand drawing UI and richer object tools remain outstanding.
 
 ## Timeline
 
