@@ -1161,7 +1161,8 @@ pub async fn create_world(
 
     sqlx::query(
         "INSERT INTO world_document_types (world_id, type_key, enabled)
-         SELECT $1, type_key, type_key = 'card' FROM document_type_registry",
+         SELECT $1, type_key, type_key = 'card' OR type_key IN ('map', 'relation_tree', 'canvas', 'timeline')
+         FROM document_type_registry",
     )
     .bind(id)
     .execute(&mut *transaction)
