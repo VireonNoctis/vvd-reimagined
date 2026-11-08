@@ -34,6 +34,7 @@ export default async function VisualToolPage({ params, searchParams }: Props) {
       worldSlug={world.slug}
       worldName={world.name}
       activeEraId={world.activeEraId}
+      eras={world.eras}
       cards={world.documents}
       kind={kind}
       initialDocuments={initialDocuments}
