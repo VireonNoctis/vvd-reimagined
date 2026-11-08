@@ -6,7 +6,7 @@ An independent reconstruction of a connected worldbuilding, writing, collaborati
 
 The Next.js workspace and Rust API are connected when VVD_API_URL is configured: account sessions, world membership, world creation, canonical card reads and version-checked card updates use PostgreSQL. Without that setting, the app remains an explicitly read-only synthetic preview.
 
-Research baseline: 6 November 2026. Public documentation cannot replace direct inspection of the authenticated workspace. Exact current geometry, hidden menus, transition timings and some beta behaviour remain unverified.
+Research baseline: 6 November 2026. In-app visual-reference notes: [workspace and screenshot research](docs/APP_VISUAL_REFERENCE.md). The supplied YouTube playlist could not be retrieved in this pass, so those notes separate verified screenshots/documentation from uninspected footage. Public documentation cannot replace direct inspection of the authenticated workspace. Exact current geometry, hidden menus, transition timings and some beta behaviour remain unverified.
 
 ## Current implementation
 
@@ -21,6 +21,7 @@ Research baseline: 6 November 2026. Public documentation cannot replace direct i
 - Account security centre with password changes, current-session rotation, per-device and all-other-session revocation, live session-list refresh after password changes, and a 90-day security activity history.
 - PostgreSQL-backed authentication throttles, nested folders, named eras with sparse inheritance, reversible archive, revision history, personal graph layouts and same-world card moves.
 - Private Gallery with short-lived presigned S3-compatible uploads/downloads, object metadata verification, ClamAV byte scanning before publication and membership-checked asset access. Uploads fail closed until a private scanner is configured.
+- A bounded API worker cleans expired pending/rejected Gallery objects; failed S3 deletions remain leased and are retried instead of being abandoned.
 - WebGL 2 World Graph with separate typed-reference and mention edges, independent filters, personal saved layouts and source-evidence drill-down for inferred mentions.
 - CI configured for repository validation, lint, type-check, tests, production build, Rust formatting/Clippy and PostgreSQL integration checks.
 
