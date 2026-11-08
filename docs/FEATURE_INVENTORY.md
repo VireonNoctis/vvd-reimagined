@@ -24,6 +24,7 @@ The current application includes:
 - Membership-checked world and card reads, world/card creation, atomic version-checked card updates, nested world folders and conflict-checked card moves. Composite foreign keys keep card references inside their world.
 - Per-document snapshots on mutation, revision listing and conflict-checked restore; archive and restore keep canonical records and inbound references intact.
 - Private Gallery uses S3-compatible presigned uploads/downloads; server-generated object keys and membership-checked metadata prevent client-selected storage paths.
+- A bounded background worker removes expired pending and rejected Gallery objects. Failed object deletions remain in a leased `deleting` state and are retried rather than silently abandoned.
 
 The graph is a derived view, not an editor or a second source of truth. Mention matching ignores ambiguous phrases, requires whole-phrase boundaries and coalesces repeated mentions between the same pair. Each mention edge now exposes up to five source excerpts with the original matched phrase and block id. Relation Tree edges remain a separate explicit model. Shared layouts and manual graph edges remain future work.
 
