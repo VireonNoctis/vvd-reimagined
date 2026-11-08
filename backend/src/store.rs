@@ -1617,10 +1617,7 @@ pub async fn claim_expired_media_uploads(
     Ok(assets)
 }
 
-pub async fn finish_expired_media_cleanup(
-    pool: &PgPool,
-    asset_id: Uuid,
-) -> Result<(), ApiError> {
+pub async fn finish_expired_media_cleanup(pool: &PgPool, asset_id: Uuid) -> Result<(), ApiError> {
     sqlx::query(
         "UPDATE media_assets
          SET status = 'deleted', updated_at = NOW()
