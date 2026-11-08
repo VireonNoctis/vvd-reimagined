@@ -7,7 +7,8 @@ use tokio::{
     time::timeout,
 };
 
-use crate::{config::StorageConfig, error::ApiError};
+use crate::{config::StorageConfig, error::ApiError, store};
+use sqlx::PgPool;
 
 #[derive(Clone)]
 pub struct MediaStore {
@@ -154,6 +155,27 @@ impl MediaStore {
             Ok(result) => result,
             Err(_) => Err(ApiError::service_unavailable()),
         }
+    }
+
+    pub async fn cleanup_expired(
+        &self,
+        pool: &PgPool,
+        limit: i64,
+    ) -> Result<usize, ApiError> {
+        let expired = store::claim_expired_media_uploads(pool, limit).await?;
+        let mut removed = 0;
+
+        for (asset_id, object_key) in expired {
+            if self.delete(&object_key).await.is_err() {
+                tracing::warn!(%asset_id, "expired Gallery object deletion will be retried");
+                continue;
+            }
+
+            store::finish_expired_media_cleanup(pool, asset_id).await?;
+            removed += 1;
+        }
+
+        Ok(removed)
     }
 
     pub async fn presign_download(&self, object_key: &str) -> Result<String, ApiError> {
