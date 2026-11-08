@@ -29,7 +29,7 @@ use crate::{
         FolderCreateInput, FolderUpdateInput, GraphLayoutCreateInput, GraphLayoutSummary,
         GraphLayoutUpdateInput, LoginInput, MediaAssetCreate, MediaAssetSummary, MediaUploadInput,
         MediaUploadTicket, MoveDocumentInput, RegisterInput, SecurityEventSummary, SessionSummary,
-        WorldCreateInput,
+        VisualToolCreateInput, VisualToolDocument, VisualToolUpdateInput, WorldCreateInput,
     },
     store,
 };
@@ -308,6 +308,14 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/worlds/{slug}", get(get_world))
         .route("/v1/worlds/{slug}/eras", get(list_eras).post(create_era))
         .route("/v1/worlds/{slug}/document-types", get(list_document_types))
+        .route(
+            "/v1/worlds/{slug}/visual-tools/{kind}",
+            get(list_visual_tool_documents).post(create_visual_tool_document),
+        )
+        .route(
+            "/v1/worlds/{slug}/visual-tools/{kind}/{document_id}",
+            patch(update_visual_tool_document),
+        )
         .route(
             "/v1/worlds/{slug}/graph-layouts",
             get(list_graph_layouts).post(create_graph_layout),
@@ -1127,6 +1135,53 @@ async fn list_document_types(
     let account = signed_in_account(&state.db, &headers).await?;
     Ok(Json(
         store::list_document_types(&state.db, account.id, &slug).await?,
+    ))
+}
+
+async fn list_visual_tool_documents(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, kind)): Path<(String, String)>,
+    Query(query): Query<EraQuery>,
+) -> Result<Json<Vec<VisualToolDocument>>, ApiError> {
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::list_visual_tool_documents(&state.db, account.id, &slug, &kind, query.era_id)
+            .await?,
+    ))
+}
+
+async fn create_visual_tool_document(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, kind)): Path<(String, String)>,
+    Json(input): Json<VisualToolCreateInput>,
+) -> Result<impl IntoResponse, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    let document =
+        store::create_visual_tool_document(&state.db, account.id, &slug, &kind, input).await?;
+    Ok((StatusCode::CREATED, Json(document)))
+}
+
+async fn update_visual_tool_document(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((slug, kind, document_id)): Path<(String, String, Uuid)>,
+    Json(input): Json<VisualToolUpdateInput>,
+) -> Result<Json<VisualToolDocument>, ApiError> {
+    check_origin(&headers, &state)?;
+    let account = signed_in_account(&state.db, &headers).await?;
+    Ok(Json(
+        store::update_visual_tool_document(
+            &state.db,
+            account.id,
+            &slug,
+            &kind,
+            document_id,
+            input,
+        )
+        .await?,
     ))
 }
 
