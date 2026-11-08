@@ -866,3 +866,21 @@ body { background: var(--paper); }
 .canvas-object.kind-image { min-height: 110px; overflow: hidden; padding: 0; }
 .canvas-object.kind-image small { position: relative; z-index: 1; margin: 8px; padding: 3px 5px; width: fit-content; border-radius: 4px; background: rgba(255,254,250,.86); }
 .canvas-object.kind-image img { object-fit: cover; }
+
+
+/* Direct manipulation controls for the Canvas editor. */
+.canvas-artboard { min-height: 520px; isolation: isolate; }
+.canvas-object { touch-action: none; user-select: none; cursor: grab; transition: box-shadow .16s ease,border-color .16s ease; }
+.canvas-object:active { cursor: grabbing; }
+.canvas-object.selected { z-index: 2; border-color: #879b7b; outline: 2px solid rgba(111,135,99,.24); box-shadow: 0 12px 32px rgba(40,47,37,.14); }
+.canvas-object textarea { touch-action: auto; user-select: text; cursor: text; }
+.canvas-resize-handle { position: absolute; right: 3px; bottom: 3px; width: 13px; height: 13px; border: 1px solid #829579; border-radius: 4px; background: #f9fbf5; box-shadow: 0 1px 5px rgba(40,47,37,.12); opacity: 0; cursor: nwse-resize; }
+.canvas-object.selected .canvas-resize-handle { opacity: 1; }
+.canvas-object.selected .canvas-resize-handle::after { position: absolute; inset: 3px; border-right: 1px solid #829579; border-bottom: 1px solid #829579; content: ""; }
+.canvas-object.kind-image { overflow: hidden; }
+.canvas-object.kind-image > img { object-fit: cover; }
+@media (max-width: 640px) {
+  .canvas-artboard { min-height: 430px; }
+  .canvas-object { min-width: 72px; padding: 8px; gap: 5px; }
+  .canvas-object strong { font-size: 10px; }
+}

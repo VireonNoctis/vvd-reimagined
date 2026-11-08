@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Icon } from "@/components/ui/icon";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import type { CardDocument, CardMediaAsset, Era } from "@/domain/world";
@@ -10,6 +10,7 @@ import {
   cardLabel,
   createVisualToolData,
   type CanvasData,
+  type CanvasObject,
   type MapData,
   type RelationTreeData,
   type TimelineData,
@@ -17,6 +18,20 @@ import {
   type VisualToolDocument,
   type VisualToolKind
 } from "@/domain/visual-tools";
+
+type CanvasGesture = {
+  id: string;
+  pointerId: number;
+  mode: "move" | "resize";
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  snapshot: CanvasData;
+  recorded: boolean;
+};
 
 type Props = {
   worldSlug: string;
@@ -64,6 +79,12 @@ export function VisualToolWorkspace({
   const [eventDay, setEventDay] = useState("1");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
+  const [selectedCanvasObjectId, setSelectedCanvasObjectId] = useState("");
+  const [canvasUndo, setCanvasUndo] = useState<CanvasData[]>([]);
+  const [canvasRedo, setCanvasRedo] = useState<CanvasData[]>([]);
+  const canvasStageRef = useRef<HTMLDivElement | null>(null);
+  const canvasGestureRef = useRef<CanvasGesture | null>(null);
+  const canvasNoteBeforeRef = useRef<CanvasData | null>(null);
 
   const selectedCard = cards.find((card) => card.id === selectedCardId);
   const events = useMemo(() => kind === "timeline"
@@ -183,17 +204,117 @@ export function VisualToolWorkspace({
     });
   }
 
+  function rememberCanvas(snapshot: CanvasData) {
+    setCanvasUndo((history) => [...history.slice(-39), snapshot]);
+    setCanvasRedo([]);
+  }
+
+  function undoCanvas() {
+    const previous = canvasUndo[canvasUndo.length - 1];
+    if (!previous || !canvas) return;
+    setCanvasRedo((history) => [...history.slice(-39), canvas]);
+    setCanvasUndo((history) => history.slice(0, -1));
+    setData(previous);
+    setSelectedCanvasObjectId("");
+    setState("idle");
+  }
+
+  function redoCanvas() {
+    const next = canvasRedo[canvasRedo.length - 1];
+    if (!next || !canvas) return;
+    setCanvasUndo((history) => [...history.slice(-39), canvas]);
+    setCanvasRedo((history) => history.slice(0, -1));
+    setData(next);
+    setSelectedCanvasObjectId("");
+    setState("idle");
+  }
+
+  function deleteCanvasObject() {
+    if (!canvas || !selectedCanvasObjectId) return;
+    rememberCanvas(canvas);
+    setData({ ...canvas, objects: canvas.objects.filter((item) => item.id !== selectedCanvasObjectId) });
+    setSelectedCanvasObjectId("");
+    setState("idle");
+  }
+
+  function startCanvasGesture(event: ReactPointerEvent<HTMLDivElement>, object: CanvasObject) {
+    if (!interactive || event.button !== 0) return;
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest("textarea,button,input")) return;
+    const snapshot = data as CanvasData;
+    const board = canvasStageRef.current;
+    if (!board || !snapshot.objects.some((item) => item.id === object.id)) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setSelectedCanvasObjectId(object.id);
+    canvasGestureRef.current = {
+      id: object.id,
+      pointerId: event.pointerId,
+      mode: target instanceof HTMLElement && target.closest("[data-resize-handle]") ? "resize" : "move",
+      startX: event.clientX,
+      startY: event.clientY,
+      x: object.x,
+      y: object.y,
+      width: object.width,
+      height: object.height,
+      snapshot,
+      recorded: false
+    };
+  }
+
+  function updateCanvasGesture(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = canvasGestureRef.current;
+    const board = canvasStageRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId || !board) return;
+    const bounds = board.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const dx = (event.clientX - gesture.startX) / bounds.width;
+    const dy = (event.clientY - gesture.startY) / bounds.height;
+    if (dx === 0 && dy === 0) return;
+    if (!gesture.recorded) {
+      rememberCanvas(gesture.snapshot);
+      gesture.recorded = true;
+    }
+    setData((current) => {
+      const value = current as CanvasData;
+      return {
+        ...value,
+        objects: value.objects.map((item) => {
+          if (item.id !== gesture.id) return item;
+          if (gesture.mode === "resize") {
+            const width = Math.max(0.08, Math.min(1 - gesture.x, gesture.width + dx));
+            const height = Math.max(0.08, Math.min(1 - gesture.y, gesture.height + dy));
+            return { ...item, width, height };
+          }
+          return {
+            ...item,
+            x: Math.max(0, Math.min(1 - gesture.width, gesture.x + dx)),
+            y: Math.max(0, Math.min(1 - gesture.height, gesture.y + dy))
+          };
+        })
+      };
+    });
+    setState("idle");
+  }
+
+  function finishCanvasGesture(event: ReactPointerEvent<HTMLDivElement>) {
+    if (canvasGestureRef.current?.pointerId === event.pointerId) canvasGestureRef.current = null;
+  }
+
   function addCanvasImage() {
     if (!selectedMediaId) {
       setError("Choose a ready Gallery image before placing it on the Canvas.");
       setState("error");
       return;
     }
+    const id = makeId("image");
+    setSelectedCanvasObjectId(id);
+    rememberCanvas(data as CanvasData);
     patchData((current) => {
       const canvas = current as CanvasData;
       const index = canvas.objects.length;
       return { ...canvas, objects: [...canvas.objects, {
-        id: makeId("image"),
+        id,
         kind: "image",
         x: 0.08 + (index % 3) * 0.29,
         y: 0.12 + Math.floor(index / 3) * 0.27,
@@ -205,11 +326,14 @@ export function VisualToolWorkspace({
   }
 
   function addCanvasObject(kindToAdd: "card" | "text") {
+    const id = makeId("object");
+    setSelectedCanvasObjectId(id);
+    rememberCanvas(data as CanvasData);
     patchData((current) => {
       const canvas = current as CanvasData;
       const index = canvas.objects.length;
       return { ...canvas, objects: [...canvas.objects, {
-        id: makeId("object"),
+        id,
         kind: kindToAdd,
         x: 0.08 + (index % 3) * 0.29,
         y: 0.12 + Math.floor(index / 3) * 0.27,
@@ -355,11 +479,25 @@ export function VisualToolWorkspace({
         </div>}
 
         {canvas && <div className="tool-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">FREEFORM WORKSPACE</span><h2>Canvas</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={() => addCanvasObject("card")} disabled={!interactive}>Place card</button><button className="toolbar-button" type="button" onClick={() => addCanvasObject("text")} disabled={!interactive}>Add note</button><button className="toolbar-button" type="button" onClick={addCanvasImage} disabled={!interactive || !selectedMediaId}>Place image</button></div></div>
-          <div className="canvas-artboard">
-            {canvas.objects.map((object) => <div className={"canvas-object kind-" + object.kind} key={object.id} style={{ left: (object.x * 100) + "%", top: (object.y * 100) + "%", width: (object.width * 100) + "%", minHeight: (object.height * 100) + "%" }}>
+          <div className="tool-editor-heading"><div><span className="eyebrow">FREEFORM WORKSPACE</span><h2>Canvas</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={undoCanvas} disabled={!interactive || canvasUndo.length === 0}>Undo</button><button className="toolbar-button" type="button" onClick={redoCanvas} disabled={!interactive || canvasRedo.length === 0}>Redo</button><button className="toolbar-button" type="button" onClick={deleteCanvasObject} disabled={!interactive || !selectedCanvasObjectId}>Delete</button><button className="toolbar-button" type="button" onClick={() => addCanvasObject("card")} disabled={!interactive}>Place card</button><button className="toolbar-button" type="button" onClick={() => addCanvasObject("text")} disabled={!interactive}>Add note</button><button className="toolbar-button" type="button" onClick={addCanvasImage} disabled={!interactive || !selectedMediaId}>Place image</button></div></div>
+          <div className="canvas-artboard" ref={canvasStageRef} aria-label="Canvas workspace">
+            {canvas.objects.map((object) => <div
+              className={"canvas-object kind-" + object.kind + (selectedCanvasObjectId === object.id ? " selected" : "")}
+              key={object.id}
+              style={{ left: (object.x * 100) + "%", top: (object.y * 100) + "%", width: (object.width * 100) + "%", height: (object.height * 100) + "%" }}
+              onPointerDown={(event) => startCanvasGesture(event, object)}
+              onPointerMove={updateCanvasGesture}
+              onPointerUp={finishCanvasGesture}
+              onPointerCancel={finishCanvasGesture}
+              onClick={() => setSelectedCanvasObjectId(object.id)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedCanvasObjectId === object.id}
+              aria-label={"Select " + (object.kind === "text" ? "note" : object.kind) + " object"}
+            >
               <small>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Unlinked card" : object.kind === "text" ? "NOTE" : object.kind.toUpperCase()}</small>
-              {object.kind === "text" ? <textarea value={object.text ?? ""} onChange={(event) => patchData((current) => ({ ...(current as CanvasData), objects: (current as CanvasData).objects.map((item) => item.id === object.id ? { ...item, text: event.target.value } : item) }))} disabled={!interactive} aria-label="Canvas note" /> : object.kind === "image" ? <>{(() => { const asset = media.find((item) => item.id === object.mediaId); return asset ? <Image src={"/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/media/" + encodeURIComponent(asset.id) + "/download"} alt={asset.fileName} fill sizes="(max-width: 620px) 45vw, 220px" unoptimized /> : <strong>Missing Gallery asset</strong>; })()}</> : <strong>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Card" : "Canvas object"}</strong>}
+              {object.kind === "text" ? <textarea value={object.text ?? ""} onFocus={() => { canvasNoteBeforeRef.current = canvas; }} onChange={(event) => patchData((current) => ({ ...(current as CanvasData), objects: (current as CanvasData).objects.map((item) => item.id === object.id ? { ...item, text: event.target.value } : item) }))} onBlur={() => { const before = canvasNoteBeforeRef.current; if (before && JSON.stringify(before) !== JSON.stringify(data)) rememberCanvas(before); canvasNoteBeforeRef.current = null; }} disabled={!interactive} aria-label="Canvas note" /> : object.kind === "image" ? <>{(() => { const asset = media.find((item) => item.id === object.mediaId); return asset ? <Image src={"/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/media/" + encodeURIComponent(asset.id) + "/download"} alt={asset.fileName} fill sizes="(max-width: 620px) 45vw, 220px" unoptimized /> : <strong>Missing Gallery asset</strong>; })()}</> : <strong>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Card" : "Canvas object"}</strong>}
+              <span className="canvas-resize-handle" data-resize-handle aria-hidden="true" />
             </div>)}
             {canvas.objects.length === 0 && <span className="canvas-empty-note">Place a card or add a note to start.</span>}
           </div>
