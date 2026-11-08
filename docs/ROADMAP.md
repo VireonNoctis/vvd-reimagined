@@ -55,6 +55,7 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - [x] Attach ready private Gallery assets to canonical cards; render image attachments in the reader and provide inspector attach/detach controls.
 - [ ] Add typed media properties and embedded audio/video blocks, including era-specific media overrides.
 - [x] Add private media upload and Gallery (provider setup remains deployment-owned).
+- [x] Add bounded expiry cleanup for abandoned/rejected uploads, with retryable object deletion.
 - Add mention resolution, manual linking and verified Entity Detection behaviour.
 - Add offline status and failure/recovery UX.
 
