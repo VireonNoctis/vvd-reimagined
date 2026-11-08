@@ -1826,18 +1826,18 @@ fn validate_visual_tool_data(
                     ));
                 }
                 visual_text(edge, "relationType", 80)?;
-                if let Some(label) = edge.get("label").and_then(serde_json::Value::as_str) {
-                    if label.chars().count() > 120 {
-                        return Err(ApiError::bad_request(
-                            "Relation labels are limited to 120 characters.",
-                        ));
-                    }
+                if let Some(label) = edge.get("label").and_then(serde_json::Value::as_str)
+                    && label.chars().count() > 120
+                {
+                    return Err(ApiError::bad_request(
+                        "Relation labels are limited to 120 characters.",
+                    ));
                 }
             }
-            if let Some(variants) = data.get("variants") {
-                if variants.as_array().is_none_or(|items| items.len() > 100) {
-                    return Err(ApiError::bad_request("Relation Tree variants are invalid."));
-                }
+            if let Some(variants) = data.get("variants")
+                && variants.as_array().is_none_or(|items| items.len() > 100)
+            {
+                return Err(ApiError::bad_request("Relation Tree variants are invalid."));
             }
         }
         VisualToolKind::Canvas => {
