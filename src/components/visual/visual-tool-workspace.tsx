@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
-import type { CardDocument } from "@/domain/world";
+import type { CardDocument, Era } from "@/domain/world";
 import {
   cardLabel,
   createVisualToolData,
@@ -20,6 +20,7 @@ type Props = {
   worldSlug: string;
   worldName: string;
   activeEraId: string;
+  eras: Era[];
   cards: CardDocument[];
   kind: VisualToolKind;
   initialDocuments: VisualToolDocument[];
@@ -45,7 +46,7 @@ function requestUrl(slug: string, kind: VisualToolKind, id?: string): string {
 }
 
 export function VisualToolWorkspace({
-  worldSlug, worldName, activeEraId, cards, kind, initialDocuments, interactive
+  worldSlug, worldName, activeEraId, eras, cards, kind, initialDocuments, interactive
 }: Props) {
   const [documents, setDocuments] = useState(initialDocuments);
   const [selectedId, setSelectedId] = useState(initialDocuments[0]?.id ?? "");
@@ -231,6 +232,11 @@ export function VisualToolWorkspace({
         <p>One world model. A dedicated space for every way of thinking.</p>
       </div>
       <div className="visual-tool-actions">
+        <label className="visual-era-select"><span className="eyebrow">ERA</span><select value={activeEraId} onChange={(event) => {
+          const url = new URL(window.location.href);
+          url.searchParams.set("era", event.target.value);
+          window.location.assign(url.toString());
+        }} aria-label="Active era">{eras.map((era) => <option key={era.id} value={era.id}>{era.name}{era.isDefault ? " · Prime" : ""}</option>)}</select></label>
         <span className={"visual-tool-save-state state-" + state}>
           {state === "saving" ? "Saving" : state === "saved" ? "Saved" : state === "error" ? "Needs attention" : selected ? "Version " + selected.version : "New document"}
         </span>
