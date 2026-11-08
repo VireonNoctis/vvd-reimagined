@@ -1718,7 +1718,7 @@ fn collect_visual_references(
                         .and_then(|value| Uuid::parse_str(value).ok())
                         .ok_or_else(|| ApiError::bad_request("A visual tool card link is invalid."))?;
                     cards.insert(id);
-                } else if key == "mediaId" && !value.is_null() {
+                } else if matches!(key.as_str(), "mediaId" | "backgroundMediaId") && !value.is_null() {
                     let id = value
                         .as_str()
                         .and_then(|value| Uuid::parse_str(value).ok())
