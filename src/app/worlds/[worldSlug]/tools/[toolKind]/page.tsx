@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { VisualToolWorkspace } from "@/components/visual/visual-tool-workspace";
 import type { VisualToolDocument, VisualToolKind } from "@/domain/visual-tools";
+import type { CardMediaAsset } from "@/domain/world";
 import { worldRepository } from "@/server/worlds/repository";
 import { apiConfigured, apiRequest, requireAccount } from "@/server/api";
 
@@ -27,6 +28,9 @@ export default async function VisualToolPage({ params, searchParams }: Props) {
           + "?eraId=" + encodeURIComponent(world.activeEraId)
       )
     : [];
+  const gallery = apiConfigured
+    ? await apiRequest<CardMediaAsset[]>("/v1/worlds/" + encodeURIComponent(worldSlug) + "/media")
+    : [];
 
   return (
     <VisualToolWorkspace
@@ -36,6 +40,7 @@ export default async function VisualToolPage({ params, searchParams }: Props) {
       activeEraId={world.activeEraId}
       eras={world.eras}
       cards={world.documents}
+      media={gallery}
       kind={kind}
       initialDocuments={initialDocuments}
       interactive={apiConfigured}
