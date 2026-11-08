@@ -157,11 +157,7 @@ impl MediaStore {
         }
     }
 
-    pub async fn cleanup_expired(
-        &self,
-        pool: &PgPool,
-        limit: i64,
-    ) -> Result<usize, ApiError> {
+    pub async fn cleanup_expired(&self, pool: &PgPool, limit: i64) -> Result<usize, ApiError> {
         let expired = store::claim_expired_media_uploads(pool, limit).await?;
         let mut removed = 0;
 
