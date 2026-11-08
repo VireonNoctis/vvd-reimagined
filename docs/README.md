@@ -2,7 +2,10 @@
 
 This folder is the product and implementation reference for vvd Reimagined. It records public observations, the proposed reconstruction model and unresolved questions. It is not a claim that every screen has been captured or that the application already exists.
 
-## Research and product
+## Research
+
+- [App visual reference](APP_VISUAL_REFERENCE.md) — in-app screenshots, workspace structure, tool surfaces and verification limits.
+ and product
 
 1. [Research dossier](RESEARCH.md) — evidence levels, product generations, sources and inspection limits.
 2. [Product model](PRODUCT_MODEL.md) — worlds, eras, documents, projects, apps, tools and blocks.
