@@ -5,6 +5,7 @@ This folder is the product and implementation reference for vvd Reimagined. It r
 ## Research
 
 - [App visual reference](APP_VISUAL_REFERENCE.md) — in-app screenshots, workspace structure, tool surfaces and verification limits.
+- [Visual tools](VISUAL_TOOLS.md) — shared data contracts, persistence, API routes and current capability boundaries.
  and product
 
 1. [Research dossier](RESEARCH.md) — evidence levels, product generations, sources and inspection limits.
