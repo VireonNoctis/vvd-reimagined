@@ -1654,7 +1654,10 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
         },
     )
     .await;
-    assert!(invalid_relation.is_err(), "relation edges must point to existing nodes");
+    assert!(
+        invalid_relation.is_err(),
+        "relation edges must point to existing nodes"
+    );
 
     let other_world = store::create_world(
         &pool,
