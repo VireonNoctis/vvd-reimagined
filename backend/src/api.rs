@@ -1173,15 +1173,8 @@ async fn update_visual_tool_document(
     check_origin(&headers, &state)?;
     let account = signed_in_account(&state.db, &headers).await?;
     Ok(Json(
-        store::update_visual_tool_document(
-            &state.db,
-            account.id,
-            &slug,
-            &kind,
-            document_id,
-            input,
-        )
-        .await?,
+        store::update_visual_tool_document(&state.db, account.id, &slug, &kind, document_id, input)
+            .await?,
     ))
 }
 
