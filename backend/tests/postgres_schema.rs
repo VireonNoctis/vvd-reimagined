@@ -176,7 +176,10 @@ async fn migrations_enforce_membership_and_same_world_references() {
     let claimed_uploads = store::claim_expired_media_uploads(&pool, 50)
         .await
         .expect("claim expired Gallery uploads");
-    assert_eq!(claimed_uploads, vec![(expired_upload_id, expired_object_key)]);
+    assert_eq!(
+        claimed_uploads,
+        vec![(expired_upload_id, expired_object_key)]
+    );
     assert!(
         store::claim_expired_media_uploads(&pool, 50)
             .await
@@ -186,13 +189,12 @@ async fn migrations_enforce_membership_and_same_world_references() {
     store::finish_expired_media_cleanup(&pool, expired_upload_id)
         .await
         .expect("finish the expired Gallery cleanup");
-    let expired_status = sqlx::query_scalar::<_, String>(
-        "SELECT status FROM media_assets WHERE id = $1",
-    )
-    .bind(expired_upload_id)
-    .fetch_one(&pool)
-    .await
-    .expect("read the cleaned Gallery state");
+    let expired_status =
+        sqlx::query_scalar::<_, String>("SELECT status FROM media_assets WHERE id = $1")
+            .bind(expired_upload_id)
+            .fetch_one(&pool)
+            .await
+            .expect("read the cleaned Gallery state");
     assert_eq!(expired_status, "deleted");
 
     for (id, owning_world) in [
