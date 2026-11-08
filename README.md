@@ -23,13 +23,14 @@ Research baseline: 6 November 2026. In-app visual-reference notes: [workspace an
 - Private Gallery with short-lived presigned S3-compatible uploads/downloads, object metadata verification, ClamAV byte scanning before publication and membership-checked asset access. Uploads fail closed until a private scanner is configured.
 - A bounded API worker cleans expired pending/rejected Gallery objects; failed S3 deletions remain leased and are retried instead of being abandoned.
 - WebGL 2 World Graph with separate typed-reference and mention edges, independent filters, personal saved layouts and source-evidence drill-down for inferred mentions.
+- Persisted Maps, Relation Trees, Canvas and Timeline workspaces with world/era scoping, validated same-world references, optimistic saves and dedicated tool routes.
 - CI configured for repository validation, lint, type-check, tests, production build, Rust formatting/Clippy and PostgreSQL integration checks.
 
 The sample world is deliberately synthetic and read-only when no API is configured. In connected mode, account and world data come from PostgreSQL; card saves are confirmed by the API before the UI refreshes. The Next.js 16 Proxy applies a per-request nonce-based CSP to rendered pages; configure the presigned storage host in `VVD_CSP_CONNECT_ORIGINS`.
 
 ## Not implemented yet
 
-Email verification and recovery, multifactor authentication, multi-user collaboration, Quill, Map/Relation Tree/Canvas/Timeline tools, Workshop, Wiki publishing, billing, account export/deletion, operational audit/backup/restore and independent production security review remain open. Production Gallery use also requires an isolated ClamAV service and managed signature updates. The current authentication and API protections are a hardening baseline, not a certification.
+Email verification and recovery, multifactor authentication, multi-user collaboration, Quill, advanced Maps/Relation Trees/Canvas/Timeline capabilities, Trade Routes, Workshop, Wiki publishing, billing, account export/deletion, operational audit/backup/restore and independent production security review remain open. Production Gallery use also requires an isolated ClamAV service and managed signature updates. The current authentication and API protections are a hardening baseline, not a certification.
 
 ## Technology direction
 
