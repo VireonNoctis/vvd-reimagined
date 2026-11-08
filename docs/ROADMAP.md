@@ -67,12 +67,16 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - [x] Add personal saved layouts per world/era with node positions, viewport state and independent filters; use optimistic versions and server-side node validation.
 - [x] Add mention evidence drill-down with bounded source excerpts and originating block ids.
 - [ ] Add saved graph sharing and manual graph edges.
-- Maps with image backgrounds, layers, zones, labels and pins.
-- Relation Trees with independent nodes, typed edges and variants.
-- Canvas with cards, images, text, groups and drawing.
-- Timeline with typed events and calendar behaviour.
+- [x] Add world- and era-scoped, versioned Map documents with normalized regions, map layers and linked pins.
+- [x] Add Relation Tree documents with independent nodes, explicit typed edges and canonical card links.
+- [x] Add Canvas documents with positioned card/text/media/shape/group objects and bounded drawing-stroke data.
+- [x] Add Timeline documents with configurable month lengths, dated events and canonical card links.
+- [ ] Add map backdrops, image georeferencing, richer layer controls, region labels and pin/zone editing.
+- [ ] Add Relation Tree variants, free draw, custom relation-type persistence and richer edge editing.
+- [ ] Add Canvas drag/resize, grouping, image/media placement, drawing tools and undo/redo.
+- [ ] Add custom calendar weekdays, leap/irregular rules, recurring events and event ranges.
 - Trade Routes settlement resources, road/river networks and supply-flow simulation.
-- Extensible custom-calendar support, keeping community tools distinct from built-in Timeline.
+- Extensible custom-calendar support, keeping community-created calendars distinct from built-in Timeline.
 - Tables and specialist tools.
 
 ## Phase 5 — Quill
