@@ -16,7 +16,8 @@ use crate::{
         EraSummary, Folder, FolderCreateInput, FolderRow, FolderUpdateInput,
         GraphLayoutCreateInput, GraphLayoutRow, GraphLayoutSummary, GraphLayoutUpdateInput,
         GraphLayoutView, MediaAssetCreate, MediaAssetSummary, MoveDocumentInput, PropertyRow,
-        World, WorldRow,
+        VisualToolCreateInput, VisualToolDocument, VisualToolDocumentRow, VisualToolKind,
+        VisualToolUpdateInput, World, WorldRow,
     },
 };
 
@@ -1628,6 +1629,471 @@ pub async fn finish_expired_media_cleanup(pool: &PgPool, asset_id: Uuid) -> Resu
     .execute(pool)
     .await?;
     Ok(())
+}
+
+
+fn visual_object<'a>(
+    value: &'a serde_json::Value,
+    label: &'static str,
+) -> Result<&'a serde_json::Map<String, serde_json::Value>, ApiError> {
+    value
+        .as_object()
+        .ok_or_else(|| ApiError::bad_request(label))
+}
+
+fn visual_array<'a>(
+    value: &'a serde_json::Value,
+    key: &str,
+    maximum: usize,
+) -> Result<&'a Vec<serde_json::Value>, ApiError> {
+    let values = value
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| ApiError::bad_request("A visual tool collection is missing or invalid."))?;
+    if values.len() > maximum {
+        return Err(ApiError::bad_request("This visual tool contains too many items."));
+    }
+    Ok(values)
+}
+
+fn visual_text(
+    value: &serde_json::Value,
+    key: &str,
+    maximum: usize,
+) -> Result<String, ApiError> {
+    let text = value
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty() && text.chars().count() <= maximum)
+        .ok_or_else(|| ApiError::bad_request("A visual tool label is missing or too long."))?;
+    Ok(text.to_owned())
+}
+
+fn visual_number(value: &serde_json::Value, key: &str) -> Result<f64, ApiError> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_f64)
+        .filter(|number| number.is_finite())
+        .ok_or_else(|| ApiError::bad_request("A visual tool coordinate or measurement is invalid."))
+}
+
+fn visual_coordinate(value: &serde_json::Value, key: &str) -> Result<f64, ApiError> {
+    let number = visual_number(value, key)?;
+    if !(0.0..=1.0).contains(&number) {
+        return Err(ApiError::bad_request(
+            "Visual tool coordinates must be normalised between zero and one.",
+        ));
+    }
+    Ok(number)
+}
+
+fn visual_unique_id(
+    value: &serde_json::Value,
+    seen: &mut std::collections::HashSet<String>,
+) -> Result<String, ApiError> {
+    let id = visual_text(value, "id", 80)?;
+    if !seen.insert(id.clone()) {
+        return Err(ApiError::bad_request("Visual tool item ids must be unique."));
+    }
+    Ok(id)
+}
+
+fn collect_visual_references(
+    value: &serde_json::Value,
+    cards: &mut std::collections::HashSet<Uuid>,
+    media: &mut std::collections::HashSet<Uuid>,
+) -> Result<(), ApiError> {
+    match value {
+        serde_json::Value::Array(values) => {
+            for value in values {
+                collect_visual_references(value, cards, media)?;
+            }
+        }
+        serde_json::Value::Object(values) => {
+            for (key, value) in values {
+                if matches!(key.as_str(), "cardId" | "documentId") && !value.is_null() {
+                    let id = value
+                        .as_str()
+                        .and_then(|value| Uuid::parse_str(value).ok())
+                        .ok_or_else(|| ApiError::bad_request("A visual tool card link is invalid."))?;
+                    cards.insert(id);
+                } else if key == "mediaId" && !value.is_null() {
+                    let id = value
+                        .as_str()
+                        .and_then(|value| Uuid::parse_str(value).ok())
+                        .ok_or_else(|| ApiError::bad_request("A visual tool media link is invalid."))?;
+                    media.insert(id);
+                } else {
+                    collect_visual_references(value, cards, media)?;
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn validate_visual_tool_data(
+    kind: VisualToolKind,
+    data: &serde_json::Value,
+) -> Result<(Vec<Uuid>, Vec<Uuid>), ApiError> {
+    visual_object(data, "Visual tool data must be a JSON object.")?;
+    let encoded = serde_json::to_vec(data).map_err(|_| ApiError::internal())?;
+    if encoded.len() > 1_400_000 {
+        return Err(ApiError::bad_request(
+            "Visual tool data must be smaller than 1.4 MB.",
+        ));
+    }
+
+    match kind {
+        VisualToolKind::Map => {
+            let width = visual_number(data, "width")?;
+            let height = visual_number(data, "height")?;
+            if width < 1.0 || height < 1.0 || width > 100_000.0 || height > 100_000.0 {
+                return Err(ApiError::bad_request("Map dimensions are outside the supported range."));
+            }
+
+            let layers = visual_array(data, "layers", 100)?;
+            let mut layer_ids = std::collections::HashSet::new();
+            for layer in layers {
+                visual_unique_id(layer, &mut layer_ids)?;
+                visual_text(layer, "name", 100)?;
+                let opacity = layer.get("opacity").and_then(serde_json::Value::as_f64).unwrap_or(1.0);
+                if !opacity.is_finite() || !(0.0..=1.0).contains(&opacity) {
+                    return Err(ApiError::bad_request("Map layer opacity must be between zero and one."));
+                }
+            }
+
+            let regions = visual_array(data, "regions", 500)?;
+            let mut region_ids = std::collections::HashSet::new();
+            for region in regions {
+                visual_unique_id(region, &mut region_ids)?;
+                visual_text(region, "name", 120)?;
+                let points = region
+                    .get("points")
+                    .and_then(serde_json::Value::as_array)
+                    .filter(|points| (3..=5000).contains(&points.len()))
+                    .ok_or_else(|| ApiError::bad_request("Map regions need at least three points."))?;
+                for point in points {
+                    visual_coordinate(point, "x")?;
+                    visual_coordinate(point, "y")?;
+                }
+            }
+
+            let pins = visual_array(data, "pins", 2000)?;
+            let mut pin_ids = std::collections::HashSet::new();
+            for pin in pins {
+                visual_unique_id(pin, &mut pin_ids)?;
+                visual_text(pin, "label", 120)?;
+                visual_coordinate(pin, "x")?;
+                visual_coordinate(pin, "y")?;
+            }
+        }
+        VisualToolKind::RelationTree => {
+            let nodes = visual_array(data, "nodes", 1500)?;
+            let mut node_ids = std::collections::HashSet::new();
+            for node in nodes {
+                visual_unique_id(node, &mut node_ids)?;
+                visual_text(node, "label", 120)?;
+                visual_coordinate(node, "x")?;
+                visual_coordinate(node, "y")?;
+            }
+
+            let edges = visual_array(data, "edges", 5000)?;
+            let mut edge_ids = std::collections::HashSet::new();
+            for edge in edges {
+                visual_unique_id(edge, &mut edge_ids)?;
+                let source = visual_text(edge, "source", 80)?;
+                let target = visual_text(edge, "target", 80)?;
+                if source == target || !node_ids.contains(&source) || !node_ids.contains(&target) {
+                    return Err(ApiError::bad_request(
+                        "Relation Tree edges must connect two different nodes in this tree.",
+                    ));
+                }
+                visual_text(edge, "relationType", 80)?;
+                if let Some(label) = edge.get("label").and_then(serde_json::Value::as_str) {
+                    if label.chars().count() > 120 {
+                        return Err(ApiError::bad_request("Relation labels are limited to 120 characters."));
+                    }
+                }
+            }
+            if let Some(variants) = data.get("variants") {
+                if variants.as_array().is_none_or(|items| items.len() > 100) {
+                    return Err(ApiError::bad_request("Relation Tree variants are invalid."));
+                }
+            }
+        }
+        VisualToolKind::Canvas => {
+            let objects = visual_array(data, "objects", 2500)?;
+            let mut object_ids = std::collections::HashSet::new();
+            for object in objects {
+                visual_unique_id(object, &mut object_ids)?;
+                let kind = visual_text(object, "kind", 24)?;
+                if !matches!(kind.as_str(), "card" | "text" | "image" | "shape" | "group") {
+                    return Err(ApiError::bad_request("Canvas object type is not supported."));
+                }
+                visual_coordinate(object, "x")?;
+                visual_coordinate(object, "y")?;
+                let width = visual_number(object, "width")?;
+                let height = visual_number(object, "height")?;
+                if width <= 0.0 || height <= 0.0 || width > 1.0 || height > 1.0 {
+                    return Err(ApiError::bad_request("Canvas object dimensions must be between zero and one."));
+                }
+            }
+            let strokes = visual_array(data, "strokes", 5000)?;
+            let mut stroke_ids = std::collections::HashSet::new();
+            for stroke in strokes {
+                visual_unique_id(stroke, &mut stroke_ids)?;
+                let width = visual_number(stroke, "width")?;
+                if !(0.0005..=0.1).contains(&width) {
+                    return Err(ApiError::bad_request("Canvas stroke width is outside the supported range."));
+                }
+                let points = stroke
+                    .get("points")
+                    .and_then(serde_json::Value::as_array)
+                    .filter(|points| (2..=5000).contains(&points.len()))
+                    .ok_or_else(|| ApiError::bad_request("Canvas strokes need at least two points."))?;
+                for point in points {
+                    visual_coordinate(point, "x")?;
+                    visual_coordinate(point, "y")?;
+                }
+            }
+        }
+        VisualToolKind::Timeline => {
+            let calendar = data
+                .get("calendar")
+                .ok_or_else(|| ApiError::bad_request("A Timeline calendar is required."))?;
+            visual_object(calendar, "Timeline calendar must be an object.")?;
+            visual_text(calendar, "name", 80)?;
+            let months = calendar
+                .get("months")
+                .and_then(serde_json::Value::as_array)
+                .filter(|months| (1..=24).contains(&months.len()))
+                .ok_or_else(|| ApiError::bad_request("A calendar needs between one and 24 months."))?;
+            let mut days_by_month = Vec::with_capacity(months.len());
+            for month in months {
+                visual_text(month, "name", 80)?;
+                let days = month
+                    .get("days")
+                    .and_then(serde_json::Value::as_u64)
+                    .filter(|days| (1..=100).contains(days))
+                    .ok_or_else(|| ApiError::bad_request("Calendar month lengths must be between one and 100 days."))?;
+                days_by_month.push(days);
+            }
+
+            let events = visual_array(data, "events", 5000)?;
+            let mut event_ids = std::collections::HashSet::new();
+            for event in events {
+                visual_unique_id(event, &mut event_ids)?;
+                visual_text(event, "title", 160)?;
+                let year = event.get("year").and_then(serde_json::Value::as_i64);
+                let month = event.get("month").and_then(serde_json::Value::as_u64);
+                let day = event.get("day").and_then(serde_json::Value::as_u64);
+                let Some((year, month, day)) = year.zip(month).zip(day).map(|((year, month), day)| (year, month, day)) else {
+                    return Err(ApiError::bad_request("Timeline event dates are invalid."));
+                };
+                if !(-100_000..=100_000).contains(&year)
+                    || month == 0
+                    || month as usize > days_by_month.len()
+                    || day == 0
+                    || day > days_by_month[month as usize - 1]
+                {
+                    return Err(ApiError::bad_request("Timeline event date is outside its calendar."));
+                }
+            }
+        }
+    }
+
+    let mut cards = std::collections::HashSet::new();
+    let mut media = std::collections::HashSet::new();
+    collect_visual_references(data, &mut cards, &mut media)?;
+    Ok((cards.into_iter().collect(), media.into_iter().collect()))
+}
+
+async fn validate_visual_tool_references(
+    pool: &PgPool,
+    world_id: Uuid,
+    card_ids: &[Uuid],
+    media_ids: &[Uuid],
+) -> Result<(), ApiError> {
+    if !card_ids.is_empty() {
+        let found = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM documents
+             WHERE world_id = $1 AND id = ANY($2) AND archived_at IS NULL",
+        )
+        .bind(world_id)
+        .bind(card_ids)
+        .fetch_one(pool)
+        .await?;
+        if found != card_ids.len() as i64 {
+            return Err(ApiError::bad_request(
+                "Visual tool card links must point to active cards in this world.",
+            ));
+        }
+    }
+
+    if !media_ids.is_empty() {
+        let found = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM media_assets
+             WHERE world_id = $1 AND id = ANY($2) AND status = 'ready'",
+        )
+        .bind(world_id)
+        .bind(media_ids)
+        .fetch_one(pool)
+        .await?;
+        if found != media_ids.len() as i64 {
+            return Err(ApiError::bad_request(
+                "Visual tool media links must point to ready Gallery assets in this world.",
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn visual_tool_document(row: VisualToolDocumentRow) -> Result<VisualToolDocument, ApiError> {
+    let kind = VisualToolKind::parse(&row.kind).map_err(|_| ApiError::internal())?;
+    Ok(VisualToolDocument {
+        id: row.id,
+        kind,
+        era_id: row.era_id,
+        name: row.name,
+        version: row.version,
+        data: row.data,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    })
+}
+
+pub async fn list_visual_tool_documents(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    kind: &str,
+    era_id: Option<Uuid>,
+) -> Result<Vec<VisualToolDocument>, ApiError> {
+    let kind = VisualToolKind::parse(kind).map_err(ApiError::bad_request)?;
+    let world_id = require_world(pool, account_id, slug, false).await?;
+    let era = resolve_era(pool, world_id, era_id).await?;
+    let rows = sqlx::query_as::<_, VisualToolDocumentRow>(
+        "SELECT id, tool_kind AS kind, era_id, name, version, data, created_at, updated_at
+         FROM visual_tool_documents
+         WHERE world_id = $1 AND era_id = $2 AND tool_kind = $3
+         ORDER BY updated_at DESC, id",
+    )
+    .bind(world_id)
+    .bind(era.id)
+    .bind(kind.as_str())
+    .fetch_all(pool)
+    .await?;
+    rows.into_iter().map(visual_tool_document).collect()
+}
+
+pub async fn create_visual_tool_document(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    kind: &str,
+    input: VisualToolCreateInput,
+) -> Result<VisualToolDocument, ApiError> {
+    let kind = VisualToolKind::parse(kind).map_err(ApiError::bad_request)?;
+    let name = input.name.trim();
+    if name.is_empty() || name.chars().count() > 120 {
+        return Err(ApiError::bad_request(
+            "Visual tool names must contain between 1 and 120 characters.",
+        ));
+    }
+
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let enabled = sqlx::query_scalar::<_, bool>(
+        "SELECT enabled FROM world_document_types
+         WHERE world_id = $1 AND type_key = $2",
+    )
+    .bind(world_id)
+    .bind(kind.as_str())
+    .fetch_optional(pool)
+    .await?
+    .unwrap_or(false);
+    if !enabled {
+        return Err(ApiError::bad_request("This visual tool is not enabled for the world."));
+    }
+
+    let era = resolve_era(pool, world_id, input.era_id).await?;
+    let (cards, media) = validate_visual_tool_data(kind, &input.data)?;
+    validate_visual_tool_references(pool, world_id, &cards, &media).await?;
+
+    let row = sqlx::query_as::<_, VisualToolDocumentRow>(
+        "INSERT INTO visual_tool_documents
+         (world_id, id, tool_kind, era_id, name, data, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, tool_kind AS kind, era_id, name, version, data, created_at, updated_at",
+    )
+    .bind(world_id)
+    .bind(Uuid::new_v4())
+    .bind(kind.as_str())
+    .bind(era.id)
+    .bind(name)
+    .bind(input.data)
+    .bind(account_id)
+    .fetch_one(pool)
+    .await?;
+
+    visual_tool_document(row)
+}
+
+pub async fn update_visual_tool_document(
+    pool: &PgPool,
+    account_id: Uuid,
+    slug: &str,
+    kind: &str,
+    document_id: Uuid,
+    input: VisualToolUpdateInput,
+) -> Result<VisualToolDocument, ApiError> {
+    let kind = VisualToolKind::parse(kind).map_err(ApiError::bad_request)?;
+    if input.expected_version < 1 {
+        return Err(ApiError::bad_request("expectedVersion must be a positive integer."));
+    }
+    let name = input.name.trim();
+    if name.is_empty() || name.chars().count() > 120 {
+        return Err(ApiError::bad_request(
+            "Visual tool names must contain between 1 and 120 characters.",
+        ));
+    }
+
+    let world_id = require_world(pool, account_id, slug, true).await?;
+    let current = sqlx::query_scalar::<_, Uuid>(
+        "SELECT era_id FROM visual_tool_documents
+         WHERE world_id = $1 AND id = $2 AND tool_kind = $3",
+    )
+    .bind(world_id)
+    .bind(document_id)
+    .bind(kind.as_str())
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(ApiError::not_found)?;
+    let (cards, media) = validate_visual_tool_data(kind, &input.data)?;
+    validate_visual_tool_references(pool, world_id, &cards, &media).await?;
+
+    let row = sqlx::query_as::<_, VisualToolDocumentRow>(
+        "UPDATE visual_tool_documents
+         SET name = $1, data = $2, version = version + 1, updated_at = NOW()
+         WHERE world_id = $3 AND id = $4 AND tool_kind = $5 AND era_id = $6
+           AND version = $7
+         RETURNING id, tool_kind AS kind, era_id, name, version, data, created_at, updated_at",
+    )
+    .bind(name)
+    .bind(input.data)
+    .bind(world_id)
+    .bind(document_id)
+    .bind(kind.as_str())
+    .bind(current)
+    .bind(input.expected_version)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| ApiError::conflict("This visual document changed since it was opened. Reload before saving."))?;
+
+    visual_tool_document(row)
 }
 
 pub async fn create_media_asset(
