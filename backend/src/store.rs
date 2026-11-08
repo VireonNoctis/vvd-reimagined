@@ -1631,7 +1631,6 @@ pub async fn finish_expired_media_cleanup(pool: &PgPool, asset_id: Uuid) -> Resu
     Ok(())
 }
 
-
 fn visual_object<'a>(
     value: &'a serde_json::Value,
     label: &'static str,
@@ -1651,16 +1650,14 @@ fn visual_array<'a>(
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| ApiError::bad_request("A visual tool collection is missing or invalid."))?;
     if values.len() > maximum {
-        return Err(ApiError::bad_request("This visual tool contains too many items."));
+        return Err(ApiError::bad_request(
+            "This visual tool contains too many items.",
+        ));
     }
     Ok(values)
 }
 
-fn visual_text(
-    value: &serde_json::Value,
-    key: &str,
-    maximum: usize,
-) -> Result<String, ApiError> {
+fn visual_text(value: &serde_json::Value, key: &str, maximum: usize) -> Result<String, ApiError> {
     let text = value
         .get(key)
         .and_then(serde_json::Value::as_str)
@@ -1694,7 +1691,9 @@ fn visual_unique_id(
 ) -> Result<String, ApiError> {
     let id = visual_text(value, "id", 80)?;
     if !seen.insert(id.clone()) {
-        return Err(ApiError::bad_request("Visual tool item ids must be unique."));
+        return Err(ApiError::bad_request(
+            "Visual tool item ids must be unique.",
+        ));
     }
     Ok(id)
 }
@@ -1716,13 +1715,19 @@ fn collect_visual_references(
                     let id = value
                         .as_str()
                         .and_then(|value| Uuid::parse_str(value).ok())
-                        .ok_or_else(|| ApiError::bad_request("A visual tool card link is invalid."))?;
+                        .ok_or_else(|| {
+                            ApiError::bad_request("A visual tool card link is invalid.")
+                        })?;
                     cards.insert(id);
-                } else if matches!(key.as_str(), "mediaId" | "backgroundMediaId") && !value.is_null() {
+                } else if matches!(key.as_str(), "mediaId" | "backgroundMediaId")
+                    && !value.is_null()
+                {
                     let id = value
                         .as_str()
                         .and_then(|value| Uuid::parse_str(value).ok())
-                        .ok_or_else(|| ApiError::bad_request("A visual tool media link is invalid."))?;
+                        .ok_or_else(|| {
+                            ApiError::bad_request("A visual tool media link is invalid.")
+                        })?;
                     media.insert(id);
                 } else {
                     collect_visual_references(value, cards, media)?;
@@ -1751,7 +1756,9 @@ fn validate_visual_tool_data(
             let width = visual_number(data, "width")?;
             let height = visual_number(data, "height")?;
             if width < 1.0 || height < 1.0 || width > 100_000.0 || height > 100_000.0 {
-                return Err(ApiError::bad_request("Map dimensions are outside the supported range."));
+                return Err(ApiError::bad_request(
+                    "Map dimensions are outside the supported range.",
+                ));
             }
 
             let layers = visual_array(data, "layers", 100)?;
@@ -1759,9 +1766,14 @@ fn validate_visual_tool_data(
             for layer in layers {
                 visual_unique_id(layer, &mut layer_ids)?;
                 visual_text(layer, "name", 100)?;
-                let opacity = layer.get("opacity").and_then(serde_json::Value::as_f64).unwrap_or(1.0);
+                let opacity = layer
+                    .get("opacity")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(1.0);
                 if !opacity.is_finite() || !(0.0..=1.0).contains(&opacity) {
-                    return Err(ApiError::bad_request("Map layer opacity must be between zero and one."));
+                    return Err(ApiError::bad_request(
+                        "Map layer opacity must be between zero and one.",
+                    ));
                 }
             }
 
@@ -1774,7 +1786,9 @@ fn validate_visual_tool_data(
                     .get("points")
                     .and_then(serde_json::Value::as_array)
                     .filter(|points| (3..=5000).contains(&points.len()))
-                    .ok_or_else(|| ApiError::bad_request("Map regions need at least three points."))?;
+                    .ok_or_else(|| {
+                        ApiError::bad_request("Map regions need at least three points.")
+                    })?;
                 for point in points {
                     visual_coordinate(point, "x")?;
                     visual_coordinate(point, "y")?;
@@ -1814,13 +1828,17 @@ fn validate_visual_tool_data(
                 visual_text(edge, "relationType", 80)?;
                 if let Some(label) = edge.get("label").and_then(serde_json::Value::as_str) {
                     if label.chars().count() > 120 {
-                        return Err(ApiError::bad_request("Relation labels are limited to 120 characters."));
+                        return Err(ApiError::bad_request(
+                            "Relation labels are limited to 120 characters.",
+                        ));
                     }
                 }
             }
             if let Some(variants) = data.get("variants") {
                 if variants.as_array().is_none_or(|items| items.len() > 100) {
-                    return Err(ApiError::bad_request("Relation Tree variants are invalid."));
+                    return Err(ApiError::bad_request(
+                        "Relation Tree variants are invalid.",
+                    ));
                 }
             }
         }
@@ -1831,14 +1849,18 @@ fn validate_visual_tool_data(
                 visual_unique_id(object, &mut object_ids)?;
                 let kind = visual_text(object, "kind", 24)?;
                 if !matches!(kind.as_str(), "card" | "text" | "image" | "shape" | "group") {
-                    return Err(ApiError::bad_request("Canvas object type is not supported."));
+                    return Err(ApiError::bad_request(
+                        "Canvas object type is not supported.",
+                    ));
                 }
                 visual_coordinate(object, "x")?;
                 visual_coordinate(object, "y")?;
                 let width = visual_number(object, "width")?;
                 let height = visual_number(object, "height")?;
                 if width <= 0.0 || height <= 0.0 || width > 1.0 || height > 1.0 {
-                    return Err(ApiError::bad_request("Canvas object dimensions must be between zero and one."));
+                    return Err(ApiError::bad_request(
+                        "Canvas object dimensions must be between zero and one.",
+                    ));
                 }
             }
             let strokes = visual_array(data, "strokes", 5000)?;
@@ -1847,13 +1869,17 @@ fn validate_visual_tool_data(
                 visual_unique_id(stroke, &mut stroke_ids)?;
                 let width = visual_number(stroke, "width")?;
                 if !(0.0005..=0.1).contains(&width) {
-                    return Err(ApiError::bad_request("Canvas stroke width is outside the supported range."));
+                    return Err(ApiError::bad_request(
+                        "Canvas stroke width is outside the supported range.",
+                    ));
                 }
                 let points = stroke
                     .get("points")
                     .and_then(serde_json::Value::as_array)
                     .filter(|points| (2..=5000).contains(&points.len()))
-                    .ok_or_else(|| ApiError::bad_request("Canvas strokes need at least two points."))?;
+                    .ok_or_else(|| {
+                        ApiError::bad_request("Canvas strokes need at least two points.")
+                    })?;
                 for point in points {
                     visual_coordinate(point, "x")?;
                     visual_coordinate(point, "y")?;
@@ -1870,7 +1896,9 @@ fn validate_visual_tool_data(
                 .get("months")
                 .and_then(serde_json::Value::as_array)
                 .filter(|months| (1..=24).contains(&months.len()))
-                .ok_or_else(|| ApiError::bad_request("A calendar needs between one and 24 months."))?;
+                .ok_or_else(|| {
+                    ApiError::bad_request("A calendar needs between one and 24 months.")
+                })?;
             let mut days_by_month = Vec::with_capacity(months.len());
             for month in months {
                 visual_text(month, "name", 80)?;
@@ -1878,7 +1906,11 @@ fn validate_visual_tool_data(
                     .get("days")
                     .and_then(serde_json::Value::as_u64)
                     .filter(|days| (1..=100).contains(days))
-                    .ok_or_else(|| ApiError::bad_request("Calendar month lengths must be between one and 100 days."))?;
+                    .ok_or_else(|| {
+                        ApiError::bad_request(
+                            "Calendar month lengths must be between one and 100 days.",
+                        )
+                    })?;
                 days_by_month.push(days);
             }
 
@@ -1890,7 +1922,11 @@ fn validate_visual_tool_data(
                 let year = event.get("year").and_then(serde_json::Value::as_i64);
                 let month = event.get("month").and_then(serde_json::Value::as_u64);
                 let day = event.get("day").and_then(serde_json::Value::as_u64);
-                let Some((year, month, day)) = year.zip(month).zip(day).map(|((year, month), day)| (year, month, day)) else {
+                let Some((year, month, day)) = year
+                    .zip(month)
+                    .zip(day)
+                    .map(|((year, month), day)| (year, month, day))
+                else {
                     return Err(ApiError::bad_request("Timeline event dates are invalid."));
                 };
                 if !(-100_000..=100_000).contains(&year)
@@ -1899,7 +1935,9 @@ fn validate_visual_tool_data(
                     || day == 0
                     || day > days_by_month[month as usize - 1]
                 {
-                    return Err(ApiError::bad_request("Timeline event date is outside its calendar."));
+                    return Err(ApiError::bad_request(
+                        "Timeline event date is outside its calendar.",
+                    ));
                 }
             }
         }
@@ -2016,7 +2054,9 @@ pub async fn create_visual_tool_document(
     .await?
     .unwrap_or(false);
     if !enabled {
-        return Err(ApiError::bad_request("This visual tool is not enabled for the world."));
+        return Err(ApiError::bad_request(
+            "This visual tool is not enabled for the world.",
+        ));
     }
 
     let era = resolve_era(pool, world_id, input.era_id).await?;
@@ -2052,7 +2092,9 @@ pub async fn update_visual_tool_document(
 ) -> Result<VisualToolDocument, ApiError> {
     let kind = VisualToolKind::parse(kind).map_err(ApiError::bad_request)?;
     if input.expected_version < 1 {
-        return Err(ApiError::bad_request("expectedVersion must be a positive integer."));
+        return Err(ApiError::bad_request(
+            "expectedVersion must be a positive integer.",
+        ));
     }
     let name = input.name.trim();
     if name.is_empty() || name.chars().count() > 120 {
@@ -2091,7 +2133,11 @@ pub async fn update_visual_tool_document(
     .bind(input.expected_version)
     .fetch_optional(pool)
     .await?
-    .ok_or_else(|| ApiError::conflict("This visual document changed since it was opened. Reload before saving."))?;
+    .ok_or_else(|| {
+        ApiError::conflict(
+            "This visual document changed since it was opened. Reload before saving.",
+        )
+    })?;
 
     visual_tool_document(row)
 }
