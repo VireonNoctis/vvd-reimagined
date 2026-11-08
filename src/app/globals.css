@@ -859,3 +859,10 @@ body { background: var(--paper); }
 
 .visual-era-select { display: grid; min-width: 150px; gap: 4px; color: #9aa093; font: 8px ui-monospace,monospace; }
 .visual-era-select select { min-height: 34px; padding: 0 9px; border: 1px solid #e3e3da; border-radius: 8px; background: #fffefa; color: #55624f; font: 10px ui-sans-serif,system-ui; }
+
+
+.map-background-select { display: grid; min-width: 130px; gap: 5px; color: #9a9f94; font: 8px ui-monospace,monospace; text-transform: uppercase; }
+.map-background-select select { min-height: 33px; padding: 0 8px; border: 1px solid #e3e3da; border-radius: 8px; background: #fffefa; color: #55624f; font: 10px ui-sans-serif,system-ui; text-transform: none; }
+.canvas-object.kind-image { min-height: 110px; overflow: hidden; padding: 0; }
+.canvas-object.kind-image small { position: relative; z-index: 1; margin: 8px; padding: 3px 5px; width: fit-content; border-radius: 4px; background: rgba(255,254,250,.86); }
+.canvas-object.kind-image img { object-fit: cover; }
