@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import type { CardDocument, CardMediaAsset, Era } from "@/domain/world";
 import {
   cardLabel,
@@ -248,7 +249,31 @@ export function VisualToolWorkspace({
   const canvas = kind === "canvas" ? data as CanvasData : null;
   const timeline = kind === "timeline" ? data as TimelineData : null;
 
-  return <section className="visual-tool-page">
+  return <div className="workspace-shell visual-tool-shell">
+    <aside className="app-rail" aria-label="Main navigation">
+      <Link className="brand-mark" href="/" aria-label="Back to worlds">v</Link>
+      <div className="rail-divider" />
+      <Link className="rail-link" href="/" aria-label="Worlds" title="Worlds"><Icon name="globe" size={19} /></Link>
+      <Link className="rail-link active" href={"/worlds/" + encodeURIComponent(worldSlug)} aria-label="Documents" title="Documents"><Icon name="files" size={19} /></Link>
+      <span className="rail-spacer" />
+      <span className="rail-link muted"><Icon name="spark" size={19} /></span>
+      <span className="rail-avatar">V</span>
+    </aside>
+    <div className="workspace-main">
+      <header className="workspace-topbar">
+        <div className="topbar-breadcrumbs">
+          <Link href="/">Worlds</Link><Icon name="chevron-right" size={13} />
+          <Link href={"/worlds/" + encodeURIComponent(worldSlug)}>{worldName}</Link><Icon name="chevron-right" size={13} />
+          <span className="breadcrumb-current">{titles[kind]}</span>
+        </div>
+        <div className="topbar-actions">
+          <span className="preview-pill"><span />{interactive ? "Connected workspace" : "Preview environment"}</span>
+          <Link className="toolbar-button" href={"/worlds/" + encodeURIComponent(worldSlug)}>Editor</Link>
+          {interactive && <Link className="account-link" href="/account/security">Security</Link>}
+          {interactive && <SignOutButton />}
+        </div>
+      </header>
+      <section className="visual-tool-page">
     <div className="visual-tool-topline">
       <div>
         <span className="eyebrow">{worldName} / {titles[kind].toUpperCase()}</span>
@@ -363,5 +388,7 @@ export function VisualToolWorkspace({
 
     {error && <p className="visual-tool-error" role="alert">{error}</p>}
     <p className="visual-tool-disclaimer">{interactive ? "Changes are saved to this world and era when confirmed by the server." : "Preview mode · connect the Rust API to save visual documents."}</p>
-  </section>;
+      </section>
+    </div>
+  </div>;
 }
