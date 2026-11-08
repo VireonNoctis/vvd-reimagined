@@ -77,6 +77,8 @@ export function VisualToolWorkspace({
   const [eventYear, setEventYear] = useState("1");
   const [eventMonth, setEventMonth] = useState("1");
   const [eventDay, setEventDay] = useState("1");
+  const [relationType, setRelationType] = useState("connected_to");
+  const [relationLabel, setRelationLabel] = useState("Connection");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
   const [selectedCanvasObjectId, setSelectedCanvasObjectId] = useState("");
@@ -188,6 +190,11 @@ export function VisualToolWorkspace({
 
   function addRelationEdge() {
     const nodes = (data as RelationTreeData).nodes;
+    if (!relationType.trim()) {
+      setError("Give this relationship a type before connecting the nodes.");
+      setState("error");
+      return;
+    }
     if (nodes.length < 2) {
       setError("Add at least two nodes before connecting them.");
       setState("error");
@@ -199,7 +206,7 @@ export function VisualToolWorkspace({
       const target = tree.nodes[tree.nodes.length - 1];
       return { ...tree, edges: [...tree.edges, {
         id: makeId("edge"), source: source.id, target: target.id,
-        relationType: "connected_to", label: "Connection"
+        relationType: relationType.trim(), label: relationLabel.trim() || relationType.trim()
       }] };
     });
   }
@@ -345,6 +352,55 @@ export function VisualToolWorkspace({
     });
   }
 
+  function addTimelineMonth() {
+    const current = data as TimelineData;
+    if (current.calendar.months.length >= 24) {
+      setError("This calendar already has the maximum of 24 months.");
+      setState("error");
+      return;
+    }
+    patchData((value) => {
+      const timeline = value as TimelineData;
+      const nextIndex = timeline.calendar.months.length + 1;
+      return {
+        ...timeline,
+        calendar: {
+          ...timeline.calendar,
+          months: [...timeline.calendar.months, { name: "Month " + nextIndex, days: 30 }]
+        }
+      };
+    });
+  }
+
+  function removeTimelineMonth(index: number) {
+    const current = data as TimelineData;
+    if (current.calendar.months.length <= 1) {
+      setError("A calendar must keep at least one month.");
+      setState("error");
+      return;
+    }
+    const monthNumber = index + 1;
+    if (current.events.some((event) => event.month === monthNumber)) {
+      setError("Move or remove this month's events before removing the month.");
+      setState("error");
+      return;
+    }
+    patchData((value) => {
+      const timeline = value as TimelineData;
+      return {
+        ...timeline,
+        calendar: {
+          ...timeline.calendar,
+          months: timeline.calendar.months.filter((_, monthIndex) => monthIndex !== index)
+        },
+        events: timeline.events.map((event) => ({
+          ...event,
+          month: event.month > monthNumber ? event.month - 1 : event.month
+        }))
+      };
+    });
+  }
+
   function addTimelineEvent() {
     const timeline = data as TimelineData;
     const month = Number(eventMonth);
@@ -457,13 +513,29 @@ export function VisualToolWorkspace({
             {map.pins.map((pin) => <g key={pin.id}><circle cx={pin.x * 1000} cy={pin.y * 620} r="9" /><circle cx={pin.x * 1000} cy={pin.y * 620} r="3" /><text x={pin.x * 1000 + 16} y={pin.y * 620 - 12}>{pin.label}</text></g>)}
           </svg>
           <div className="visual-tool-footer"><span>{map.layers.length} layers</span><span>{map.regions.length} regions</span><span>{map.pins.length} pins</span><span>{map.width} × {map.height}</span></div>
-          <div className="visual-tool-item-list">
-            {map.pins.map((pin) => <label key={pin.id}><span>Pin</span><input value={pin.label} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, label: event.target.value } : item) }))} disabled={!interactive} /></label>)}
+          <div className="map-feature-editor">
+            <div className="map-feature-group">
+              <span className="eyebrow">REGIONS</span>
+              {map.regions.map((region) => <label className="map-feature-row" key={region.id}>
+                <span>Region</span>
+                <input value={region.name} onChange={(event) => patchData((current) => ({ ...(current as MapData), regions: (current as MapData).regions.map((item) => item.id === region.id ? { ...item, name: event.target.value } : item) }))} disabled={!interactive} aria-label="Region name" />
+              </label>)}
+              {map.regions.length === 0 && <p className="visual-tool-empty">Add a region to name it here.</p>}
+            </div>
+            <div className="map-feature-group">
+              <span className="eyebrow">PINS · NORMALISED POSITION</span>
+              {map.pins.map((pin) => <div className="map-pin-row" key={pin.id}>
+                <label><span>Label</span><input value={pin.label} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, label: event.target.value } : item) }))} disabled={!interactive} /></label>
+                <label><span>X</span><input type="number" min="0" max="1" step="0.01" value={pin.x.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, x: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive} /></label>
+                <label><span>Y</span><input type="number" min="0" max="1" step="0.01" value={pin.y.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, y: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive} /></label>
+              </div>)}
+              {map.pins.length === 0 && <p className="visual-tool-empty">Add a pin to set its position.</p>}
+            </div>
           </div>
         </div>}
 
         {tree && <div className="tool-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">RELATION MODEL</span><h2>Explicit relationships</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addRelationNode} disabled={!interactive}>Add node</button><button className="toolbar-button" type="button" onClick={addRelationEdge} disabled={!interactive}>Connect last two</button></div></div>
+          <div className="tool-editor-heading relation-editor-heading"><div><span className="eyebrow">RELATION MODEL</span><h2>Explicit relationships</h2></div><div className="tool-action-row"><label>Type<input value={relationType} onChange={(event) => setRelationType(event.target.value)} maxLength={80} disabled={!interactive} /></label><label>Label<input value={relationLabel} onChange={(event) => setRelationLabel(event.target.value)} maxLength={120} disabled={!interactive} /></label><button className="toolbar-button" type="button" onClick={addRelationNode} disabled={!interactive}>Add node</button><button className="toolbar-button" type="button" onClick={addRelationEdge} disabled={!interactive}>Connect last two</button></div></div>
           <svg className="relation-artboard" viewBox="0 0 1000 600" role="img" aria-label="Relation tree nodes and typed edges">
             {tree.edges.map((edge) => {
               const source = tree.nodes.find((node) => node.id === edge.source);
@@ -473,8 +545,18 @@ export function VisualToolWorkspace({
             {tree.nodes.map((node) => <g key={node.id}><rect x={node.x * 1000 - 82} y={node.y * 600 - 28} width="164" height="56" rx="12" /><text x={node.x * 1000} y={node.y * 600 + 4}>{node.label}</text></g>)}
           </svg>
           <div className="visual-tool-footer"><span>{tree.nodes.length} nodes</span><span>{tree.edges.length} typed relationships</span><span>{tree.variants.length} variants</span></div>
-          <div className="visual-tool-item-list">
-            {tree.nodes.map((node) => <label key={node.id}><span>Node</span><input value={node.label} onChange={(event) => patchData((current) => ({ ...(current as RelationTreeData), nodes: (current as RelationTreeData).nodes.map((item) => item.id === node.id ? { ...item, label: event.target.value } : item) }))} disabled={!interactive} /></label>)}
+          <div className="relation-edit-list">
+            <span className="eyebrow">NODES</span>
+            {tree.nodes.map((node) => <div className="relation-edit-row" key={node.id}>
+              <label><span>Node</span><input value={node.label} onChange={(event) => patchData((current) => ({ ...(current as RelationTreeData), nodes: (current as RelationTreeData).nodes.map((item) => item.id === node.id ? { ...item, label: event.target.value } : item) }))} disabled={!interactive} /></label>
+              <label><span>X</span><input type="number" min="0" max="1" step="0.01" value={node.x.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as RelationTreeData), nodes: (current as RelationTreeData).nodes.map((item) => item.id === node.id ? { ...item, x: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive} /></label>
+              <label><span>Y</span><input type="number" min="0" max="1" step="0.01" value={node.y.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as RelationTreeData), nodes: (current as RelationTreeData).nodes.map((item) => item.id === node.id ? { ...item, y: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive} /></label>
+            </div>)}
+            <span className="eyebrow relation-edges-label">TYPED EDGES</span>
+            {tree.edges.map((edge) => <div className="relation-edge-row" key={edge.id}>
+              <label><span>Type</span><input value={edge.relationType} onChange={(event) => patchData((current) => ({ ...(current as RelationTreeData), edges: (current as RelationTreeData).edges.map((item) => item.id === edge.id ? { ...item, relationType: event.target.value } : item) }))} disabled={!interactive} /></label>
+              <label><span>Label</span><input value={edge.label ?? ""} onChange={(event) => patchData((current) => ({ ...(current as RelationTreeData), edges: (current as RelationTreeData).edges.map((item) => item.id === edge.id ? { ...item, label: event.target.value } : item) }))} disabled={!interactive} /></label>
+            </div>)}
           </div>
         </div>}
 
@@ -505,9 +587,14 @@ export function VisualToolWorkspace({
         </div>}
 
         {timeline && <div className="tool-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">CALENDAR MODEL</span><h2>{timeline.calendar.name}</h2></div><span className="timeline-count">{timeline.events.length} events</span></div>
+          <div className="tool-editor-heading timeline-editor-heading"><div><span className="eyebrow">CALENDAR MODEL</span><input className="timeline-calendar-name" value={timeline.calendar.name} onChange={(event) => patchData((current) => ({ ...(current as TimelineData), calendar: { ...(current as TimelineData).calendar, name: event.target.value } }))} disabled={!interactive} aria-label="Calendar name" /><span className="timeline-count">{timeline.events.length} events</span></div><button type="button" className="toolbar-button" onClick={addTimelineMonth} disabled={!interactive || timeline.calendar.months.length >= 24}>Add month</button></div>
           <div className="timeline-calendar">
-            {timeline.calendar.months.map((month, index) => <div key={month.name}><strong>{(index + 1).toString().padStart(2, "0")}</strong><span>{month.name}</span><small>{month.days} days</small></div>)}
+            {timeline.calendar.months.map((month, index) => <div key={index}>
+              <strong>{(index + 1).toString().padStart(2, "0")}</strong>
+              <input value={month.name} onChange={(event) => patchData((current) => ({ ...(current as TimelineData), calendar: { ...(current as TimelineData).calendar, months: (current as TimelineData).calendar.months.map((item, monthIndex) => monthIndex === index ? { ...item, name: event.target.value } : item) } }))} disabled={!interactive} aria-label="Month name" />
+              <label><span>Days</span><input type="number" min="1" max="100" value={month.days} onChange={(event) => patchData((current) => ({ ...(current as TimelineData), calendar: { ...(current as TimelineData).calendar, months: (current as TimelineData).calendar.months.map((item, monthIndex) => monthIndex === index ? { ...item, days: Number(event.target.value) } : item) } }))} disabled={!interactive} /></label>
+              <button type="button" onClick={() => removeTimelineMonth(index)} disabled={!interactive || timeline.calendar.months.length <= 1}>Remove</button>
+            </div>)}
           </div>
           <div className="timeline-add-event">
             <input value={eventTitle} onChange={(event) => setEventTitle(event.target.value)} placeholder="Event title" aria-label="Event title" disabled={!interactive} />
@@ -517,7 +604,18 @@ export function VisualToolWorkspace({
             <button type="button" className="toolbar-button" onClick={addTimelineEvent} disabled={!interactive}>Add event</button>
           </div>
           <div className="timeline-events">
-            {events.map((event) => <article key={event.id}><span className="timeline-event-date">{event.year} / {event.month} / {event.day}</span><div><strong>{event.title}</strong><small>{timeline.calendar.months[event.month - 1]?.name ?? "Unknown month"}</small></div></article>)}
+            {events.map((event) => <article key={event.id}>
+              <span className="timeline-event-date">{event.year} / {event.month} / {event.day}</span>
+              <div className="timeline-event-editor">
+                <input value={event.title} onChange={(change) => patchData((current) => ({ ...(current as TimelineData), events: (current as TimelineData).events.map((item) => item.id === event.id ? { ...item, title: change.target.value } : item) }))} disabled={!interactive} aria-label="Event title" />
+                <div className="timeline-event-date-fields">
+                  <input type="number" min="-100000" max="100000" value={event.year} onChange={(change) => patchData((current) => ({ ...(current as TimelineData), events: (current as TimelineData).events.map((item) => item.id === event.id ? { ...item, year: Number(change.target.value) } : item) }))} disabled={!interactive} aria-label="Event year" />
+                  <select value={event.month} onChange={(change) => patchData((current) => ({ ...(current as TimelineData), events: (current as TimelineData).events.map((item) => item.id === event.id ? { ...item, month: Number(change.target.value) } : item) }))} disabled={!interactive} aria-label="Event month">{timeline.calendar.months.map((month, index) => <option key={index} value={index + 1}>{month.name}</option>)}</select>
+                  <input type="number" min="1" max={timeline.calendar.months[event.month - 1]?.days ?? 100} value={event.day} onChange={(change) => patchData((current) => ({ ...(current as TimelineData), events: (current as TimelineData).events.map((item) => item.id === event.id ? { ...item, day: Number(change.target.value) } : item) }))} disabled={!interactive} aria-label="Event day" />
+                  <button type="button" onClick={() => patchData((current) => ({ ...(current as TimelineData), events: (current as TimelineData).events.filter((item) => item.id !== event.id) }))} disabled={!interactive}>Remove</button>
+                </div>
+              </div>
+            </article>)}
             {events.length === 0 && <p className="visual-tool-empty">No events on this timeline yet.</p>}
           </div>
         </div>}

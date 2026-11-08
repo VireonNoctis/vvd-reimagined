@@ -884,3 +884,37 @@ body { background: var(--paper); }
   .canvas-object { min-width: 72px; padding: 8px; gap: 5px; }
   .canvas-object strong { font-size: 10px; }
 }
+
+
+/* Compact controls for editing map coordinates, relation edges and calendars. */
+.map-feature-editor { display: grid; gap: 18px; margin-top: 12px; }
+.map-feature-group { display: grid; gap: 9px; }
+.map-feature-row,.map-pin-row,.relation-edit-row,.relation-edge-row { display: grid; gap: 8px; align-items: end; }
+.map-feature-row { grid-template-columns: 80px minmax(0,1fr); }
+.map-pin-row { grid-template-columns: minmax(0,1fr) 90px 90px; }
+.map-feature-row label,.map-pin-row label,.relation-edit-row label,.relation-edge-row label { display: grid; min-width: 0; gap: 5px; color: #989e92; font: 8px ui-monospace,monospace; }
+.map-feature-row input,.map-pin-row input,.relation-edit-row input,.relation-edge-row input,.relation-editor-heading input,.timeline-calendar-name,.timeline-calendar input,.timeline-event-editor input,.timeline-event-editor select { min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid #e3e3da; border-radius: 7px; outline: 0; background: #fffefa; color: #495244; font: 11px ui-sans-serif,system-ui; }
+.map-feature-row input:focus,.map-pin-row input:focus,.relation-edit-row input:focus,.relation-edge-row input:focus,.relation-editor-heading input:focus,.timeline-calendar input:focus,.timeline-event-editor input:focus,.timeline-event-editor select:focus { border-color: #a7b49c; box-shadow: 0 0 0 3px rgba(112,137,101,.1); }
+.relation-editor-heading .tool-action-row { align-items: end; }
+.relation-editor-heading .tool-action-row label { display: grid; gap: 4px; color: #989e92; font: 8px ui-monospace,monospace; }
+.relation-editor-heading input { width: 120px; }
+.relation-edit-list { display: grid; gap: 9px; margin-top: 12px; }
+.relation-edit-row { grid-template-columns: minmax(0,1fr) 84px 84px; }
+.relation-edge-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.relation-edges-label { margin-top: 10px; }
+.timeline-editor-heading > div { display: grid; gap: 7px; }
+.timeline-calendar-name { width: min(320px,70vw); font: 400 18px Georgia,serif; }
+.timeline-calendar > div { align-content: start; }
+.timeline-calendar > div input { width: 100%; }
+.timeline-calendar > div label { display: grid; gap: 4px; color: #9aa093; font: 8px ui-monospace,monospace; }
+.timeline-calendar > div button,.timeline-event-date-fields button { min-height: 30px; border: 1px solid #e3e5dc; border-radius: 7px; background: #fffefa; color: #8a9382; font: 9px ui-monospace,monospace; }
+.timeline-event-editor { display: grid; gap: 8px; }
+.timeline-event-date-fields { display: grid; grid-template-columns: 85px minmax(100px,1fr) 70px auto; gap: 7px; }
+@media (max-width: 700px) {
+  .map-pin-row { grid-template-columns: minmax(0,1fr) 70px 70px; }
+  .relation-editor-heading { align-items: flex-start; flex-direction: column; }
+  .relation-editor-heading .tool-action-row { flex-wrap: wrap; }
+  .relation-editor-heading input { width: 106px; }
+  .timeline-event-date-fields { grid-template-columns: 70px minmax(90px,1fr) 62px; }
+  .timeline-event-date-fields button { grid-column: 1 / -1; }
+}
