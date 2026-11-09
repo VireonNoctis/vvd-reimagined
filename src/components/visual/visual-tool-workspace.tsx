@@ -179,7 +179,7 @@ export function VisualToolWorkspace({
   }
 
   function startMapGesture(
-    event: ReactPointerEvent<SVGGElement>,
+    event: ReactPointerEvent<SVGElement>,
     gesture: Omit<MapGesture, "pointerId">,
     locked: boolean
   ) {
