@@ -967,3 +967,14 @@ body { background: var(--paper); }
 @media (prefers-reduced-motion: reduce) {
   .map-artboard .map-pin-mark circle:first-child { transition: none; }
 }
+
+
+/* Direct manipulation on the relationship surface. */
+.relation-artboard { touch-action: none; }
+.relation-artboard .relation-node { cursor: grab; }
+.relation-artboard .relation-node:active { cursor: grabbing; }
+.relation-artboard .relation-node rect { transition: stroke .12s ease,filter .12s ease; }
+.relation-artboard .relation-node:hover rect { stroke: #879b7b; filter: drop-shadow(0 3px 5px rgba(40,47,37,.12)); }
+@media (prefers-reduced-motion: reduce) {
+  .relation-artboard .relation-node rect { transition: none; }
+}

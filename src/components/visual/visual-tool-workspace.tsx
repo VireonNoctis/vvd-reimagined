@@ -40,6 +40,8 @@ type MapGesture = {
   pointIndex?: number;
 };
 
+type RelationGesture = { pointerId: number; nodeId: string };
+
 type Props = {
   worldSlug: string;
   worldName: string;
@@ -99,6 +101,8 @@ export function VisualToolWorkspace({
   const canvasNoteBeforeRef = useRef<CanvasData | null>(null);
   const mapStageRef = useRef<SVGSVGElement | null>(null);
   const mapGestureRef = useRef<MapGesture | null>(null);
+  const relationStageRef = useRef<SVGSVGElement | null>(null);
+  const relationGestureRef = useRef<RelationGesture | null>(null);
 
   const selectedCard = cards.find((card) => card.id === selectedCardId);
   const events = useMemo(() => kind === "timeline"
@@ -119,6 +123,7 @@ export function VisualToolWorkspace({
     canvasGestureRef.current = null;
     canvasNoteBeforeRef.current = null;
     mapGestureRef.current = null;
+    relationGestureRef.current = null;
     setState("idle");
     setError("");
   }
@@ -135,6 +140,7 @@ export function VisualToolWorkspace({
     canvasGestureRef.current = null;
     canvasNoteBeforeRef.current = null;
     mapGestureRef.current = null;
+    relationGestureRef.current = null;
     setState("idle");
     setError("");
   }
@@ -283,6 +289,36 @@ export function VisualToolWorkspace({
         layerId: selectedMapLayerId || map.layers[0]?.id
       }] };
     });
+  }
+
+  function startRelationGesture(event: ReactPointerEvent<SVGGElement>, nodeId: string) {
+    if (!interactive || event.button !== 0 || !relationStageRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    relationStageRef.current.setPointerCapture(event.pointerId);
+    relationGestureRef.current = { pointerId: event.pointerId, nodeId };
+    setSelectedRelationVariantId("");
+  }
+
+  function updateRelationGesture(event: ReactPointerEvent<SVGSVGElement>) {
+    const gesture = relationGestureRef.current;
+    const stage = relationStageRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId || !stage) return;
+    const bounds = stage.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+    setData((current) => ({
+      ...(current as RelationTreeData),
+      nodes: (current as RelationTreeData).nodes.map((node) =>
+        node.id === gesture.nodeId ? { ...node, x, y } : node
+      )
+    }));
+    setState("idle");
+  }
+
+  function finishRelationGesture(event: ReactPointerEvent<SVGSVGElement>) {
+    if (relationGestureRef.current?.pointerId === event.pointerId) relationGestureRef.current = null;
   }
 
   function addRelationNode() {
@@ -772,13 +808,29 @@ export function VisualToolWorkspace({
             <button type="button" className="toolbar-button" onClick={saveRelationVariant} disabled={!interactive || tree.nodes.length === 0 || tree.variants.length >= 100}>Save layout</button>
             <label><span>Apply saved layout</span><select value={selectedRelationVariantId} onChange={(event) => applyRelationVariant(event.target.value)} disabled={!interactive}><option value="">Current layout</option>{tree.variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}</select></label>
           </div>
-          <svg className="relation-artboard" viewBox="0 0 1000 600" role="img" aria-label="Relation tree nodes and typed edges">
+          <svg
+            className="relation-artboard"
+            viewBox="0 0 1000 600"
+            role="img"
+            aria-label="Relation tree with draggable nodes and typed edges"
+            ref={relationStageRef}
+            onPointerMove={updateRelationGesture}
+            onPointerUp={finishRelationGesture}
+            onPointerCancel={finishRelationGesture}
+          >
             {tree.edges.map((edge) => {
               const source = tree.nodes.find((node) => node.id === edge.source);
               const target = tree.nodes.find((node) => node.id === edge.target);
               return source && target ? <g key={edge.id}><line x1={source.x * 1000} y1={source.y * 600} x2={target.x * 1000} y2={target.y * 600} /><text x={(source.x + target.x) * 500} y={(source.y + target.y) * 300 - 12}>{edge.label ?? edge.relationType}</text></g> : null;
             })}
-            {tree.nodes.map((node) => <g key={node.id}><rect x={node.x * 1000 - 82} y={node.y * 600 - 28} width="164" height="56" rx="12" /><text x={node.x * 1000} y={node.y * 600 + 4}>{node.label}</text></g>)}
+            {tree.nodes.map((node) => <g
+              key={node.id}
+              className="relation-node"
+              onPointerDown={(event) => startRelationGesture(event, node.id)}
+              role="button"
+              tabIndex={0}
+              aria-label={"Move relation node " + node.label}
+            ><rect x={node.x * 1000 - 82} y={node.y * 600 - 28} width="164" height="56" rx="12" /><text x={node.x * 1000} y={node.y * 600 + 4}>{node.label}</text></g>)}
           </svg>
           <div className="visual-tool-footer"><span>{tree.nodes.length} nodes</span><span>{tree.edges.length} typed relationships</span><span>{tree.variants.length} variants</span></div>
           <div className="relation-edit-list">
