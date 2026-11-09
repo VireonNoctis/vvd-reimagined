@@ -1595,7 +1595,10 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
     .await
     .expect("create a relation tree with explicit typed edges");
     assert_eq!(relation_tree.kind.as_str(), "relation_tree");
-    assert_eq!(relation_tree.data["variants"][0]["positions"][1]["nodeId"], "court");
+    assert_eq!(
+        relation_tree.data["variants"][0]["positions"][1]["nodeId"],
+        "court"
+    );
 
     let invalid_variant = store::create_visual_tool_document(
         &pool, account_id, &world.slug, "relation_tree",
@@ -1609,7 +1612,10 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
             }),
         },
     ).await;
-    assert!(invalid_variant.is_err(), "layout variants must only position existing nodes");
+    assert!(
+        invalid_variant.is_err(),
+        "layout variants must only position existing nodes"
+    );
 
     let canvas = store::create_visual_tool_document(
         &pool,
@@ -1655,7 +1661,13 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
     .await
     .expect("create a calendar-aware timeline");
     assert_eq!(timeline.kind.as_str(), "timeline");
-    assert_eq!(timeline.data["calendar"]["weekdays"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        timeline.data["calendar"]["weekdays"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
 
     let invalid_weekdays = store::create_visual_tool_document(
         &pool, account_id, &world.slug, "timeline",
@@ -1683,7 +1695,10 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
             }),
         },
     ).await;
-    assert!(invalid_layer.is_err(), "map features must reference existing layers");
+    assert!(
+        invalid_layer.is_err(),
+        "map features must reference existing layers"
+    );
 
     let invalid_relation = store::create_visual_tool_document(
         &pool,

@@ -1796,7 +1796,9 @@ fn validate_visual_tool_data(
                         ApiError::bad_request("Map region layer references are invalid.")
                     })?;
                     if !layer_ids.contains(layer_id) {
-                        return Err(ApiError::bad_request("Map regions must belong to an existing layer."));
+                        return Err(ApiError::bad_request(
+                            "Map regions must belong to an existing layer.",
+                        ));
                     }
                 }
                 let points = region
@@ -1822,7 +1824,9 @@ fn validate_visual_tool_data(
                         ApiError::bad_request("Map pin layer references are invalid.")
                     })?;
                     if !layer_ids.contains(layer_id) {
-                        return Err(ApiError::bad_request("Map pins must belong to an existing layer."));
+                        return Err(ApiError::bad_request(
+                            "Map pins must belong to an existing layer.",
+                        ));
                     }
                 }
                 visual_coordinate(pin, "x")?;
@@ -1872,12 +1876,18 @@ fn validate_visual_tool_data(
                         let positions = positions
                             .as_array()
                             .filter(|items| items.len() <= node_ids.len())
-                            .ok_or_else(|| ApiError::bad_request("Relation Tree variant positions are invalid."))?;
+                            .ok_or_else(|| {
+                                ApiError::bad_request(
+                                    "Relation Tree variant positions are invalid.",
+                                )
+                            })?;
                         let mut positioned_nodes = std::collections::HashSet::new();
                         for position in positions {
                             let node_id = visual_text(position, "nodeId", 80)?;
                             if !node_ids.contains(&node_id) || !positioned_nodes.insert(node_id) {
-                                return Err(ApiError::bad_request("Relation Tree variants may position each existing node once."));
+                                return Err(ApiError::bad_request(
+                                    "Relation Tree variants may position each existing node once.",
+                                ));
                             }
                             visual_coordinate(position, "x")?;
                             visual_coordinate(position, "y")?;
@@ -1948,14 +1958,20 @@ fn validate_visual_tool_data(
                 let weekdays = weekdays
                     .as_array()
                     .filter(|items| items.len() <= 14)
-                    .ok_or_else(|| ApiError::bad_request("A calendar can have at most 14 weekdays."))?;
+                    .ok_or_else(|| {
+                        ApiError::bad_request("A calendar can have at most 14 weekdays.")
+                    })?;
                 let mut weekday_names = std::collections::HashSet::new();
                 for weekday in weekdays {
                     let weekday = weekday
                         .as_str()
                         .map(str::trim)
                         .filter(|name| !name.is_empty() && name.chars().count() <= 32)
-                        .ok_or_else(|| ApiError::bad_request("Weekday names must contain 1 to 32 characters."))?;
+                        .ok_or_else(|| {
+                            ApiError::bad_request(
+                                "Weekday names must contain 1 to 32 characters.",
+                            )
+                        })?;
                     if !weekday_names.insert(weekday.to_lowercase()) {
                         return Err(ApiError::bad_request("Weekday names must be unique."));
                     }
