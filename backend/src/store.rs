@@ -1968,9 +1968,7 @@ fn validate_visual_tool_data(
                         .map(str::trim)
                         .filter(|name| !name.is_empty() && name.chars().count() <= 32)
                         .ok_or_else(|| {
-                            ApiError::bad_request(
-                                "Weekday names must contain 1 to 32 characters.",
-                            )
+                            ApiError::bad_request("Weekday names must contain 1 to 32 characters.")
                         })?;
                     if !weekday_names.insert(weekday.to_lowercase()) {
                         return Err(ApiError::bad_request("Weekday names must be unique."));
