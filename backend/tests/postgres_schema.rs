@@ -1638,7 +1638,13 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
     .await
     .expect("create a canvas with linked canonical content");
     assert_eq!(canvas.kind.as_str(), "canvas");
-    assert_eq!(canvas.data["objects"][2]["children"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        canvas.data["objects"][2]["children"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
     assert_eq!(canvas.data["strokes"][0]["color"], "#627e59");
 
     let invalid_canvas_group = store::create_visual_tool_document(
@@ -1658,7 +1664,10 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
             }),
         },
     ).await;
-    assert!(invalid_canvas_group.is_err(), "Canvas groups must reference existing child objects");
+    assert!(
+        invalid_canvas_group.is_err(),
+        "Canvas groups must reference existing child objects"
+    );
 
     let invalid_stroke_color = store::create_visual_tool_document(
         &pool,
@@ -1674,7 +1683,10 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
             }),
         },
     ).await;
-    assert!(invalid_stroke_color.is_err(), "Canvas stroke colours must be constrained");
+    assert!(
+        invalid_stroke_color.is_err(),
+        "Canvas stroke colours must be constrained"
+    );
 
     let timeline = store::create_visual_tool_document(
         &pool,
