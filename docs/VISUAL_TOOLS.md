@@ -28,7 +28,7 @@ Data is a JSON object with `width`, `height`, `layers`, `regions` and `pins`.
 - Pins have a label and may link to a canonical card.
 - Layers persist name, visibility, lock and opacity settings; regions and pins can be assigned to a layer, and the API rejects orphaned layer references.
 
-Current boundary: the editor supports Gallery-image backgrounds, layer creation/removal, visibility/lock/opacity/name controls, region vertex coordinate editing, layer assignment and normalized pin positioning. Georeferencing, polygon drawing, zones and richer pin styling remain outstanding.
+Current boundary: the editor supports Gallery-image backgrounds, layer creation/removal, visibility/lock/opacity/name controls, direct dragging and numeric editing of region vertices and pins, and layer assignment. Georeferencing, polygon authoring, zones and richer pin styling remain outstanding.
 
 ## Relation Tree
 
@@ -38,7 +38,7 @@ Data has `nodes`, `edges` and `variants`.
 - Edges are explicit, typed relationships between two different nodes in the same tree.
 - A link to another card does not create a duplicate card.
 
-Current boundary: the editor creates nodes and typed edges, edits node positions and edge type/label, and saves/applies named layout variants with validated per-node positions. Alternate relationship structures, free draw and advanced edge routing remain outstanding. Relation Tree edges are never merged with World Graph mention edges.
+Current boundary: the editor creates nodes and typed edges, supports direct node dragging and coordinate editing, edits edge type/label, and saves/applies named layout variants with validated per-node positions. Alternate relationship structures, free draw and advanced edge routing remain outstanding. Relation Tree edges are never merged with World Graph mention edges.
 
 ## Canvas
 

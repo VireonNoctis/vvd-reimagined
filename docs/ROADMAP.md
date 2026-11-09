@@ -71,9 +71,9 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - [x] Add Relation Tree documents with independent nodes, explicit typed edges and canonical card links.
 - [x] Add Canvas documents with positioned card/text/media/shape/group objects and bounded drawing-stroke data.
 - [x] Add Timeline documents with configurable month lengths, dated events and canonical card links.
-- [x] Add Gallery-image map backdrops, layer visibility/opacity/locking, region vertex editing and normalized pin positioning.
+- [x] Add Gallery-image map backdrops, layer visibility/opacity/locking, and directly draggable region vertices and pins.
 - [ ] Add image georeferencing, polygon authoring, zone styling and richer pin symbols.
-- [x] Add editable Relation Tree node positions, typed edge labels/types and saved layout variants.
+- [x] Add draggable Relation Tree nodes, typed edge labels/types and saved layout variants.
 - [ ] Add alternate relationship structures, free draw and richer edge routing.
 - [x] Add Canvas selection, drag/resize, object deletion, Gallery image placement and bounded undo/redo.
 - [ ] Add Canvas grouping, freehand drawing UI and richer object tools.
