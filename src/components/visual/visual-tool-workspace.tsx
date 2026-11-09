@@ -236,8 +236,7 @@ export function VisualToolWorkspace({
         label: selectedCard?.name ?? "New node",
         x: Math.min(0.86, 0.18 + (index % 3) * 0.3),
         y: Math.min(0.82, 0.25 + Math.floor(index / 3) * 0.22),
-        ...(selectedCard ? { cardId: selectedCard.id } : {}),
-        layerId: selectedMapLayerId || map.layers[0]?.id
+        ...(selectedCard ? { cardId: selectedCard.id } : {})
       }] };
     });
   }
@@ -291,7 +290,7 @@ export function VisualToolWorkspace({
     setData({
       ...tree,
       nodes: tree.nodes.map((node) => {
-        const position = variant.positions.find((item) => item.nodeId === node.id);
+        const position = (variant.positions ?? []).find((item) => item.nodeId === node.id);
         return position ? { ...node, x: position.x, y: position.y } : node;
       })
     });
@@ -528,8 +527,7 @@ export function VisualToolWorkspace({
       const calendar = current as TimelineData;
       return { ...calendar, events: [...calendar.events, {
         id: makeId("event"), title, year, month, day,
-        ...(selectedCard ? { cardId: selectedCard.id } : {}),
-        layerId: selectedMapLayerId || map.layers[0]?.id
+        ...(selectedCard ? { cardId: selectedCard.id } : {})
       }] };
     });
     setEventTitle("");
@@ -618,7 +616,7 @@ export function VisualToolWorkspace({
         </div>
 
         {map && <div className="tool-editor tool-map-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">SPATIAL EDITOR</span><h2>Map surface</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addMapRegion} disabled={!interactive || map.layers.every((layer) => layer.locked)}>Add region</button><button className="toolbar-button" type="button" onClick={addMapPin} disabled={!interactive || map.layers.every((layer) => layer.locked)}>Add pin</button></div><label className="map-background-select"><span>Background</span><select value={map.backgroundMediaId ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), backgroundMediaId: event.target.value || undefined }))} disabled={!interactive}><option value="">Grid</option>{media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => <option value={asset.id} key={asset.id}>{asset.fileName}</option>)}</select></label></div>
+          <div className="tool-editor-heading"><div><span className="eyebrow">SPATIAL EDITOR</span><h2>Map surface</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addMapRegion} disabled={!interactive || (getMapLayer(activeMapLayerId)?.locked ?? false)}>Add region</button><button className="toolbar-button" type="button" onClick={addMapPin} disabled={!interactive || (getMapLayer(activeMapLayerId)?.locked ?? false)}>Add pin</button></div><label className="map-background-select"><span>Background</span><select value={map.backgroundMediaId ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), backgroundMediaId: event.target.value || undefined }))} disabled={!interactive}><option value="">Grid</option>{media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => <option value={asset.id} key={asset.id}>{asset.fileName}</option>)}</select></label></div>
           <svg className="map-artboard" viewBox="0 0 1000 620" role="img" aria-label="Map canvas with editable region and pin records">
             <defs><pattern id="map-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeOpacity=".11" strokeWidth="1" /></pattern></defs>
             <rect width="1000" height="620" fill="#eff1e9" />
@@ -678,7 +676,7 @@ export function VisualToolWorkspace({
           <div className="tool-editor-heading relation-editor-heading"><div><span className="eyebrow">RELATION MODEL</span><h2>Explicit relationships</h2></div><div className="tool-action-row"><label>Type<input value={relationType} onChange={(event) => setRelationType(event.target.value)} maxLength={80} disabled={!interactive} /></label><label>Label<input value={relationLabel} onChange={(event) => setRelationLabel(event.target.value)} maxLength={120} disabled={!interactive} /></label><button className="toolbar-button" type="button" onClick={addRelationNode} disabled={!interactive}>Add node</button><button className="toolbar-button" type="button" onClick={addRelationEdge} disabled={!interactive}>Connect last two</button></div></div>
           <div className="relation-variant-bar">
             <label><span>Variant name</span><input value={relationVariantName} onChange={(event) => setRelationVariantName(event.target.value)} maxLength={100} disabled={!interactive} /></label>
-            <button type="button" className="toolbar-button" onClick={saveRelationVariant} disabled={!interactive || tree.nodes.length === 0}>Save layout</button>
+            <button type="button" className="toolbar-button" onClick={saveRelationVariant} disabled={!interactive || tree.nodes.length === 0 || tree.variants.length >= 100}>Save layout</button>
             <label><span>Apply saved layout</span><select value={selectedRelationVariantId} onChange={(event) => applyRelationVariant(event.target.value)} disabled={!interactive}><option value="">Current layout</option>{tree.variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}</select></label>
           </div>
           <svg className="relation-artboard" viewBox="0 0 1000 600" role="img" aria-label="Relation tree nodes and typed edges">
