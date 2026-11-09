@@ -978,3 +978,16 @@ body { background: var(--paper); }
 @media (prefers-reduced-motion: reduce) {
   .relation-artboard .relation-node rect { transition: none; }
 }
+
+
+/* Canvas grouping and freehand drawing. */
+.canvas-artboard.drawing { touch-action: none; cursor: crosshair; }
+.canvas-artboard.drawing .canvas-empty-note { pointer-events: none; }
+.canvas-drawing-layer { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.canvas-group-frame { position: absolute; z-index: 0; border: 1px dashed #8c9d80; border-radius: 12px; background: rgba(151,170,139,.055); pointer-events: none; }
+.canvas-group-frame > span { position: absolute; top: -9px; left: 9px; padding: 2px 6px; border: 1px solid #dfe5da; border-radius: 4px; background: #f7f8f2; color: #78886e; font: 8px ui-monospace,monospace; letter-spacing: .08em; }
+.canvas-object.multi-selected { outline: 1px solid rgba(111,135,99,.2); }
+.canvas-draw-control { display: inline-flex; align-items: center; gap: 6px; color: #949b8e; font: 8px ui-monospace,monospace; }
+.canvas-draw-control input[type="color"] { width: 27px; height: 27px; padding: 2px; border: 1px solid #dfe3d9; border-radius: 7px; background: #fffefa; cursor: pointer; }
+.canvas-draw-control input[type="range"] { width: 70px; accent-color: #809275; }
+@media (max-width: 620px) { .canvas-draw-control input[type="range"] { width: 56px; } }

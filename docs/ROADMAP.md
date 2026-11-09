@@ -76,7 +76,8 @@ Exit condition: a world can hold typed canonical records and resolve references 
 - [x] Add draggable Relation Tree nodes, typed edge labels/types and saved layout variants.
 - [ ] Add alternate relationship structures, free draw and richer edge routing.
 - [x] Add Canvas selection, drag/resize, object deletion, Gallery image placement and bounded undo/redo.
-- [ ] Add Canvas grouping, freehand drawing UI and richer object tools.
+- [x] Add Canvas multi-select, group/ungroup, group movement and freehand drawing with adjustable stroke colour/width.
+- [ ] Add nested groups, group-level resizing, shape authoring and advanced pen tools.
 - [x] Add editable calendar/month names and lengths, guarded month removal, editable/removable events and validated custom weekday cycles.
 - [ ] Add weekday arithmetic anchors, leap/irregular rules, recurring events and event ranges.
 - Trade Routes settlement resources, road/river networks and supply-flow simulation.

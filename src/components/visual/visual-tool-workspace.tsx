@@ -30,7 +30,14 @@ type CanvasGesture = {
   width: number;
   height: number;
   snapshot: CanvasData;
+  ids: string[];
   recorded: boolean;
+};
+
+type CanvasDrawGesture = {
+  pointerId: number;
+  stroke: { id: string; width: number; color: string; points: { x: number; y: number }[] };
+  snapshot: CanvasData;
 };
 
 type MapGesture = {
@@ -94,10 +101,16 @@ export function VisualToolWorkspace({
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
   const [selectedCanvasObjectId, setSelectedCanvasObjectId] = useState("");
+  const [selectedCanvasObjectIds, setSelectedCanvasObjectIds] = useState<string[]>([]);
+  const [canvasDrawingMode, setCanvasDrawingMode] = useState(false);
+  const [canvasDrawingColor, setCanvasDrawingColor] = useState("#627e59");
+  const [canvasDrawingWidth, setCanvasDrawingWidth] = useState("0.004");
+  const [canvasDrawingPreview, setCanvasDrawingPreview] = useState<CanvasDrawGesture["stroke"] | null>(null);
   const [canvasUndo, setCanvasUndo] = useState<CanvasData[]>([]);
   const [canvasRedo, setCanvasRedo] = useState<CanvasData[]>([]);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const canvasGestureRef = useRef<CanvasGesture | null>(null);
+  const canvasDrawGestureRef = useRef<CanvasDrawGesture | null>(null);
   const canvasNoteBeforeRef = useRef<CanvasData | null>(null);
   const mapStageRef = useRef<SVGSVGElement | null>(null);
   const mapGestureRef = useRef<MapGesture | null>(null);
@@ -116,6 +129,10 @@ export function VisualToolWorkspace({
     setName(next.name);
     setData(next.data);
     setSelectedCanvasObjectId("");
+    setSelectedCanvasObjectIds([]);
+    setCanvasDrawingMode(false);
+    setCanvasDrawingPreview(null);
+    canvasDrawGestureRef.current = null;
     setSelectedMapLayerId("");
     setSelectedRelationVariantId("");
     setCanvasUndo([]);
@@ -133,6 +150,10 @@ export function VisualToolWorkspace({
     setName("Untitled " + (kind === "relation_tree" ? "relations" : kind));
     setData(createVisualToolData(kind));
     setSelectedCanvasObjectId("");
+    setSelectedCanvasObjectIds([]);
+    setCanvasDrawingMode(false);
+    setCanvasDrawingPreview(null);
+    canvasDrawGestureRef.current = null;
     setSelectedMapLayerId("");
     setSelectedRelationVariantId("");
     setCanvasUndo([]);
@@ -404,6 +425,7 @@ export function VisualToolWorkspace({
     setCanvasUndo((history) => history.slice(0, -1));
     setData(previous);
     setSelectedCanvasObjectId("");
+    setSelectedCanvasObjectIds([]);
     setState("idle");
   }
 
@@ -414,19 +436,99 @@ export function VisualToolWorkspace({
     setCanvasRedo((history) => history.slice(0, -1));
     setData(next);
     setSelectedCanvasObjectId("");
+    setSelectedCanvasObjectIds([]);
     setState("idle");
   }
 
   function deleteCanvasObject() {
     if (!canvas || !selectedCanvasObjectId) return;
+    const selected = new Set(selectedCanvasObjectIds.length ? selectedCanvasObjectIds : [selectedCanvasObjectId]);
+    for (const group of canvas.objects.filter((item) => item.kind === "group" && selected.has(item.id))) {
+      (group.children ?? []).forEach((id) => selected.add(id));
+    }
     rememberCanvas(canvas);
-    setData({ ...canvas, objects: canvas.objects.filter((item) => item.id !== selectedCanvasObjectId) });
+    const remaining = canvas.objects.filter((item) => item.kind !== "group" && !selected.has(item.id));
+    const groups = canvas.objects.filter((item) => item.kind === "group").flatMap((group) => {
+      const children = (group.children ?? []).filter((id) => remaining.some((item) => item.id === id));
+      if (children.length < 2) return [];
+      const members = remaining.filter((item) => children.includes(item.id));
+      const left = Math.min(...members.map((item) => item.x));
+      const top = Math.min(...members.map((item) => item.y));
+      const right = Math.max(...members.map((item) => item.x + item.width));
+      const bottom = Math.max(...members.map((item) => item.y + item.height));
+      return [{ ...group, children, x: left, y: top, width: right - left, height: bottom - top }];
+    });
+    const activeGroups = new Set(groups.map((item) => item.id));
+    const objects = remaining.map((item) => {
+      if (item.groupId && !activeGroups.has(item.groupId)) {
+        const { groupId: _groupId, ...rest } = item;
+        return rest;
+      }
+      return item;
+    });
+    setData({ ...canvas, objects: [...objects, ...groups] });
     setSelectedCanvasObjectId("");
+    setSelectedCanvasObjectIds([]);
+    setState("idle");
+  }
+
+  function groupCanvasSelection() {
+    if (!canvas) return;
+    const members = canvas.objects.filter((item) =>
+      selectedCanvasObjectIds.includes(item.id) && item.kind !== "group" && !item.groupId
+    );
+    if (members.length < 2) {
+      setError("Select at least two ungrouped objects to create a group.");
+      setState("error");
+      return;
+    }
+    if (canvas.objects.filter((item) => item.kind === "group").length >= 100) {
+      setError("This Canvas already has the maximum number of groups.");
+      setState("error");
+      return;
+    }
+    const left = Math.min(...members.map((item) => item.x));
+    const top = Math.min(...members.map((item) => item.y));
+    const right = Math.max(...members.map((item) => item.x + item.width));
+    const bottom = Math.max(...members.map((item) => item.y + item.height));
+    const id = makeId("group");
+    const memberIds = new Set(members.map((item) => item.id));
+    rememberCanvas(canvas);
+    setData({
+      ...canvas,
+      objects: [
+        ...canvas.objects.map((item) => memberIds.has(item.id) ? { ...item, groupId: id } : item),
+        { id, kind: "group", x: left, y: top, width: right - left, height: bottom - top, children: members.map((item) => item.id), text: "GROUP" }
+      ]
+    });
+    setSelectedCanvasObjectId(members[0].id);
+    setSelectedCanvasObjectIds(members.map((item) => item.id));
+    setState("idle");
+  }
+
+  function ungroupCanvasSelection() {
+    if (!canvas) return;
+    const groupIds = new Set(canvas.objects
+      .filter((item) => selectedCanvasObjectIds.includes(item.id))
+      .map((item) => item.groupId)
+      .filter((id): id is string => Boolean(id)));
+    if (!groupIds.size) return;
+    rememberCanvas(canvas);
+    setData({
+      ...canvas,
+      objects: canvas.objects.filter((item) => item.kind !== "group" || !groupIds.has(item.id)).map((item) => {
+        if (item.groupId && groupIds.has(item.groupId)) {
+          const { groupId: _groupId, ...rest } = item;
+          return rest;
+        }
+        return item;
+      })
+    });
     setState("idle");
   }
 
   function startCanvasGesture(event: ReactPointerEvent<HTMLDivElement>, object: CanvasObject) {
-    if (!interactive || event.button !== 0) return;
+    if (!interactive || canvasDrawingMode || event.button !== 0) return;
     const target = event.target;
     if (target instanceof HTMLElement && target.closest("textarea,button,input")) return;
     const snapshot = data as CanvasData;
@@ -435,10 +537,15 @@ export function VisualToolWorkspace({
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     setSelectedCanvasObjectId(object.id);
+    const mode = target instanceof HTMLElement && target.closest("[data-resize-handle]") ? "resize" : "move";
+    if (!event.shiftKey && !selectedCanvasObjectIds.includes(object.id)) setSelectedCanvasObjectIds([object.id]);
+    const group = object.groupId
+      ? snapshot.objects.find((item) => item.id === object.groupId && item.kind === "group")
+      : undefined;
     canvasGestureRef.current = {
       id: object.id,
       pointerId: event.pointerId,
-      mode: target instanceof HTMLElement && target.closest("[data-resize-handle]") ? "resize" : "move",
+      mode,
       startX: event.clientX,
       startY: event.clientY,
       x: object.x,
@@ -446,6 +553,7 @@ export function VisualToolWorkspace({
       width: object.width,
       height: object.height,
       snapshot,
+      ids: mode === "resize" ? [object.id] : group ? [group.id, ...(group.children ?? [])] : [object.id],
       recorded: false
     };
   }
@@ -468,16 +576,17 @@ export function VisualToolWorkspace({
       return {
         ...value,
         objects: value.objects.map((item) => {
-          if (item.id !== gesture.id) return item;
-          if (gesture.mode === "resize") {
+          if (!gesture.ids.includes(item.id)) return item;
+          const original = gesture.snapshot.objects.find((entry) => entry.id === item.id) ?? item;
+          if (gesture.mode === "resize" && item.id === gesture.id) {
             const width = Math.max(0.12, Math.min(1 - gesture.x, gesture.width + dx));
             const height = Math.max(0.12, Math.min(1 - gesture.y, gesture.height + dy));
             return { ...item, width, height };
           }
           return {
             ...item,
-            x: Math.max(0, Math.min(1 - gesture.width, gesture.x + dx)),
-            y: Math.max(0, Math.min(1 - gesture.height, gesture.y + dy))
+            x: Math.max(0, Math.min(1 - original.width, original.x + dx)),
+            y: Math.max(0, Math.min(1 - original.height, original.y + dy))
           };
         })
       };
@@ -487,6 +596,57 @@ export function VisualToolWorkspace({
 
   function finishCanvasGesture(event: ReactPointerEvent<HTMLDivElement>) {
     if (canvasGestureRef.current?.pointerId === event.pointerId) canvasGestureRef.current = null;
+  }
+
+  function startCanvasDrawing(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!interactive || !canvasDrawingMode || event.button !== 0 || event.target !== event.currentTarget) return;
+    const board = canvasStageRef.current;
+    if (!board || !canvas) return;
+    const bounds = board.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const stroke = {
+      id: makeId("stroke"),
+      width: Number(canvasDrawingWidth),
+      color: canvasDrawingColor,
+      points: [{
+        x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)),
+        y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height))
+      }]
+    };
+    canvasDrawGestureRef.current = { pointerId: event.pointerId, stroke, snapshot: canvas };
+    setCanvasDrawingPreview(stroke);
+  }
+
+  function updateCanvasDrawing(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = canvasDrawGestureRef.current;
+    const board = canvasStageRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId || !board) return;
+    const bounds = board.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const point = {
+      x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height))
+    };
+    const previous = gesture.stroke.points[gesture.stroke.points.length - 1];
+    if (Math.hypot(point.x - previous.x, point.y - previous.y) < 0.001) return;
+    gesture.stroke.points.push(point);
+    setCanvasDrawingPreview({ ...gesture.stroke, points: [...gesture.stroke.points] });
+  }
+
+  function finishCanvasDrawing(event: ReactPointerEvent<HTMLDivElement>, cancelled = false) {
+    const gesture = canvasDrawGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    canvasDrawGestureRef.current = null;
+    setCanvasDrawingPreview(null);
+    if (cancelled || gesture.stroke.points.length < 2) return;
+    rememberCanvas(gesture.snapshot);
+    setData((current) => ({
+      ...(current as CanvasData),
+      strokes: [...(current as CanvasData).strokes, gesture.stroke]
+    }));
+    setState("idle");
   }
 
   function addCanvasImage() {
@@ -849,31 +1009,88 @@ export function VisualToolWorkspace({
         </div>}
 
         {canvas && <div className="tool-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">FREEFORM WORKSPACE</span><h2>Canvas</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={undoCanvas} disabled={!interactive || canvasUndo.length === 0}>Undo</button><button className="toolbar-button" type="button" onClick={redoCanvas} disabled={!interactive || canvasRedo.length === 0}>Redo</button><button className="toolbar-button" type="button" onClick={deleteCanvasObject} disabled={!interactive || !selectedCanvasObjectId}>Delete</button><button className="toolbar-button" type="button" onClick={() => addCanvasObject("card")} disabled={!interactive}>Place card</button><button className="toolbar-button" type="button" onClick={() => addCanvasObject("text")} disabled={!interactive}>Add note</button><button className="toolbar-button" type="button" onClick={addCanvasImage} disabled={!interactive || !selectedMediaId}>Place image</button></div></div>
-          <div className="canvas-artboard" ref={canvasStageRef} aria-label="Canvas workspace">
-            {canvas.objects.map((object) => <div
-              className={"canvas-object kind-" + object.kind + (selectedCanvasObjectId === object.id ? " selected" : "")}
+          <div className="tool-editor-heading">
+            <div><span className="eyebrow">FREEFORM WORKSPACE</span><h2>Canvas</h2></div>
+            <div className="tool-action-row">
+              <button className="toolbar-button" type="button" onClick={undoCanvas} disabled={!interactive || canvasUndo.length === 0}>Undo</button>
+              <button className="toolbar-button" type="button" onClick={redoCanvas} disabled={!interactive || canvasRedo.length === 0}>Redo</button>
+              <button className="toolbar-button" type="button" onClick={groupCanvasSelection} disabled={!interactive || selectedCanvasObjectIds.length < 2}>Group</button>
+              <button className="toolbar-button" type="button" onClick={ungroupCanvasSelection} disabled={!interactive || !canvas.objects.some((item) => selectedCanvasObjectIds.includes(item.id) && item.groupId)}>Ungroup</button>
+              <button className="toolbar-button" type="button" onClick={deleteCanvasObject} disabled={!interactive || !selectedCanvasObjectId}>Delete</button>
+              <button className={"toolbar-button" + (canvasDrawingMode ? " active" : "")} type="button" onClick={() => setCanvasDrawingMode((value) => !value)} disabled={!interactive} aria-pressed={canvasDrawingMode}>{canvasDrawingMode ? "Finish drawing" : "Draw"}</button>
+              <label className="canvas-draw-control"><span>Ink</span><input type="color" value={canvasDrawingColor} onChange={(event) => setCanvasDrawingColor(event.target.value)} disabled={!interactive} /></label>
+              <label className="canvas-draw-control"><span>Width</span><input type="range" min="0.001" max="0.02" step="0.001" value={canvasDrawingWidth} onChange={(event) => setCanvasDrawingWidth(event.target.value)} disabled={!interactive} /></label>
+              <button className="toolbar-button" type="button" onClick={() => addCanvasObject("card")} disabled={!interactive}>Place card</button>
+              <button className="toolbar-button" type="button" onClick={() => addCanvasObject("text")} disabled={!interactive}>Add note</button>
+              <button className="toolbar-button" type="button" onClick={addCanvasImage} disabled={!interactive || !selectedMediaId}>Place image</button>
+            </div>
+          </div>
+          <div
+            className={"canvas-artboard" + (canvasDrawingMode ? " drawing" : "")}
+            ref={canvasStageRef}
+            aria-label="Canvas workspace"
+            onPointerDown={startCanvasDrawing}
+            onPointerMove={updateCanvasDrawing}
+            onPointerUp={(event) => finishCanvasDrawing(event)}
+            onPointerCancel={(event) => finishCanvasDrawing(event, true)}
+          >
+            <svg className="canvas-drawing-layer" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
+              {canvas.strokes.map((stroke) => <polyline
+                key={stroke.id}
+                points={stroke.points.map((point) => (point.x * 1000) + "," + (point.y * 700)).join(" ")}
+                fill="none"
+                stroke={stroke.color ?? "#627e59"}
+                strokeWidth={stroke.width * 1000}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />)}
+              {canvasDrawingPreview && <polyline
+                points={canvasDrawingPreview.points.map((point) => (point.x * 1000) + "," + (point.y * 700)).join(" ")}
+                fill="none"
+                stroke={canvasDrawingPreview.color}
+                strokeWidth={canvasDrawingPreview.width * 1000}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />}
+            </svg>
+            {canvas.objects.filter((object) => object.kind === "group").map((group) => <div
+              className="canvas-group-frame"
+              key={group.id}
+              style={{ left: (group.x * 100) + "%", top: (group.y * 100) + "%", width: (group.width * 100) + "%", height: (group.height * 100) + "%" }}
+              aria-hidden="true"
+            ><span>{group.text ?? "GROUP"}</span></div>)}
+            {canvas.objects.filter((object) => object.kind !== "group").map((object) => <div
+              className={"canvas-object kind-" + object.kind + (selectedCanvasObjectId === object.id ? " selected" : "") + (selectedCanvasObjectIds.includes(object.id) ? " multi-selected" : "")}
               key={object.id}
               style={{ left: (object.x * 100) + "%", top: (object.y * 100) + "%", width: (object.width * 100) + "%", height: (object.height * 100) + "%" }}
               onPointerDown={(event) => startCanvasGesture(event, object)}
               onPointerMove={updateCanvasGesture}
               onPointerUp={finishCanvasGesture}
               onPointerCancel={finishCanvasGesture}
-              onClick={() => setSelectedCanvasObjectId(object.id)}
+              onClick={(event) => {
+                setSelectedCanvasObjectId(object.id);
+                setSelectedCanvasObjectIds((current) => event.shiftKey
+                  ? current.includes(object.id) ? current.filter((id) => id !== object.id) : [...current, object.id]
+                  : [object.id]);
+              }}
               role="button"
               tabIndex={0}
-              aria-pressed={selectedCanvasObjectId === object.id}
+              aria-pressed={selectedCanvasObjectIds.includes(object.id)}
               aria-label={"Select " + (object.kind === "text" ? "note" : object.kind) + " object"}
             >
               <small>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Unlinked card" : object.kind === "text" ? "NOTE" : object.kind.toUpperCase()}</small>
               {object.kind === "text" ? <textarea value={object.text ?? ""} onFocus={() => { canvasNoteBeforeRef.current = canvas; }} onChange={(event) => patchData((current) => ({ ...(current as CanvasData), objects: (current as CanvasData).objects.map((item) => item.id === object.id ? { ...item, text: event.target.value } : item) }))} onBlur={() => { const before = canvasNoteBeforeRef.current; if (before && JSON.stringify(before) !== JSON.stringify(data)) rememberCanvas(before); canvasNoteBeforeRef.current = null; }} disabled={!interactive} aria-label="Canvas note" /> : object.kind === "image" ? <>{(() => { const asset = media.find((item) => item.id === object.mediaId); return asset ? <Image src={"/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/media/" + encodeURIComponent(asset.id) + "/download"} alt={asset.fileName} fill sizes="(max-width: 620px) 45vw, 220px" unoptimized /> : <strong>Missing Gallery asset</strong>; })()}</> : <strong>{object.kind === "card" ? cards.find((card) => card.id === object.cardId)?.name ?? "Card" : "Canvas object"}</strong>}
               <span className="canvas-resize-handle" data-resize-handle aria-hidden="true" />
             </div>)}
-            {canvas.objects.length === 0 && <span className="canvas-empty-note">Place a card or add a note to start.</span>}
+            {canvas.objects.every((object) => object.kind === "group") && <span className="canvas-empty-note">Place a card or add a note to start.</span>}
           </div>
-          <div className="visual-tool-footer"><span>{canvas.objects.length} objects</span><span>{canvas.strokes.length} drawing strokes</span><span>Normalised workspace coordinates</span></div>
+          <div className="visual-tool-footer">
+            <span>{canvas.objects.filter((object) => object.kind !== "group").length} objects</span>
+            <span>{canvas.objects.filter((object) => object.kind === "group").length} groups</span>
+            <span>{canvas.strokes.length} drawing strokes</span>
+            <span>Shift-select to group · drag a member to move its group</span>
+          </div>
         </div>}
-
         {timeline && <div className="tool-editor">
           <div className="tool-editor-heading timeline-editor-heading"><div><span className="eyebrow">CALENDAR MODEL</span><input className="timeline-calendar-name" value={timeline.calendar.name} onChange={(event) => patchData((current) => ({ ...(current as TimelineData), calendar: { ...(current as TimelineData).calendar, name: event.target.value } }))} disabled={!interactive} aria-label="Calendar name" /><span className="timeline-count">{timeline.events.length} events</span></div><button type="button" className="toolbar-button" onClick={addTimelineMonth} disabled={!interactive || timeline.calendar.months.length >= 24}>Add month</button></div>
           <div className="timeline-weekdays">

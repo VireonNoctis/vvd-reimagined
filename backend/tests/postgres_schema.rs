@@ -1627,16 +1627,54 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
             name: "Story board".to_owned(),
             data: serde_json::json!({
                 "objects":[
-                    {"id":"place-card","kind":"card","x":0.1,"y":0.15,"width":0.3,"height":0.24,"cardId":card.id},
-                    {"id":"heading","kind":"text","x":0.55,"y":0.2,"width":0.3,"height":0.12,"text":"A new alliance"}
+                    {"id":"place-card","kind":"card","x":0.1,"y":0.15,"width":0.3,"height":0.24,"cardId":card.id,"groupId":"story-group"},
+                    {"id":"heading","kind":"text","x":0.55,"y":0.2,"width":0.3,"height":0.12,"text":"A new alliance","groupId":"story-group"},
+                    {"id":"story-group","kind":"group","x":0.1,"y":0.15,"width":0.75,"height":0.24,"children":["place-card","heading"],"text":"Story group"}
                 ],
-                "strokes":[]
+                "strokes":[{"id":"ink-1","width":0.004,"color":"#627e59","points":[{"x":0.1,"y":0.1},{"x":0.2,"y":0.2}]}]
             }),
         },
     )
     .await
     .expect("create a canvas with linked canonical content");
     assert_eq!(canvas.kind.as_str(), "canvas");
+    assert_eq!(canvas.data["objects"][2]["children"].as_array().unwrap().len(), 2);
+    assert_eq!(canvas.data["strokes"][0]["color"], "#627e59");
+
+    let invalid_canvas_group = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "canvas",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Broken canvas group".to_owned(),
+            data: serde_json::json!({
+                "objects":[
+                    {"id":"one","kind":"text","x":0.1,"y":0.1,"width":0.2,"height":0.2,"groupId":"group"},
+                    {"id":"group","kind":"group","x":0.1,"y":0.1,"width":0.2,"height":0.2,"children":["one","missing"]}
+                ],
+                "strokes":[]
+            }),
+        },
+    ).await;
+    assert!(invalid_canvas_group.is_err(), "Canvas groups must reference existing child objects");
+
+    let invalid_stroke_color = store::create_visual_tool_document(
+        &pool,
+        account_id,
+        &world.slug,
+        "canvas",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Broken stroke color".to_owned(),
+            data: serde_json::json!({
+                "objects":[],
+                "strokes":[{"id":"bad-ink","width":0.004,"color":"url(javascript:alert(1))","points":[{"x":0.1,"y":0.1},{"x":0.2,"y":0.2}]}]
+            }),
+        },
+    ).await;
+    assert!(invalid_stroke_color.is_err(), "Canvas stroke colours must be constrained");
 
     let timeline = store::create_visual_tool_document(
         &pool,

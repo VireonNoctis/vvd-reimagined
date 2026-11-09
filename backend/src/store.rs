@@ -1917,11 +1917,68 @@ fn validate_visual_tool_data(
                     ));
                 }
             }
+            let mut grouped_children = std::collections::HashSet::new();
+            for group in objects.iter().filter(|item| item.get("kind").and_then(serde_json::Value::as_str) == Some("group")) {
+                let group_id = visual_text(group, "id", 80)?;
+                if group.get("groupId").is_some() {
+                    return Err(ApiError::bad_request("Canvas groups cannot be nested."));
+                }
+                let children = group
+                    .get("children")
+                    .and_then(serde_json::Value::as_array)
+                    .filter(|items| (2..=2500).contains(&items.len()))
+                    .ok_or_else(|| ApiError::bad_request("Canvas groups need at least two child objects."))?;
+                let mut child_ids = std::collections::HashSet::new();
+                for child in children {
+                    let child_id = child
+                        .as_str()
+                        .map(str::trim)
+                        .filter(|id| !id.is_empty() && id.chars().count() <= 80)
+                        .ok_or_else(|| ApiError::bad_request("Canvas group child references are invalid."))?;
+                    if child_id == group_id || !child_ids.insert(child_id.to_owned()) || !grouped_children.insert(child_id.to_owned()) {
+                        return Err(ApiError::bad_request("Canvas group children must be unique and cannot be nested."));
+                    }
+                    let member = objects.iter().find(|item| item.get("id").and_then(serde_json::Value::as_str) == Some(child_id))
+                        .ok_or_else(|| ApiError::bad_request("Canvas groups cannot reference missing objects."))?;
+                    if member.get("kind").and_then(serde_json::Value::as_str) == Some("group")
+                        || member.get("groupId").and_then(serde_json::Value::as_str) != Some(group_id.as_str()) {
+                        return Err(ApiError::bad_request("Canvas group membership must be reciprocal and cannot be nested."));
+                    }
+                }
+            }
+            for object in objects.iter().filter(|item| item.get("kind").and_then(serde_json::Value::as_str) != Some("group")) {
+                if let Some(group_value) = object.get("groupId") {
+                    let group_id = group_value.as_str()
+                        .filter(|id| !id.trim().is_empty())
+                        .ok_or_else(|| ApiError::bad_request("Canvas group references are invalid."))?;
+                    let group = objects.iter().find(|item| item.get("id").and_then(serde_json::Value::as_str) == Some(group_id))
+                        .filter(|item| item.get("kind").and_then(serde_json::Value::as_str) == Some("group"))
+                        .ok_or_else(|| ApiError::bad_request("Canvas objects must reference an existing group."))?;
+                    let child_id = object.get("id").and_then(serde_json::Value::as_str).unwrap_or_default();
+                    let children = group.get("children").and_then(serde_json::Value::as_array);
+                    if !children.is_some_and(|items| items.iter().any(|child| child.as_str() == Some(child_id))) {
+                        return Err(ApiError::bad_request("Canvas group membership must be reciprocal."));
+                    }
+                }
+            }
+
             let strokes = visual_array(data, "strokes", 5000)?;
             let mut stroke_ids = std::collections::HashSet::new();
             for stroke in strokes {
                 visual_unique_id(stroke, &mut stroke_ids)?;
                 let width = visual_number(stroke, "width")?;
+                if let Some(color) = stroke.get("color") {
+                    let valid = color.as_str().is_some_and(|value| {
+                        value.len() == 7
+                            && value.starts_with('#')
+                            && value[1..].bytes().all(|byte| byte.is_ascii_hexdigit())
+                    });
+                    if !valid {
+                        return Err(ApiError::bad_request(
+                            "Canvas stroke colours must be six-digit hex values.",
+                        ));
+                    }
+                }
                 if !(0.0005..=0.1).contains(&width) {
                     return Err(ApiError::bad_request(
                         "Canvas stroke width is outside the supported range.",

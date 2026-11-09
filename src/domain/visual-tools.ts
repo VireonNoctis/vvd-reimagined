@@ -41,8 +41,10 @@ export type CanvasObject = {
   cardId?: string;
   mediaId?: string;
   text?: string;
+  groupId?: string;
+  children?: string[];
 };
-export type CanvasStroke = { id: string; width: number; color: string; points: Point[] };
+export type CanvasStroke = { id: string; width: number; color?: string; points: Point[] };
 export type CanvasData = { objects: CanvasObject[]; strokes: CanvasStroke[] };
 
 export type CalendarMonth = { name: string; days: number };

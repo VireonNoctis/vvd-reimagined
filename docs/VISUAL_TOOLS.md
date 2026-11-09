@@ -48,7 +48,7 @@ Data has `objects` and `strokes`.
 - Card and media objects retain canonical references instead of duplicating their source.
 - Drawing strokes store bounded point arrays with normalized coordinates.
 
-Current boundary: the editor can place cards, text notes and private Gallery images; select, drag, resize and delete objects; and undo/redo up to 40 recent edits. Group editing, freehand drawing UI and richer object tools remain outstanding.
+Current boundary: the editor can place cards, text notes and private Gallery images; multi-select with Shift, group/ungroup objects, move group members together, draw freehand with adjustable ink and width, select, drag, resize and delete objects, and undo/redo up to 40 recent edits. Nested groups, group-level resizing, shape authoring and advanced pen tools remain outstanding.
 
 ## Timeline
 
