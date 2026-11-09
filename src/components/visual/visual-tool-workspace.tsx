@@ -33,6 +33,13 @@ type CanvasGesture = {
   recorded: boolean;
 };
 
+type MapGesture = {
+  pointerId: number;
+  kind: "pin" | "vertex";
+  id: string;
+  pointIndex?: number;
+};
+
 type Props = {
   worldSlug: string;
   worldName: string;
@@ -90,6 +97,8 @@ export function VisualToolWorkspace({
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const canvasGestureRef = useRef<CanvasGesture | null>(null);
   const canvasNoteBeforeRef = useRef<CanvasData | null>(null);
+  const mapStageRef = useRef<SVGSVGElement | null>(null);
+  const mapGestureRef = useRef<MapGesture | null>(null);
 
   const selectedCard = cards.find((card) => card.id === selectedCardId);
   const events = useMemo(() => kind === "timeline"
@@ -109,6 +118,7 @@ export function VisualToolWorkspace({
     setCanvasRedo([]);
     canvasGestureRef.current = null;
     canvasNoteBeforeRef.current = null;
+    mapGestureRef.current = null;
     setState("idle");
     setError("");
   }
@@ -124,6 +134,7 @@ export function VisualToolWorkspace({
     setCanvasRedo([]);
     canvasGestureRef.current = null;
     canvasNoteBeforeRef.current = null;
+    mapGestureRef.current = null;
     setState("idle");
     setError("");
   }
@@ -159,6 +170,53 @@ export function VisualToolWorkspace({
   function patchData(update: (current: VisualToolData) => VisualToolData) {
     setData((current) => update(current));
     setState("idle");
+  }
+
+  function startMapGesture(
+    event: ReactPointerEvent<SVGGElement>,
+    gesture: Omit<MapGesture, "pointerId">,
+    locked: boolean
+  ) {
+    if (!interactive || locked || event.button !== 0 || !mapStageRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    mapStageRef.current.setPointerCapture(event.pointerId);
+    mapGestureRef.current = { ...gesture, pointerId: event.pointerId };
+  }
+
+  function updateMapGesture(event: ReactPointerEvent<SVGSVGElement>) {
+    const gesture = mapGestureRef.current;
+    const stage = mapStageRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId || !stage) return;
+    const bounds = stage.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+    setData((current) => {
+      const map = current as MapData;
+      if (gesture.kind === "pin") {
+        return {
+          ...map,
+          pins: map.pins.map((pin) => pin.id === gesture.id ? { ...pin, x, y } : pin)
+        };
+      }
+      return {
+        ...map,
+        regions: map.regions.map((region) => region.id === gesture.id
+          ? {
+              ...region,
+              points: region.points.map((point, index) =>
+                index === gesture.pointIndex ? { x, y } : point
+              )
+            }
+          : region)
+      };
+    });
+    setState("idle");
+  }
+
+  function finishMapGesture(event: ReactPointerEvent<SVGSVGElement>) {
+    if (mapGestureRef.current?.pointerId === event.pointerId) mapGestureRef.current = null;
   }
 
   function addMapLayer() {
@@ -617,13 +675,48 @@ export function VisualToolWorkspace({
 
         {map && <div className="tool-editor tool-map-editor">
           <div className="tool-editor-heading"><div><span className="eyebrow">SPATIAL EDITOR</span><h2>Map surface</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addMapRegion} disabled={!interactive || (getMapLayer(activeMapLayerId)?.locked ?? false)}>Add region</button><button className="toolbar-button" type="button" onClick={addMapPin} disabled={!interactive || (getMapLayer(activeMapLayerId)?.locked ?? false)}>Add pin</button></div><label className="map-background-select"><span>Background</span><select value={map.backgroundMediaId ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), backgroundMediaId: event.target.value || undefined }))} disabled={!interactive}><option value="">Grid</option>{media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => <option value={asset.id} key={asset.id}>{asset.fileName}</option>)}</select></label></div>
-          <svg className="map-artboard" viewBox="0 0 1000 620" role="img" aria-label="Map canvas with editable region and pin records">
+          <svg
+            className="map-artboard"
+            viewBox="0 0 1000 620"
+            role="img"
+            aria-label="Map canvas with draggable region vertices and pins"
+            ref={mapStageRef}
+            onPointerMove={updateMapGesture}
+            onPointerUp={finishMapGesture}
+            onPointerCancel={finishMapGesture}
+          >
             <defs><pattern id="map-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeOpacity=".11" strokeWidth="1" /></pattern></defs>
             <rect width="1000" height="620" fill="#eff1e9" />
             {map.backgroundMediaId && <image href={"/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/media/" + encodeURIComponent(map.backgroundMediaId) + "/download"} x="0" y="0" width="1000" height="620" preserveAspectRatio="xMidYMid slice" />}
             <rect width="1000" height="620" fill="url(#map-grid)" opacity=".38" />
-            {map.regions.filter((region) => getMapLayer(region.layerId)?.visible !== false).map((region) => <g key={region.id} opacity={getMapLayer(region.layerId)?.opacity ?? 1}><polygon points={region.points.map((point) => (point.x * 1000) + "," + (point.y * 620)).join(" ")} /><text x={region.points.reduce((sum, point) => sum + point.x * 1000, 0) / region.points.length} y={region.points.reduce((sum, point) => sum + point.y * 620, 0) / region.points.length}>{region.name}</text></g>)}
-            {map.pins.filter((pin) => getMapLayer(pin.layerId)?.visible !== false).map((pin) => <g key={pin.id} opacity={getMapLayer(pin.layerId)?.opacity ?? 1}><circle cx={pin.x * 1000} cy={pin.y * 620} r="9" /><circle cx={pin.x * 1000} cy={pin.y * 620} r="3" /><text x={pin.x * 1000 + 16} y={pin.y * 620 - 12}>{pin.label}</text></g>)}
+            {map.regions.filter((region) => getMapLayer(region.layerId)?.visible !== false).map((region) => {
+              const locked = getMapLayer(region.layerId)?.locked ?? false;
+              return <g key={region.id} opacity={getMapLayer(region.layerId)?.opacity ?? 1}>
+                <polygon points={region.points.map((point) => (point.x * 1000) + "," + (point.y * 620)).join(" ")} />
+                {region.points.map((point, pointIndex) => <circle
+                  className="map-region-vertex"
+                  key={pointIndex}
+                  cx={point.x * 1000}
+                  cy={point.y * 620}
+                  r="7"
+                  onPointerDown={(event) => startMapGesture(event, { kind: "vertex", id: region.id, pointIndex }, locked)}
+                />)}
+                <text x={region.points.reduce((sum, point) => sum + point.x * 1000, 0) / region.points.length} y={region.points.reduce((sum, point) => sum + point.y * 620, 0) / region.points.length}>{region.name}</text>
+              </g>;
+            })}
+            {map.pins.filter((pin) => getMapLayer(pin.layerId)?.visible !== false).map((pin) => {
+              const locked = getMapLayer(pin.layerId)?.locked ?? false;
+              return <g
+                key={pin.id}
+                className="map-pin-mark"
+                opacity={getMapLayer(pin.layerId)?.opacity ?? 1}
+                onPointerDown={(event) => startMapGesture(event, { kind: "pin", id: pin.id }, locked)}
+              >
+                <circle cx={pin.x * 1000} cy={pin.y * 620} r="9" />
+                <circle cx={pin.x * 1000} cy={pin.y * 620} r="3" />
+                <text x={pin.x * 1000 + 16} y={pin.y * 620 - 12}>{pin.label}</text>
+              </g>;
+            })}
           </svg>
           <div className="visual-tool-footer"><span>{map.layers.length} layers</span><span>{map.regions.length} regions</span><span>{map.pins.length} pins</span><span>{map.width} × {map.height}</span></div>
           <div className="map-feature-editor">

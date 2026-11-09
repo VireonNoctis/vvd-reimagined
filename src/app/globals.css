@@ -954,3 +954,16 @@ body { background: var(--paper); }
   .map-point-row > span { grid-column: 1 / -1; }
   .relation-variant-bar { grid-template-columns: 1fr; }
 }
+
+
+/* Map handles stay precise for touch and pointer input. */
+.map-artboard { touch-action: none; }
+.map-artboard .map-region-vertex { fill: #fafcf7; stroke: #71896a; stroke-width: 2.5; cursor: grab; vector-effect: non-scaling-stroke; }
+.map-artboard .map-region-vertex:active { fill: #71896a; cursor: grabbing; }
+.map-artboard .map-pin-mark { cursor: grab; }
+.map-artboard .map-pin-mark:active { cursor: grabbing; }
+.map-artboard .map-pin-mark circle:first-child { transition: r .12s ease; }
+.map-artboard .map-pin-mark:hover circle:first-child { r: 11; }
+@media (prefers-reduced-motion: reduce) {
+  .map-artboard .map-pin-mark circle:first-child { transition: none; }
+}
