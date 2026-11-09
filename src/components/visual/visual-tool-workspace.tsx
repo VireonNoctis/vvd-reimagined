@@ -79,6 +79,9 @@ export function VisualToolWorkspace({
   const [eventDay, setEventDay] = useState("1");
   const [relationType, setRelationType] = useState("connected_to");
   const [relationLabel, setRelationLabel] = useState("Connection");
+  const [relationVariantName, setRelationVariantName] = useState("Wide layout");
+  const [selectedRelationVariantId, setSelectedRelationVariantId] = useState("");
+  const [selectedMapLayerId, setSelectedMapLayerId] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
   const [selectedCanvasObjectId, setSelectedCanvasObjectId] = useState("");
@@ -100,6 +103,8 @@ export function VisualToolWorkspace({
     setName(next.name);
     setData(next.data);
     setSelectedCanvasObjectId("");
+    setSelectedMapLayerId("");
+    setSelectedRelationVariantId("");
     setCanvasUndo([]);
     setCanvasRedo([]);
     canvasGestureRef.current = null;
@@ -113,6 +118,8 @@ export function VisualToolWorkspace({
     setName("Untitled " + (kind === "relation_tree" ? "relations" : kind));
     setData(createVisualToolData(kind));
     setSelectedCanvasObjectId("");
+    setSelectedMapLayerId("");
+    setSelectedRelationVariantId("");
     setCanvasUndo([]);
     setCanvasRedo([]);
     canvasGestureRef.current = null;
@@ -154,6 +161,40 @@ export function VisualToolWorkspace({
     setState("idle");
   }
 
+  function addMapLayer() {
+    const id = makeId("layer");
+    patchData((current) => {
+      const map = current as MapData;
+      if (map.layers.length >= 100) return map;
+      return { ...map, layers: [...map.layers, { id, name: "New layer", opacity: 1, visible: true, locked: false }] };
+    });
+    setSelectedMapLayerId(id);
+  }
+
+  function removeMapLayer(id: string) {
+    const map = data as MapData;
+    if (map.layers.length <= 1) {
+      setError("A map must keep at least one layer.");
+      setState("error");
+      return;
+    }
+    if (map.regions.some((region) => region.layerId === id) || map.pins.some((pin) => pin.layerId === id)) {
+      setError("Move this layer's regions and pins before removing it.");
+      setState("error");
+      return;
+    }
+    const nextLayer = map.layers.find((layer) => layer.id !== id);
+    patchData((current) => ({ ...(current as MapData), layers: (current as MapData).layers.filter((layer) => layer.id !== id) }));
+    if (selectedMapLayerId === id) setSelectedMapLayerId(nextLayer?.id ?? "");
+  }
+
+  function updateMapLayer(id: string, update: Partial<MapData["layers"][number]>) {
+    patchData((current) => ({
+      ...(current as MapData),
+      layers: (current as MapData).layers.map((layer) => layer.id === id ? { ...layer, ...update } : layer)
+    }));
+  }
+
   function addMapPin() {
     patchData((current) => {
       const map = current as MapData;
@@ -163,7 +204,8 @@ export function VisualToolWorkspace({
         label: selectedCard?.name ?? "New location",
         x: Math.min(0.88, 0.22 + (pinIndex % 4) * 0.18),
         y: Math.min(0.82, 0.25 + Math.floor(pinIndex / 4) * 0.18),
-        ...(selectedCard ? { cardId: selectedCard.id } : {})
+        ...(selectedCard ? { cardId: selectedCard.id } : {}),
+        layerId: selectedMapLayerId || map.layers[0]?.id
       }] };
     });
   }
@@ -179,7 +221,8 @@ export function VisualToolWorkspace({
           { x: 0.18 + offset, y: 0.2 }, { x: 0.43 + offset, y: 0.18 },
           { x: 0.47 + offset, y: 0.47 }, { x: 0.22 + offset, y: 0.5 }
         ],
-        ...(selectedCard ? { cardId: selectedCard.id } : {})
+        ...(selectedCard ? { cardId: selectedCard.id } : {}),
+        layerId: selectedMapLayerId || map.layers[0]?.id
       }] };
     });
   }
@@ -193,7 +236,8 @@ export function VisualToolWorkspace({
         label: selectedCard?.name ?? "New node",
         x: Math.min(0.86, 0.18 + (index % 3) * 0.3),
         y: Math.min(0.82, 0.25 + Math.floor(index / 3) * 0.22),
-        ...(selectedCard ? { cardId: selectedCard.id } : {})
+        ...(selectedCard ? { cardId: selectedCard.id } : {}),
+        layerId: selectedMapLayerId || map.layers[0]?.id
       }] };
     });
   }
@@ -219,6 +263,40 @@ export function VisualToolWorkspace({
         relationType: relationType.trim(), label: relationLabel.trim() || relationType.trim()
       }] };
     });
+  }
+
+  function saveRelationVariant() {
+    const tree = data as RelationTreeData;
+    if (tree.nodes.length === 0) {
+      setError("Add at least one node before saving a layout variant.");
+      setState("error");
+      return;
+    }
+    const variant = {
+      id: makeId("variant"),
+      name: relationVariantName.trim() || "Layout " + (tree.variants.length + 1),
+      positions: tree.nodes.map((node) => ({ nodeId: node.id, x: node.x, y: node.y }))
+    };
+    patchData((current) => ({ ...(current as RelationTreeData), variants: [...(current as RelationTreeData).variants, variant] }));
+    setSelectedRelationVariantId(variant.id);
+  }
+
+  function applyRelationVariant(id: string) {
+    const tree = data as RelationTreeData;
+    const variant = tree.variants.find((item) => item.id === id);
+    if (!variant) {
+      setSelectedRelationVariantId("");
+      return;
+    }
+    setData({
+      ...tree,
+      nodes: tree.nodes.map((node) => {
+        const position = variant.positions.find((item) => item.nodeId === node.id);
+        return position ? { ...node, x: position.x, y: position.y } : node;
+      })
+    });
+    setSelectedRelationVariantId(id);
+    setState("idle");
   }
 
   function rememberCanvas(snapshot: CanvasData) {
@@ -362,6 +440,28 @@ export function VisualToolWorkspace({
     });
   }
 
+  function addTimelineWeekday() {
+    const timeline = data as TimelineData;
+    const weekdays = timeline.calendar.weekdays ?? [];
+    if (weekdays.length >= 14) {
+      setError("This calendar already has the maximum of 14 weekdays.");
+      setState("error");
+      return;
+    }
+    patchData((current) => {
+      const value = current as TimelineData;
+      const next = (value.calendar.weekdays ?? []).length + 1;
+      return { ...value, calendar: { ...value.calendar, weekdays: [...(value.calendar.weekdays ?? []), "Day " + next] } };
+    });
+  }
+
+  function removeTimelineWeekday(index: number) {
+    patchData((current) => {
+      const value = current as TimelineData;
+      return { ...value, calendar: { ...value.calendar, weekdays: (value.calendar.weekdays ?? []).filter((_, weekdayIndex) => weekdayIndex !== index) } };
+    });
+  }
+
   function addTimelineMonth() {
     const current = data as TimelineData;
     if (current.calendar.months.length >= 24) {
@@ -428,7 +528,8 @@ export function VisualToolWorkspace({
       const calendar = current as TimelineData;
       return { ...calendar, events: [...calendar.events, {
         id: makeId("event"), title, year, month, day,
-        ...(selectedCard ? { cardId: selectedCard.id } : {})
+        ...(selectedCard ? { cardId: selectedCard.id } : {}),
+        layerId: selectedMapLayerId || map.layers[0]?.id
       }] };
     });
     setEventTitle("");
@@ -438,6 +539,10 @@ export function VisualToolWorkspace({
   const tree = kind === "relation_tree" ? data as RelationTreeData : null;
   const canvas = kind === "canvas" ? data as CanvasData : null;
   const timeline = kind === "timeline" ? data as TimelineData : null;
+  const activeMapLayerId = map
+    ? (map.layers.some((layer) => layer.id === selectedMapLayerId) ? selectedMapLayerId : map.layers[0]?.id ?? "")
+    : "";
+  const getMapLayer = (layerId?: string) => map?.layers.find((layer) => layer.id === layerId) ?? map?.layers[0];
 
   return <div className="workspace-shell visual-tool-shell">
     <aside className="app-rail" aria-label="Main navigation">
@@ -513,32 +618,57 @@ export function VisualToolWorkspace({
         </div>
 
         {map && <div className="tool-editor tool-map-editor">
-          <div className="tool-editor-heading"><div><span className="eyebrow">SPATIAL EDITOR</span><h2>Map surface</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addMapRegion} disabled={!interactive}>Add region</button><button className="toolbar-button" type="button" onClick={addMapPin} disabled={!interactive}>Add pin</button></div><label className="map-background-select"><span>Background</span><select value={map.backgroundMediaId ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), backgroundMediaId: event.target.value || undefined }))} disabled={!interactive}><option value="">Grid</option>{media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => <option value={asset.id} key={asset.id}>{asset.fileName}</option>)}</select></label></div>
+          <div className="tool-editor-heading"><div><span className="eyebrow">SPATIAL EDITOR</span><h2>Map surface</h2></div><div className="tool-action-row"><button className="toolbar-button" type="button" onClick={addMapRegion} disabled={!interactive || map.layers.every((layer) => layer.locked)}>Add region</button><button className="toolbar-button" type="button" onClick={addMapPin} disabled={!interactive || map.layers.every((layer) => layer.locked)}>Add pin</button></div><label className="map-background-select"><span>Background</span><select value={map.backgroundMediaId ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), backgroundMediaId: event.target.value || undefined }))} disabled={!interactive}><option value="">Grid</option>{media.filter((asset) => asset.contentType.startsWith("image/")).map((asset) => <option value={asset.id} key={asset.id}>{asset.fileName}</option>)}</select></label></div>
           <svg className="map-artboard" viewBox="0 0 1000 620" role="img" aria-label="Map canvas with editable region and pin records">
             <defs><pattern id="map-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeOpacity=".11" strokeWidth="1" /></pattern></defs>
             <rect width="1000" height="620" fill="#eff1e9" />
             {map.backgroundMediaId && <image href={"/api/v1/worlds/" + encodeURIComponent(worldSlug) + "/media/" + encodeURIComponent(map.backgroundMediaId) + "/download"} x="0" y="0" width="1000" height="620" preserveAspectRatio="xMidYMid slice" />}
             <rect width="1000" height="620" fill="url(#map-grid)" opacity=".38" />
-            {map.regions.map((region) => <g key={region.id}><polygon points={region.points.map((point) => (point.x * 1000) + "," + (point.y * 620)).join(" ")} /><text x={region.points.reduce((sum, point) => sum + point.x * 1000, 0) / region.points.length} y={region.points.reduce((sum, point) => sum + point.y * 620, 0) / region.points.length}>{region.name}</text></g>)}
-            {map.pins.map((pin) => <g key={pin.id}><circle cx={pin.x * 1000} cy={pin.y * 620} r="9" /><circle cx={pin.x * 1000} cy={pin.y * 620} r="3" /><text x={pin.x * 1000 + 16} y={pin.y * 620 - 12}>{pin.label}</text></g>)}
+            {map.regions.filter((region) => getMapLayer(region.layerId)?.visible !== false).map((region) => <g key={region.id} opacity={getMapLayer(region.layerId)?.opacity ?? 1}><polygon points={region.points.map((point) => (point.x * 1000) + "," + (point.y * 620)).join(" ")} /><text x={region.points.reduce((sum, point) => sum + point.x * 1000, 0) / region.points.length} y={region.points.reduce((sum, point) => sum + point.y * 620, 0) / region.points.length}>{region.name}</text></g>)}
+            {map.pins.filter((pin) => getMapLayer(pin.layerId)?.visible !== false).map((pin) => <g key={pin.id} opacity={getMapLayer(pin.layerId)?.opacity ?? 1}><circle cx={pin.x * 1000} cy={pin.y * 620} r="9" /><circle cx={pin.x * 1000} cy={pin.y * 620} r="3" /><text x={pin.x * 1000 + 16} y={pin.y * 620 - 12}>{pin.label}</text></g>)}
           </svg>
           <div className="visual-tool-footer"><span>{map.layers.length} layers</span><span>{map.regions.length} regions</span><span>{map.pins.length} pins</span><span>{map.width} × {map.height}</span></div>
           <div className="map-feature-editor">
             <div className="map-feature-group">
+              <div className="map-feature-title"><span className="eyebrow">LAYERS</span><button type="button" className="toolbar-button" onClick={addMapLayer} disabled={!interactive || map.layers.length >= 100}>Add layer</button></div>
+              <label className="map-active-layer"><span>New features go to</span><select value={activeMapLayerId} onChange={(event) => setSelectedMapLayerId(event.target.value)} disabled={!interactive}>{map.layers.map((layer) => <option key={layer.id} value={layer.id}>{layer.name}</option>)}</select></label>
+              {map.layers.map((layer) => <div className="map-layer-row" key={layer.id}>
+                <label className="map-layer-name"><span>Name</span><input value={layer.name} onChange={(event) => updateMapLayer(layer.id, { name: event.target.value })} disabled={!interactive} /></label>
+                <label><span>Opacity</span><input type="range" min="0" max="1" step="0.05" value={layer.opacity} onChange={(event) => updateMapLayer(layer.id, { opacity: Number(event.target.value) })} disabled={!interactive} /></label>
+                <label className="map-layer-flag"><input type="checkbox" checked={layer.visible} onChange={(event) => updateMapLayer(layer.id, { visible: event.target.checked })} disabled={!interactive} /><span>Visible</span></label>
+                <label className="map-layer-flag"><input type="checkbox" checked={layer.locked} onChange={(event) => updateMapLayer(layer.id, { locked: event.target.checked })} disabled={!interactive} /><span>Locked</span></label>
+                <button type="button" className="map-layer-remove" onClick={() => removeMapLayer(layer.id)} disabled={!interactive || map.layers.length <= 1}>Remove</button>
+              </div>)}
+            </div>
+            <div className="map-feature-group">
               <span className="eyebrow">REGIONS</span>
-              {map.regions.map((region) => <label className="map-feature-row" key={region.id}>
-                <span>Region</span>
-                <input value={region.name} onChange={(event) => patchData((current) => ({ ...(current as MapData), regions: (current as MapData).regions.map((item) => item.id === region.id ? { ...item, name: event.target.value } : item) }))} disabled={!interactive} aria-label="Region name" />
-              </label>)}
+              {map.regions.map((region) => {
+                const locked = getMapLayer(region.layerId)?.locked ?? false;
+                return <div className="map-region-editor" key={region.id}>
+                  <label className="map-feature-row"><span>Region</span><input value={region.name} onChange={(event) => patchData((current) => ({ ...(current as MapData), regions: (current as MapData).regions.map((item) => item.id === region.id ? { ...item, name: event.target.value } : item) }))} disabled={!interactive || locked} /></label>
+                  <label className="map-region-layer"><span>Layer</span><select value={region.layerId ?? map.layers[0]?.id ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), regions: (current as MapData).regions.map((item) => item.id === region.id ? { ...item, layerId: event.target.value } : item) }))} disabled={!interactive || locked}>{map.layers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                  <div className="map-region-points">{region.points.map((point, pointIndex) => <div className="map-point-row" key={pointIndex}>
+                    <span>Point {pointIndex + 1}</span>
+                    <label><span>X</span><input type="number" min="0" max="1" step="0.01" value={point.x.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), regions: (current as MapData).regions.map((item) => item.id === region.id ? { ...item, points: item.points.map((value, index) => index === pointIndex ? { ...value, x: Math.max(0, Math.min(1, Number(event.target.value))) } : value) } : item) }))} disabled={!interactive || locked} /></label>
+                    <label><span>Y</span><input type="number" min="0" max="1" step="0.01" value={point.y.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), regions: (current as MapData).regions.map((item) => item.id === region.id ? { ...item, points: item.points.map((value, index) => index === pointIndex ? { ...value, y: Math.max(0, Math.min(1, Number(event.target.value))) } : value) } : item) }))} disabled={!interactive || locked} /></label>
+                  </div>)}</div>
+                </div>;
+              })}
               {map.regions.length === 0 && <p className="visual-tool-empty">Add a region to name it here.</p>}
             </div>
             <div className="map-feature-group">
               <span className="eyebrow">PINS · NORMALISED POSITION</span>
-              {map.pins.map((pin) => <div className="map-pin-row" key={pin.id}>
-                <label><span>Label</span><input value={pin.label} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, label: event.target.value } : item) }))} disabled={!interactive} /></label>
-                <label><span>X</span><input type="number" min="0" max="1" step="0.01" value={pin.x.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, x: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive} /></label>
-                <label><span>Y</span><input type="number" min="0" max="1" step="0.01" value={pin.y.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, y: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive} /></label>
-              </div>)}
+              {map.pins.map((pin) => {
+                const locked = getMapLayer(pin.layerId)?.locked ?? false;
+                return <div className="map-pin-editor" key={pin.id}>
+                  <div className="map-pin-row">
+                    <label><span>Label</span><input value={pin.label} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, label: event.target.value } : item) }))} disabled={!interactive || locked} /></label>
+                    <label><span>X</span><input type="number" min="0" max="1" step="0.01" value={pin.x.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, x: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive || locked} /></label>
+                    <label><span>Y</span><input type="number" min="0" max="1" step="0.01" value={pin.y.toFixed(2)} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, y: Math.max(0, Math.min(1, Number(event.target.value))) } : item) }))} disabled={!interactive || locked} /></label>
+                  </div>
+                  <label className="map-region-layer"><span>Layer</span><select value={pin.layerId ?? map.layers[0]?.id ?? ""} onChange={(event) => patchData((current) => ({ ...(current as MapData), pins: (current as MapData).pins.map((item) => item.id === pin.id ? { ...item, layerId: event.target.value } : item) }))} disabled={!interactive || locked}>{map.layers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                </div>;
+              })}
               {map.pins.length === 0 && <p className="visual-tool-empty">Add a pin to set its position.</p>}
             </div>
           </div>
@@ -546,6 +676,11 @@ export function VisualToolWorkspace({
 
         {tree && <div className="tool-editor">
           <div className="tool-editor-heading relation-editor-heading"><div><span className="eyebrow">RELATION MODEL</span><h2>Explicit relationships</h2></div><div className="tool-action-row"><label>Type<input value={relationType} onChange={(event) => setRelationType(event.target.value)} maxLength={80} disabled={!interactive} /></label><label>Label<input value={relationLabel} onChange={(event) => setRelationLabel(event.target.value)} maxLength={120} disabled={!interactive} /></label><button className="toolbar-button" type="button" onClick={addRelationNode} disabled={!interactive}>Add node</button><button className="toolbar-button" type="button" onClick={addRelationEdge} disabled={!interactive}>Connect last two</button></div></div>
+          <div className="relation-variant-bar">
+            <label><span>Variant name</span><input value={relationVariantName} onChange={(event) => setRelationVariantName(event.target.value)} maxLength={100} disabled={!interactive} /></label>
+            <button type="button" className="toolbar-button" onClick={saveRelationVariant} disabled={!interactive || tree.nodes.length === 0}>Save layout</button>
+            <label><span>Apply saved layout</span><select value={selectedRelationVariantId} onChange={(event) => applyRelationVariant(event.target.value)} disabled={!interactive}><option value="">Current layout</option>{tree.variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}</select></label>
+          </div>
           <svg className="relation-artboard" viewBox="0 0 1000 600" role="img" aria-label="Relation tree nodes and typed edges">
             {tree.edges.map((edge) => {
               const source = tree.nodes.find((node) => node.id === edge.source);
@@ -598,6 +733,10 @@ export function VisualToolWorkspace({
 
         {timeline && <div className="tool-editor">
           <div className="tool-editor-heading timeline-editor-heading"><div><span className="eyebrow">CALENDAR MODEL</span><input className="timeline-calendar-name" value={timeline.calendar.name} onChange={(event) => patchData((current) => ({ ...(current as TimelineData), calendar: { ...(current as TimelineData).calendar, name: event.target.value } }))} disabled={!interactive} aria-label="Calendar name" /><span className="timeline-count">{timeline.events.length} events</span></div><button type="button" className="toolbar-button" onClick={addTimelineMonth} disabled={!interactive || timeline.calendar.months.length >= 24}>Add month</button></div>
+          <div className="timeline-weekdays">
+            <div className="map-feature-title"><span className="eyebrow">WEEKDAY CYCLE</span><button type="button" className="toolbar-button" onClick={addTimelineWeekday} disabled={!interactive || (timeline.calendar.weekdays ?? []).length >= 14}>Add weekday</button></div>
+            <div className="timeline-weekday-list">{(timeline.calendar.weekdays ?? []).map((weekday, index) => <label key={index}><input value={weekday} onChange={(event) => patchData((current) => ({ ...(current as TimelineData), calendar: { ...(current as TimelineData).calendar, weekdays: (current as TimelineData).calendar.weekdays?.map((name, weekdayIndex) => weekdayIndex === index ? event.target.value : name) ?? [] } }))} disabled={!interactive} aria-label="Weekday name" /><button type="button" onClick={() => removeTimelineWeekday(index)} disabled={!interactive}>×</button></label>)}{(timeline.calendar.weekdays ?? []).length === 0 && <p className="visual-tool-empty">No weekday cycle configured.</p>}</div>
+          </div>
           <div className="timeline-calendar">
             {timeline.calendar.months.map((month, index) => <div key={index}>
               <strong>{(index + 1).toString().padStart(2, "0")}</strong>

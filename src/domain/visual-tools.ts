@@ -15,8 +15,8 @@ export type VisualToolDocument = {
 
 export type Point = { x: number; y: number };
 export type MapLayer = { id: string; name: string; opacity: number; visible: boolean; locked: boolean };
-export type MapRegion = { id: string; name: string; points: Point[]; cardId?: string };
-export type MapPin = { id: string; label: string; x: number; y: number; cardId?: string };
+export type MapRegion = { id: string; name: string; points: Point[]; cardId?: string; layerId?: string };
+export type MapPin = { id: string; label: string; x: number; y: number; cardId?: string; layerId?: string };
 export type MapData = {
   width: number;
   height: number;
@@ -28,7 +28,8 @@ export type MapData = {
 
 export type RelationNode = { id: string; label: string; x: number; y: number; cardId?: string };
 export type RelationEdge = { id: string; source: string; target: string; relationType: string; label?: string };
-export type RelationTreeData = { nodes: RelationNode[]; edges: RelationEdge[]; variants: { id: string; name: string }[] };
+export type RelationVariant = { id: string; name: string; positions: { nodeId: string; x: number; y: number }[] };
+export type RelationTreeData = { nodes: RelationNode[]; edges: RelationEdge[]; variants: RelationVariant[] };
 
 export type CanvasObject = {
   id: string;

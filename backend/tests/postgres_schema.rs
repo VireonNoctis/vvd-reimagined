@@ -1511,12 +1511,12 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
                     {"id":"regions", "name":"Regions", "opacity":1.0, "visible":true, "locked":false}
                 ],
                 "regions": [
-                    {"id":"north", "name":"Northern Marches", "points":[
+                    {"id":"north", "name":"Northern Marches", "layerId":"regions", "points":[
                         {"x":0.1,"y":0.1},{"x":0.8,"y":0.12},{"x":0.75,"y":0.7},{"x":0.15,"y":0.8}
                     ]}
                 ],
                 "pins": [
-                    {"id":"capital","label":"Fallowreach","x":0.45,"y":0.35,"cardId":card.id}
+                    {"id":"capital","label":"Fallowreach","x":0.45,"y":0.35,"cardId":card.id,"layerId":"regions"}
                 ]
             }),
         },
@@ -1588,13 +1588,28 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
                 "edges":[
                     {"id":"treaty","source":"marches","target":"court","relationType":"alliance","label":"Treaty"}
                 ],
-                "variants":[]
+                "variants":[{"id":"wide","name":"Wide layout","positions":[{"nodeId":"marches","x":0.1,"y":0.3},{"nodeId":"court","x":0.85,"y":0.3}]}]
             }),
         },
     )
     .await
     .expect("create a relation tree with explicit typed edges");
     assert_eq!(relation_tree.kind.as_str(), "relation_tree");
+    assert_eq!(relation_tree.data["variants"][0]["positions"][1]["nodeId"], "court");
+
+    let invalid_variant = store::create_visual_tool_document(
+        &pool, account_id, &world.slug, "relation_tree",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Invalid layout variant".to_owned(),
+            data: serde_json::json!({
+                "nodes":[{"id":"one","label":"One","x":0.2,"y":0.2}],
+                "edges":[],
+                "variants":[{"id":"broken","name":"Broken","positions":[{"nodeId":"missing","x":0.5,"y":0.5}]}]
+            }),
+        },
+    ).await;
+    assert!(invalid_variant.is_err(), "layout variants must only position existing nodes");
 
     let canvas = store::create_visual_tool_document(
         &pool,
@@ -1628,6 +1643,7 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
             data: serde_json::json!({
                 "calendar":{
                     "name":"Marcher Reckoning",
+                    "weekdays":["Firstday","Secondday","Thirdday"],
                     "months":[{"name":"Frostfall","days":30},{"name":"Thaw","days":28}]
                 },
                 "events":[
@@ -1639,6 +1655,35 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
     .await
     .expect("create a calendar-aware timeline");
     assert_eq!(timeline.kind.as_str(), "timeline");
+    assert_eq!(timeline.data["calendar"]["weekdays"].as_array().unwrap().len(), 3);
+
+    let invalid_weekdays = store::create_visual_tool_document(
+        &pool, account_id, &world.slug, "timeline",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Invalid weekday cycle".to_owned(),
+            data: serde_json::json!({
+                "calendar":{"name":"Broken cycle","weekdays":["Dawn","Dawn"],"months":[{"name":"First","days":30}]},
+                "events":[]
+            }),
+        },
+    ).await;
+    assert!(invalid_weekdays.is_err(), "weekday names must be unique");
+
+    let invalid_layer = store::create_visual_tool_document(
+        &pool, account_id, &world.slug, "map",
+        VisualToolCreateInput {
+            era_id: Some(world.active_era_id),
+            name: "Broken layer reference".to_owned(),
+            data: serde_json::json!({
+                "width":1000,"height":800,
+                "layers":[{"id":"land","name":"Land","opacity":1.0,"visible":true,"locked":false}],
+                "regions":[{"id":"bad","name":"Bad region","layerId":"missing","points":[{"x":0.1,"y":0.1},{"x":0.7,"y":0.1},{"x":0.4,"y":0.7}]}],
+                "pins":[]
+            }),
+        },
+    ).await;
+    assert!(invalid_layer.is_err(), "map features must reference existing layers");
 
     let invalid_relation = store::create_visual_tool_document(
         &pool,
@@ -1695,8 +1740,8 @@ async fn visual_tool_documents_are_validated_world_scoped_and_versioned() {
             era_id: Some(world.active_era_id),
             name: "Invalid map".to_owned(),
             data: serde_json::json!({
-                "width":1000,"height":800,"layers":[],"regions":[],
-                "pins":[{"id":"foreign","label":"Foreign","x":0.5,"y":0.5,"cardId":foreign_card.id}]
+                "width":1000,"height":800,"layers":[{"id":"land","name":"Land","opacity":1.0,"visible":true,"locked":false}],"regions":[],
+                "pins":[{"id":"foreign","label":"Foreign","x":0.5,"y":0.5,"cardId":foreign_card.id,"layerId":"land"}]
             }),
         },
     )

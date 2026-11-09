@@ -918,3 +918,39 @@ body { background: var(--paper); }
   .timeline-event-date-fields { grid-template-columns: 70px minmax(90px,1fr) 62px; }
   .timeline-event-date-fields button { grid-column: 1 / -1; }
 }
+
+
+/* Layered map, layout variants and custom weekday cycle controls. */
+.map-feature-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.map-active-layer,.map-region-layer { display: grid; grid-template-columns: 90px minmax(0,1fr); gap: 8px; align-items: center; color: #989e92; font: 8px ui-monospace,monospace; }
+.map-active-layer select,.map-region-layer select,.relation-variant-bar select { min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid #e3e3da; border-radius: 7px; background: #fffefa; color: #495244; font: 11px ui-sans-serif,system-ui; }
+.map-layer-row { display: grid; grid-template-columns: minmax(100px,1fr) minmax(90px,.8fr) auto auto auto; gap: 10px; align-items: end; padding: 10px; border: 1px solid #e7e8df; border-radius: 8px; background: #fafbf7; }
+.map-layer-row > label { display: grid; gap: 5px; color: #989e92; font: 8px ui-monospace,monospace; }
+.map-layer-row input[type="range"] { width: 100%; accent-color: #809275; }
+.map-layer-name input,.map-region-editor input,.map-pin-editor input,.timeline-weekday-list input { min-width: 0; min-height: 32px; padding: 0 8px; border: 1px solid #e3e3da; border-radius: 6px; background: #fffefa; color: #495244; font: 11px ui-sans-serif,system-ui; }
+.map-layer-flag { display: flex !important; min-height: 32px; align-items: center; gap: 5px !important; white-space: nowrap; }
+.map-layer-flag input { accent-color: #809275; }
+.map-layer-remove,.timeline-weekday-list button { min-height: 30px; padding: 0 8px; border: 1px solid #e3e5dc; border-radius: 6px; background: #fffefa; color: #8a9382; font: 9px ui-monospace,monospace; }
+.map-region-editor,.map-pin-editor { display: grid; gap: 8px; padding: 10px; border: 1px solid #e7e8df; border-radius: 8px; background: #fafbf7; }
+.map-region-points { display: grid; gap: 6px; padding-left: 10px; }
+.map-point-row { display: grid; grid-template-columns: minmax(60px,1fr) 90px 90px; align-items: end; gap: 8px; color: #989e92; font: 8px ui-monospace,monospace; }
+.map-point-row label { display: grid; gap: 4px; }
+.relation-variant-bar { display: grid; grid-template-columns: minmax(120px,1fr) auto minmax(140px,1fr); gap: 9px; align-items: end; padding: 12px; border: 1px solid #e5e6dd; border-radius: 9px; background: #fafbf7; }
+.relation-variant-bar label { display: grid; gap: 4px; color: #989e92; font: 8px ui-monospace,monospace; }
+.relation-variant-bar input { min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid #e3e3da; border-radius: 7px; background: #fffefa; color: #495244; font: 11px ui-sans-serif,system-ui; }
+.timeline-weekdays { display: grid; gap: 10px; margin: 14px 0; padding: 12px; border: 1px solid #e5e6dd; border-radius: 9px; background: #fafbf7; }
+.timeline-weekday-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.timeline-weekday-list label { display: flex; align-items: center; gap: 4px; }
+.timeline-weekday-list input { width: 95px; }
+.timeline-weekday-list button { width: 28px; padding: 0; }
+@media (max-width: 760px) {
+  .map-layer-row { grid-template-columns: minmax(90px,1fr) minmax(80px,.8fr); }
+  .map-layer-remove { justify-self: start; }
+  .relation-variant-bar { grid-template-columns: 1fr 1fr; }
+  .relation-variant-bar button { justify-self: start; }
+}
+@media (max-width: 520px) {
+  .map-point-row { grid-template-columns: 1fr 1fr; }
+  .map-point-row > span { grid-column: 1 / -1; }
+  .relation-variant-bar { grid-template-columns: 1fr; }
+}

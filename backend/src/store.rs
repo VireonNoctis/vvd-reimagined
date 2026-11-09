@@ -1761,7 +1761,11 @@ fn validate_visual_tool_data(
                 ));
             }
 
-            let layers = visual_array(data, "layers", 100)?;
+            let layers = data
+                .get("layers")
+                .and_then(serde_json::Value::as_array)
+                .filter(|layers| (1..=100).contains(&layers.len()))
+                .ok_or_else(|| ApiError::bad_request("A map needs between one and 100 layers."))?;
             let mut layer_ids = std::collections::HashSet::new();
             for layer in layers {
                 visual_unique_id(layer, &mut layer_ids)?;
@@ -1775,6 +1779,11 @@ fn validate_visual_tool_data(
                         "Map layer opacity must be between zero and one.",
                     ));
                 }
+                for flag in ["visible", "locked"] {
+                    if layer.get(flag).is_some_and(|value| !value.is_boolean()) {
+                        return Err(ApiError::bad_request("Map layer flags must be boolean."));
+                    }
+                }
             }
 
             let regions = visual_array(data, "regions", 500)?;
@@ -1782,6 +1791,14 @@ fn validate_visual_tool_data(
             for region in regions {
                 visual_unique_id(region, &mut region_ids)?;
                 visual_text(region, "name", 120)?;
+                if let Some(layer_id) = region.get("layerId").filter(|value| !value.is_null()) {
+                    let layer_id = layer_id.as_str().ok_or_else(|| {
+                        ApiError::bad_request("Map region layer references are invalid.")
+                    })?;
+                    if !layer_ids.contains(layer_id) {
+                        return Err(ApiError::bad_request("Map regions must belong to an existing layer."));
+                    }
+                }
                 let points = region
                     .get("points")
                     .and_then(serde_json::Value::as_array)
@@ -1800,6 +1817,14 @@ fn validate_visual_tool_data(
             for pin in pins {
                 visual_unique_id(pin, &mut pin_ids)?;
                 visual_text(pin, "label", 120)?;
+                if let Some(layer_id) = pin.get("layerId").filter(|value| !value.is_null()) {
+                    let layer_id = layer_id.as_str().ok_or_else(|| {
+                        ApiError::bad_request("Map pin layer references are invalid.")
+                    })?;
+                    if !layer_ids.contains(layer_id) {
+                        return Err(ApiError::bad_request("Map pins must belong to an existing layer."));
+                    }
+                }
                 visual_coordinate(pin, "x")?;
                 visual_coordinate(pin, "y")?;
             }
@@ -1834,10 +1859,31 @@ fn validate_visual_tool_data(
                     ));
                 }
             }
-            if let Some(variants) = data.get("variants")
-                && variants.as_array().is_none_or(|items| items.len() > 100)
-            {
-                return Err(ApiError::bad_request("Relation Tree variants are invalid."));
+            if let Some(variants) = data.get("variants") {
+                let variants = variants
+                    .as_array()
+                    .filter(|items| items.len() <= 100)
+                    .ok_or_else(|| ApiError::bad_request("Relation Tree variants are invalid."))?;
+                let mut variant_ids = std::collections::HashSet::new();
+                for variant in variants {
+                    visual_unique_id(variant, &mut variant_ids)?;
+                    visual_text(variant, "name", 100)?;
+                    if let Some(positions) = variant.get("positions") {
+                        let positions = positions
+                            .as_array()
+                            .filter(|items| items.len() <= node_ids.len())
+                            .ok_or_else(|| ApiError::bad_request("Relation Tree variant positions are invalid."))?;
+                        let mut positioned_nodes = std::collections::HashSet::new();
+                        for position in positions {
+                            let node_id = visual_text(position, "nodeId", 80)?;
+                            if !node_ids.contains(&node_id) || !positioned_nodes.insert(node_id) {
+                                return Err(ApiError::bad_request("Relation Tree variants may position each existing node once."));
+                            }
+                            visual_coordinate(position, "x")?;
+                            visual_coordinate(position, "y")?;
+                        }
+                    }
+                }
             }
         }
         VisualToolKind::Canvas => {
@@ -1898,6 +1944,24 @@ fn validate_visual_tool_data(
                     ApiError::bad_request("A calendar needs between one and 24 months.")
                 })?;
             let mut days_by_month = Vec::with_capacity(months.len());
+            if let Some(weekdays) = calendar.get("weekdays") {
+                let weekdays = weekdays
+                    .as_array()
+                    .filter(|items| items.len() <= 14)
+                    .ok_or_else(|| ApiError::bad_request("A calendar can have at most 14 weekdays."))?;
+                let mut weekday_names = std::collections::HashSet::new();
+                for weekday in weekdays {
+                    let weekday = weekday
+                        .as_str()
+                        .map(str::trim)
+                        .filter(|name| !name.is_empty() && name.chars().count() <= 32)
+                        .ok_or_else(|| ApiError::bad_request("Weekday names must contain 1 to 32 characters."))?;
+                    if !weekday_names.insert(weekday.to_lowercase()) {
+                        return Err(ApiError::bad_request("Weekday names must be unique."));
+                    }
+                }
+            }
+
             for month in months {
                 visual_text(month, "name", 80)?;
                 let days = month
