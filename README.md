@@ -6,7 +6,7 @@ An independent reconstruction of a connected worldbuilding, writing, collaborati
 
 The Next.js workspace and Rust API are connected when VVD_API_URL is configured: account sessions, world membership, world creation, canonical card reads and version-checked card updates use PostgreSQL. Without that setting, the app remains an explicitly read-only synthetic preview.
 
-Research baseline: 10 November 2026. [Official YouTube tutorial research](docs/YOUTUBE_TUTORIAL_RESEARCH.md) covers all ten official vvd tutorials through their manual English caption tracks. This verifies spoken workflows, not frame-by-frame visual details; exact geometry, hidden menus, transitions and authenticated beta behaviour still require direct inspection. See [app visual reference](docs/APP_VISUAL_REFERENCE.md).
+Research baseline: 10 November 2026. [Official YouTube tutorial research](docs/YOUTUBE_TUTORIAL_RESEARCH.md) covers all ten official vvd tutorials. [Public social/community research](docs/SOCIAL_MEDIA_AND_COMMUNITY_RESEARCH.md) covers official social channels, vvd3 announcements, changelog additions, Reddit feedback, third-party video and screenshot references. Spoken captions and social posts verify advertised workflows, not exact frame-by-frame UI geometry.
 
 ## Current implementation
 
@@ -29,7 +29,8 @@ Email verification/recovery, MFA, multi-user collaboration, Quill, advanced visu
 ## Documentation
 
 - [Official YouTube tutorial research](docs/YOUTUBE_TUTORIAL_RESEARCH.md) — ten videos, feature findings and code-to-product gaps.
-- [App visual reference](docs/APP_VISUAL_REFERENCE.md) — screenshot observations and visual verification limits.
+- [Social/community research](docs/SOCIAL_MEDIA_AND_COMMUNITY_RESEARCH.md) — official channels, vvd3, changelog, public media, Reddit feedback and parity implications.
+- [App visual reference](docs/APP_VISUAL_REFERENCE.md) — screenshots, workspace structure and visual verification limits.
 - [Research dossier](docs/RESEARCH.md) — sources, evidence levels and inspection limits.
 - [Feature inventory](docs/FEATURE_INVENTORY.md) — capabilities and implementation status.
 - [Roadmap](docs/ROADMAP.md) — implementation sequence.

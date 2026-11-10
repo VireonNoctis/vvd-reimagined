@@ -4,6 +4,7 @@ This folder is the product and implementation reference for vvd Reimagined. It r
 
 ## Research
 - [Official YouTube tutorial research](YOUTUBE_TUTORIAL_RESEARCH.md) — ten official videos, timestamped workflows and repository parity gaps.
+- [Social/community research](SOCIAL_MEDIA_AND_COMMUNITY_RESEARCH.md) — verified public channels, vvd3, changelog, community feedback, external videos and visual references.
 - [App visual reference](APP_VISUAL_REFERENCE.md) — in-app screenshots, workspace structure and visual verification limits.
 - [Research dossier](RESEARCH.md) — sources, evidence levels, product generations and inspection limits.
 
