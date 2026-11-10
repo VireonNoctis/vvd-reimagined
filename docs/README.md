@@ -1,28 +1,20 @@
 # Documentation
 
-This folder is the product and implementation reference for vvd Reimagined. It records public observations, the proposed reconstruction model and unresolved questions. It is not a claim that every screen has been captured or that the application already exists.
+This folder is the product and implementation reference for vvd Reimagined. It records public observations, the reconstruction model and unresolved questions.
 
-## Research and product
+## Research
+- [Official YouTube tutorial research](YOUTUBE_TUTORIAL_RESEARCH.md) — ten official videos, timestamped workflows and repository parity gaps.
+- [Social/community research](SOCIAL_MEDIA_AND_COMMUNITY_RESEARCH.md) — verified public channels, vvd3, changelog, community feedback, external videos and visual references.
+- [App visual reference](APP_VISUAL_REFERENCE.md) — in-app screenshots, workspace structure and visual verification limits.
+- [Research dossier](RESEARCH.md) — sources, evidence levels, product generations and inspection limits.
 
-1. [Research dossier](RESEARCH.md) — evidence levels, product generations, sources and inspection limits.
-2. [Product model](PRODUCT_MODEL.md) — worlds, eras, documents, projects, apps, tools and blocks.
-3. [Feature inventory](FEATURE_INVENTORY.md) — capabilities and evidence caveats.
-4. [Instagram research](INSTAGRAM_RESEARCH.md) — public demos, current tool announcements, Wiki templates and creator ecosystem.
-4. [Quill](QUILL.md) — story, chapters, drafts, notes, references, audio and publishing.
-5. [Workspace interactions](WORKSPACE_INTERACTIONS.md) — navigation, menus and known workflows.
-6. [Workshop runtime](WORKSHOP_RUNTIME.md) — manifests, host, app/tool contract, codecs and extension lifecycle.
-7. [Platform and collaboration](PLATFORM_AND_COLLABORATION.md) — REST, MCP, CLI, authentication, CRDTs and presence.
-8. [Publishing and Wiki](PUBLISHING_AND_WIKI.md) — immutable versions, audiences, site publication and reader behaviour.
-9. [Plans and entitlements](PLANS_AND_ENTITLEMENTS.md) — current public plan matrix and downgrade semantics.
-10. [Design reconstruction](DESIGN_RECONSTRUCTION.md) — visual hierarchy, rendering strategy and responsive capture plan.
-
-## Building the reconstruction
-
-11. [Architecture](ARCHITECTURE.md) — proposed application boundaries.
-12. [Roadmap](ROADMAP.md) — dependency-aware development sequence.
-13. [Open questions](OPEN_QUESTIONS.md) — behaviour requiring direct verification.
-14. [Project setup](PROJECT_SETUP.md) — current repository readiness.
-
-## Decisions
-
-[Architecture Decision Records](DECISIONS/README.md) separate accepted directions and proposals. The frontend and rendering choices are accepted; backend and persistence vendors remain proposals.
+## Product and implementation
+- [Product model](PRODUCT_MODEL.md) — worlds, eras, documents, projects, apps, tools and blocks.
+- [Feature inventory](FEATURE_INVENTORY.md) — capabilities and implementation status.
+- [Document types and templates](DOCUMENT_TYPES_AND_TEMPLATES.md) — registry and card templates.
+- [Visual tools](VISUAL_TOOLS.md) — Maps, Relation Trees, Canvas and Timeline.
+- [World Graph](WORLD_GRAPH.md) — mention matching, filters and saved layouts.
+- [Quill](QUILL.md) — stories, chapters, drafts, notes, audio and publishing.
+- [Publishing and Wiki](PUBLISHING_AND_WIKI.md) — audiences and site publication.
+- [Workspace interactions](WORKSPACE_INTERACTIONS.md) — navigation and known workflows.
+- [Roadmap](ROADMAP.md) — dependency-aware implementation sequence.
